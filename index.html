@@ -336,6 +336,10 @@ tr:hover td{background:var(--bg3)}
 #sidebar-co { background: var(--mod-correio) !important; }
 #sidebar-co .nav-item.active { background: rgba(255,255,255,.2); }
 #sidebar-co .nav-item:hover { background: rgba(255,255,255,.1); }
+#sidebar-de .nav-item.active { background: rgba(255,255,255,.2); }
+#sidebar-de .nav-item:hover { background: rgba(255,255,255,.1); }
+.de-page { display:none }
+.de-page.active { display:block }
 
 /* ── PLANEAMENTO ADDITIONS ── */
 /* HIERARCHY */
@@ -648,10 +652,10 @@ tr:hover td{background:var(--bg3)}
       <button class="module-tab active" id="tab-rn" onclick="switchModule('rn')">🤝 Reuniões</button>
       <button class="module-tab" id="tab-pl" onclick="switchModule('pl')">📊 Planeamento</button>
       <button class="module-tab" id="tab-gf" onclick="switchModule('gf')">💰 Financeiro</button>
-      <button class="module-tab" id="tab-au" onclick="switchModule('au')">🏖️ Ausências</button>
-      <button class="module-tab" id="tab-co" onclick="switchModule('co')">📬 Correio</button>
-    </div>
-    <div class="topbar-right">
+      <button class="module-tab" id="tab-au" onclick="switchModule('au')">🏖️ Ausências</button      <button class="module-tab" id="tab-co" onclick="switchModule('co')">📬 Correio</button>
+653	      <button class="module-tab" id="tab-de" onclick="switchModule('de')" style="display:none">📋 Despacho</button>
+      <button class="module-tab" id="tab-st" onclick="switchModule('st')" style="display:none">⚙️ Definições</button>
+654	    </div>   <div class="topbar-right">
       <div style="text-align:right">
         <div id="user-name" style="font-size:13px"></div>
         <div id="user-email" style="font-size:11px;opacity:.6"></div>
@@ -863,6 +867,22 @@ tr:hover td{background:var(--bg3)}
     <span id="co-badge-tarefas" style="margin-left:auto;background:var(--fj-orange);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;display:none"></span>
   </div>
 </div>
+<div class="sidebar" id="sidebar-de" style="display:none">
+  <div class="sidebar-label" style="color:rgba(255,255,255,.4)">Despacho</div>
+  <div class="nav-item active" id="de-nav-lista" onclick="deNav('lista')" style="color:rgba(255,255,255,.75)">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="9" x2="9" y2="9"/></svg>
+    Lista de Despachos
+  </div>
+  <div class="nav-item" id="de-nav-novo" onclick="deNav('novo')" style="color:rgba(255,255,255,.75)">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+    Novo Despacho
+  </div>
+  <div class="nav-item" id="de-nav-decisao" onclick="deNav('decisao')" style="color:rgba(255,255,255,.75);display:none">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3,8 6,11 13,4"/></svg>
+    Pendentes de Decisão
+    <span id="de-badge-decisao" style="margin-left:auto;background:var(--fj-orange);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;display:none"></span>
+  </div>
+</div>
 <div class="main">
 <div class="notif" id="notif"></div>
 <div id="module-rn">
@@ -941,11 +961,20 @@ tr:hover td{background:var(--bg3)}
                     <textarea id="f-proposta" placeholder="Descreve a proposta de decisão..." style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);min-height:70px;resize:vertical"></textarea>
                   </div>
                   <div style="grid-column:1/-1">
+                    <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:14px 16px">
+                      <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🔗 Link de Documento</label>
+                      <input type="url" id="f-link-doc" placeholder="https://..." style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
+                      <div style="margin-top:6px;padding:7px 10px;background:#E6F1FB;border-left:3px solid #0C447C;border-radius:0 6px 6px 0;font-size:11px;color:#0C447C">
+                        📝 Para documentos em desenvolvimento (ex: rascunhos no SharePoint, Word Online, etc.)
+                      </div>
+                    </div>
+                  </div>
+                  <div style="grid-column:1/-1">
                     <div style="background:var(--bg3);border:1.5px dashed var(--border2);border-radius:8px;padding:14px 16px">
                       <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">📎 Anexos</label>
                       <input type="file" id="f-file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx" style="font-size:13px;font-family:inherit;color:var(--text);width:100%">
                       <div style="margin-top:6px;padding:7px 10px;background:#FAEEDA;border-left:3px solid #BA7517;border-radius:0 6px 6px 0;font-size:11px;color:#633806">
-                        ⚠️ Prefere sempre <strong>PDF</strong> — outros formatos (Word, Excel, etc.) não são incluídos no documento de reunião gerado.
+                        ⚠️ Para documentos já fechados — <strong>obrigatoriamente em formato PDF</strong>. Outros formatos não são incluídos no documento de reunião gerado.
                       </div>
                       <div class="attach-list" id="existing-attachments" style="margin-top:8px"></div>
                     </div>
@@ -1204,6 +1233,13 @@ tr:hover td{background:var(--bg3)}
                     <select id="ft-prior" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:#fff;color:var(--text)"><option>Média</option><option>Alta</option><option>Baixa</option></select>
                   </div>
                 </div>
+                <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;margin-top:4px">
+                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🔗 Link de Documento</label>
+                  <input type="url" id="ft-link-doc" placeholder="https://..." style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
+                  <div style="margin-top:6px;padding:7px 10px;background:#E6F1FB;border-left:3px solid #0C447C;border-radius:0 6px 6px 0;font-size:11px;color:#0C447C">
+                    📝 Para documentos em desenvolvimento
+                  </div>
+                </div>
               </div>
               <!-- Rodapé -->
               <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;background:var(--bg3)">
@@ -1361,7 +1397,7 @@ tr:hover td{background:var(--bg3)}
                   </div>
                   <div>
                     <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Tipo</label>
-                    <select id="fa-tipo" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:#fff;color:var(--text)"><option value="Recorrente">Recorrente</option><option value="INOV">INOV</option></select>
+                    <select id="fa-tipo" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:#fff;color:var(--text)"><option value="Recorrente">Recorrente</option><option value="INOV">Inovação</option></select>
                   </div>
                   <div>
                     <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Departamento</label>
@@ -1660,10 +1696,13 @@ tr:hover td{background:var(--bg3)}
                 <textarea id="ftar-notas" placeholder="Contexto, instruções ou observações sobre a tarefa..." style="width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);min-height:80px;resize:vertical"></textarea>
               </div>
 
-              <!-- Anexos -->
-              <div style="background:var(--bg3);border:1.5px dashed var(--border2);border-radius:8px;padding:14px 16px;margin-bottom:8px">
-                <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">📎 Anexos</label>
-                <input id="ftar-file" type="file" multiple style="font-size:13px;font-family:inherit;color:var(--text);width:100%">
+              <!-- Link de documento -->
+              <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;margin-bottom:8px">
+                <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🔗 Link de Documento</label>
+                <input type="url" id="ftar-link-doc" placeholder="https://..." style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
+                <div style="margin-top:6px;padding:7px 10px;background:#E6F1FB;border-left:3px solid #0C447C;border-radius:0 6px 6px 0;font-size:11px;color:#0C447C">
+                  📝 Para documentos em desenvolvimento (ex: rascunhos no SharePoint, Word Online, etc.)
+                </div>
                 <div id="ftar-existing-attach" class="attach-list" style="margin-top:8px"></div>
               </div>
             </div>
@@ -2174,6 +2213,11 @@ tr:hover td{background:var(--bg3)}
             <label>Notas da tarefa</label>
             <textarea id="co-tar-notas" placeholder="Contexto ou instruções da tarefa..." style="min-height:50px"></textarea>
           </div>
+          <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;margin-bottom:10px">
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🔗 Link de Documento</label>
+            <input type="url" id="co-tar-link-doc" placeholder="https://..." style="width:100%;padding:8px 10px;border:1px solid var(--border2);border-radius:6px;font-size:13px;font-family:inherit;color:var(--text)">
+            <div style="margin-top:5px;font-size:11px;color:#0C447C">📝 Para documentos em desenvolvimento</div>
+          </div>
           <button class="btn btn-primary btn-sm" onclick="coAddTarefa()">+ Adicionar tarefa</button>
         </div>
       </div>
@@ -2255,6 +2299,141 @@ tr:hover td{background:var(--bg3)}
   </div>
 
 </div><!-- /module-co -->
+
+<!-- ══════════════════════════════════════════════════════════
+     MÓDULO DESPACHO
+     ══════════════════════════════════════════════════════════ -->
+
+<div id="module-de" style="display:none;width:100%">
+
+  <!-- ── LISTA DE DESPACHOS ── -->
+  <div class="de-page active" id="de-page-lista">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem">
+      <div class="page-title" style="margin:0">Despachos</div>
+      <button class="btn btn-primary" id="de-btn-novo" onclick="deNav('novo')">+ Novo Despacho</button>
+    </div>
+    <div class="stats" style="margin-bottom:1.25rem">
+      <div class="stat"><span class="stat-n" id="de-s-total">—</span><span class="stat-l">Total</span></div>
+      <div class="stat"><span class="stat-n" id="de-s-pend" style="color:var(--amber)">—</span><span class="stat-l">Pendentes</span></div>
+      <div class="stat"><span class="stat-n" id="de-s-aprov" style="color:var(--green-mid)">—</span><span class="stat-l">Aprovados</span></div>
+      <div class="stat"><span class="stat-n" id="de-s-rever" style="color:var(--blue-d)">—</span><span class="stat-l">A rever</span></div>
+    </div>
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg class="si" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="5"/><line x1="11" y1="11" x2="15" y2="15"/></svg>
+        <input type="text" id="de-q" placeholder="Pesquisar assunto ou número..." oninput="deRenderLista()">
+      </div>
+      <select class="flt" id="de-ff-estado" onchange="deRenderLista()">
+        <option value="">Estado: todos</option>
+        <option>Pendente</option><option>Aprovado</option><option>Não aprovado</option><option>A rever</option>
+      </select>
+      <select class="flt" id="de-ff-para" onchange="deRenderLista()">
+        <option value="">Para: todos</option>
+        <option>Conselho de Administração</option><option>Presidente Executivo</option>
+      </select>
+      <button class="btn" onclick="deLoadAll()">&#8635;</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <colgroup><col style="width:10%"><col style="width:8%"><col style="width:24%"><col style="width:10%"><col style="width:12%"><col style="width:10%"><col style="width:14%"><col style="width:12%"></colgroup>
+        <thead><tr>
+          <th>Número</th><th>Data</th><th>Assunto</th><th>Para</th><th>Responsável</th><th>Estado</th><th>Decisão PE</th><th>Ações</th>
+        </tr></thead>
+        <tbody id="de-tbody"></tbody>
+      </table>
+    </div>
+    <div id="de-tcount" style="margin-top:8px;font-size:12px;color:var(--text3)"></div>
+  </div>
+
+  <!-- ── NOVO / EDITAR DESPACHO ── -->
+  <div class="de-page" id="de-page-novo">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem">
+      <button class="btn btn-sm" onclick="deNav('lista')">← Voltar</button>
+      <div class="page-title" style="margin:0" id="de-form-title">Novo Despacho</div>
+    </div>
+    <div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;max-width:860px">
+      <div style="background:var(--fj-blue);padding:18px 24px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:18px">📋</span>
+        <span style="font-size:16px;font-weight:600;color:#fff" id="de-form-subtitle">Preencha os campos do despacho</span>
+      </div>
+      <div style="padding:24px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Data *</label>
+            <input type="date" id="de-f-data" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
+          </div>
+
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Para *</label>
+            <select id="de-f-para" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:#fff;color:var(--text)">
+              <option value="">— Selecionar —</option>
+              <option>Conselho de Administração</option>
+              <option>Presidente Executivo</option>
+            </select>
+          </div>
+
+          <div style="grid-column:1/-1">
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Assunto *</label>
+            <input type="text" id="de-f-assunto" placeholder="Título do assunto do despacho" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:14px;font-family:inherit;color:var(--text)">
+          </div>
+
+          <div style="grid-column:1/-1">
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Contexto *</label>
+            <textarea id="de-f-contexto" placeholder="Contexto e enquadramento do pedido de despacho..." style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);min-height:90px;resize:vertical"></textarea>
+          </div>
+
+          <div style="grid-column:1/-1">
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Proposta de Decisão *</label>
+            <textarea id="de-f-proposta" placeholder="Descreve a proposta de decisão a ser aprovada..." style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);min-height:90px;resize:vertical"></textarea>
+          </div>
+
+          <div style="grid-column:1/-1">
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Tópicos a decidir *</label>
+            <textarea id="de-f-topicos" placeholder="Lista os tópicos específicos que requerem decisão..." style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);min-height:80px;resize:vertical"></textarea>
+          </div>
+
+          <div style="grid-column:1/-1">
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Proposta de Comunicação (E-mail, Ofício, etc.)</label>
+            <textarea id="de-f-comunicacao" placeholder="Indica o tipo e conteúdo proposto para comunicação..." style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);min-height:70px;resize:vertical"></textarea>
+          </div>
+
+          <div style="grid-column:1/-1">
+            <div style="background:var(--bg3);border:1.5px dashed var(--border2);border-radius:8px;padding:14px 16px">
+              <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">📎 Anexos</label>
+              <input type="file" id="de-f-file" multiple accept=".pdf" style="font-size:13px;font-family:inherit;color:var(--text);width:100%">
+              <div style="margin-top:6px;padding:7px 10px;background:#FAEEDA;border-left:3px solid #BA7517;border-radius:0 6px 6px 0;font-size:11px;color:#633806">
+                ⚠️ Apenas ficheiros <strong>PDF</strong>
+              </div>
+              <div class="attach-list" id="de-existing-attachments" style="margin-top:8px"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;background:var(--bg3)">
+        <button class="btn" onclick="deNav('lista')">Cancelar</button>
+        <button class="btn btn-primary" id="de-save-btn" onclick="deSave()">Submeter Despacho</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DETALHE DO DESPACHO ── -->
+  <div class="de-page" id="de-page-detalhe">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.25rem">
+      <button class="btn btn-sm" onclick="deNav('lista')">← Voltar</button>
+      <div class="page-title" style="margin:0" id="de-det-numero">—</div>
+    </div>
+    <div id="de-det-body" style="max-width:860px"></div>
+  </div>
+
+  <!-- ── PENDENTES DE DECISÃO (PE) ── -->
+  <div class="de-page" id="de-page-decisao">
+    <div class="page-title">Pedidos pendentes de decisão</div>
+    <div id="de-decisao-list"></div>
+  </div>
+
+</div><!-- /module-de -->
 
 <!-- Modal Gerar Documento de Reunião -->
 <div id="gerar-doc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:600;overflow-y:auto" onclick="if(event.target===this)fecharGerarDocumento()">
@@ -2419,9 +2598,62 @@ tr:hover td{background:var(--bg3)}
   </div>
 </div>
 </div><!-- /main -->
-</div><!-- /layout -->
-
-<!-- Overlay global de novo projeto (acessível de qualquer módulo) -->
+2422	</div><!-- /layout -->
+2423	
+2424	<!-- MÓDULO DEFINIÇÕES (ST) -->
+2425	<div id="module-st" style="display:none">
+2426	  <div class="sidebar" id="sidebar-st">
+2427	    <div class="sidebar-label">Definições</div>
+2428	    <div class="nav-item active" id="st-nav-permissoes" onclick="stNav('permissoes')">
+2429	      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM2 14c0-3 3-5 6-5s6 2 6 5"/></svg>
+2430	      Permissões de Acesso
+2431	    </div>
+2432	  </div>
+2433	  <div class="      <div id="st-page-permissoes">
+2433	        <div class="page-header">
+2434	          <div class="page-title">🛡️ Gestão de Permissões</div>
+2435	          <div class="page-desc">Selecione um colaborador para configurar os seus acessos granulares.</div>
+2436	        </div>
+2437	        
+2438	        <div style="display:grid; grid-template-columns: 350px 1fr; gap: 24px; align-items: start;">
+2439	          <!-- Lista de Utilizadores -->
+2440	          <div class="panel" style="padding:0; overflow:hidden;">
+2441	            <div style="padding:16px; border-bottom:1px solid var(--border);">
+2442	              <input type="text" id="st-perm-search" placeholder="Procurar colaborador..." oninput="stRenderUserList()" style="width:100%">
+2443	            </div>
+2444	            <div id="st-user-list" style="max-height: 600px; overflow-y: auto;">
+2445	              <div class="empty" style="padding:2rem">A carregar...</div>
+2446	            </div>
+2447	          </div>
+2448	          
+2449	          <!-- Painel de Configuração -->
+2450	          <div id="st-config-panel" class="panel" style="display:none;">
+2451	            <div id="st-config-header" style="margin-bottom:24px; padding-bottom:16px; border-bottom:1px solid var(--border);">
+2452	              <div style="display:flex; align-items:center; gap:16px;">
+2453	                <div id="st-user-avatar" class="user-avatar" style="width:48px; height:48px; font-size:18px;"></div>
+2454	                <div>
+2455	                  <div id="st-user-name" style="font-size:18px; font-weight:700;"></div>
+2456	                  <div id="st-user-email" style="font-size:13px; color:var(--text3);"></div>
+2457	                </div>
+2458	              </div>
+2459	            </div>
+2460	            
+2461	            <div id="st-modules-config" style="display:flex; flex-direction:column; gap:20px;">
+2462	              <!-- Os módulos serão injetados aqui via JS -->
+2463	            </div>
+2464	            
+2465	            <div style="margin-top:32px; padding-top:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px;">
+2466	              <button class="btn" onclick="stResetConfig()">Cancelar</button>
+2467	              <button class="btn btn-primary" id="st-save-btn" onclick="stSavePermissions()">Guardar Alterações</button>
+2468	            </div>
+2469	          </div>
+2470	          
+2471	          <div id="st-no-selection" class="panel" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4rem; color:var(--text3);">
+2472	            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin-bottom:16px; opacity:0.5;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+2473	            <div>Selecione um colaborador à esquerda para gerir as suas permissões.</div>
+2474	          </div>
+2475	        </div>
+2476	      </div>2455	</div>- Overlay global de novo projeto (acessível de qualquer módulo) -->
 <div id="frm-proj-ov-global" class="overlay">
   <div class="panel">
     <div class="panel-title" id="frm-proj-title-global">Novo projeto</div>
@@ -2567,7 +2799,7 @@ function getCores(tipo){return REUNIAO_CORES[tipo]||REUNIAO_CORES['Reunião com 
 let _currentModule='rn';
 function switchModule(mod){
   _currentModule=mod;
-  ['rn','pl','gf','au','co'].forEach(m=>{
+  ['rn','pl','gf','au','co','de','st'].forEach(m=>{
     document.getElementById('tab-'+m)?.classList.toggle('active',m===mod);
     const sb=document.getElementById('sidebar-'+m);
     const mc=document.getElementById('module-'+m);
@@ -2582,8 +2814,10 @@ function switchModule(mod){
   if(mod==='rn')showPage('assuntos');
   if(mod==='au'){if(!_auLoaded){_auLoaded=true;auInit();}else auNav('dashboard');}
   if(mod==='co'){if(!_coLoaded){_coLoaded=true;coInit();}else coNav('registo');}
+  if(mod==='de'){if(!_deLoaded){_deLoaded=true;deInit();}else deNav('lista');}
+  if(mod==='st'){if(!_stLoaded){_stLoaded=true;stInit();}else stNav('permissoes');}
 }
-let _plLoaded=false,_gfLoaded=false,_auLoaded=false,_coLoaded=false;
+let _plLoaded=false,_gfLoaded=false,_auLoaded=false,_coLoaded=false,_stLoaded=false,_deLoaded=false;
 
 // ── SHARED PROJECTS ──
 let sharedProjetos=[];
@@ -3007,12 +3241,21 @@ function showApp(){
   // Carregar utilizadores do SharePoint e determinar permissões
   loadFJUtilizadores().then(()=>{
     // Atualizar UI baseado nas permissões
-    if(isAdmin()){
+    const isPE = userCargo() === 'Presidente Executivo';
+    const isDir = userCargo() === 'Diretor';
+    if(isPE || isAdmin()){
+      const stTab = document.getElementById('tab-st');
+      if(stTab) stTab.style.display = 'block';
+      
       const adminLabel=document.getElementById('admin-section-label');
       const adminNav=document.getElementById('nav-admin');
       if(adminLabel) adminLabel.style.display='block';
       if(adminNav) adminNav.style.display='flex';
       loadOrgUsers();
+    }
+    if(isPE || isDir || isAdmin()){
+      const deTab = document.getElementById('tab-de');
+      if(deTab) deTab.style.display = 'block';
     }
   });
   
@@ -3135,6 +3378,7 @@ async function loadItems(){
       atrasado:r.Atrasado||false,notas:r.Notas||'',proposta:r.Proposta||'',
       historicoDecisoes:r.HistoricoDecisoes||'',
       nivelOrigem:r.NivelOrigem||'',nivelAtual:r.NivelAtual||'',
+      linkDocumento:r.LinkDocumento||'',
       attachments:(r.AttachmentFiles?.results||[]).map(a=>({name:a.FileName,url:a.ServerRelativeUrl}))
     }));
     initReuniaoSelects();renderStats();renderTable();renderCATopics();
@@ -3208,7 +3452,7 @@ function renderTable(){
   if(!list.length){tb.innerHTML=`<tr><td colspan="9"><div class="empty">Nenhum assunto.<br>Clique em "+ Novo assunto".</div></td></tr>`;el('tcount').textContent='';return;}
   tb.innerHTML=list.map(i=>`<tr>
     <td>${fd(i.data)}</td>
-    <td title="${i.titulo}" style="font-weight:500">${i.titulo}${i.confidencial?` <span class="badge b-na" style="font-size:10px">&#128274;</span>`:''}${i.attachments?.length?`<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px">${i.attachments.map(a=>`<button onclick="downloadSPFile('${a.url}','${a.name.replace(/'/g,"\\'")}');event.stopPropagation()" style="background:#EEF1F6;border:0.5px solid var(--border);border-radius:4px;padding:2px 7px;font-size:10px;cursor:pointer;color:var(--blue-d)">📎 ${a.name}</button>`).join('')}</div>`:''}</td>
+    <td title="${i.titulo}" style="font-weight:500">${i.titulo}${i.confidencial?` <span class="badge b-na" style="font-size:10px">&#128274;</span>`:''}${i.linkDocumento?`<div style="margin-top:4px"><a href="${i.linkDocumento}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;background:#E6F1FB;color:#0C447C;border-radius:4px;padding:2px 7px;font-size:10px;text-decoration:none;border:0.5px solid #c3d9f0">🔗 Documento em desenvolvimento</a></div>`:''}${i.attachments?.length?`<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:3px">${i.attachments.map(a=>`<button onclick="downloadSPFile('${a.url}','${a.name.replace(/'/g,"\\'")}');event.stopPropagation()" style="background:#EEF1F6;border:0.5px solid var(--border);border-radius:4px;padding:2px 7px;font-size:10px;cursor:pointer;color:var(--blue-d)">📎 ${a.name}</button>`).join('')}</div>`:''}</td>
     <td>${bdg(RM,i.reuniao,i.reuniao.replace('Reunião ',''))}</td>
     <td><span class="badge ${i.tipo==='Deliberativo'?'b-delib':'b-info'}">${i.tipo==='Deliberativo'?'Delib.':'Inform.'}</span></td>
     <td>${i.responsavel||'—'}</td>
@@ -3234,6 +3478,7 @@ function openForm(id){
     sv2('f-resp',i.responsavel||'');sv2('f-estado',i.estado);sv2('f-enc',i.encaminhamento||'—');
     sv2('f-dec',i.decisao||'Pendente');sv2('f-nivel-origem',i.nivelOrigem||'Departamento');
     sv2('f-nivel-atual',i.nivelAtual||'Departamento');sv2('f-notas',i.notas||'');sv2('f-proposta',i.proposta||'');
+    sv2('f-link-doc',i.linkDocumento||'');
     setTog('conf',!!i.confidencial);setTog('atras',!!i.atrasado);
     if(i.attachments?.length){
       el('existing-attachments').innerHTML=i.attachments.map(a=>`
@@ -3249,7 +3494,7 @@ function openForm(id){
     }
   }else{
     el('frm-title').textContent='Novo assunto';
-    ['f-titulo','f-resp','f-notas','f-proposta'].forEach(id=>sv2(id,''));
+    ['f-titulo','f-resp','f-notas','f-proposta','f-link-doc'].forEach(id=>sv2(id,''));
     sv2('f-data',today());sv2('f-tipo','Deliberativo');sv2('f-estado','Em aberto');sv2('f-enc','—');sv2('f-dec','Pendente');
     sv2('f-nivel-origem','Departamento');sv2('f-nivel-atual','Departamento');
     setTog('conf',false);setTog('atras',false);
@@ -3287,6 +3532,7 @@ async function saveItem(){
       Notas:gv2t('f-notas'),Proposta:gv2t('f-proposta'),Estado:gv('f-estado'),
       Encaminhamento:gv('f-enc'),Decisao:gv('f-dec'),
       NivelOrigem:gv('f-nivel-origem'),NivelAtual:gv('f-nivel-atual'),
+      LinkDocumento:gv('f-link-doc').trim()||null,
       Confidencial:T.conf,Atrasado:T.atras
     };
     if(gv('f-data'))body.DataReuniao=gv('f-data')+'T00:00:00Z';
@@ -6906,7 +7152,7 @@ function openTarForm(){
   if(acaoSelect) acaoSelect.innerHTML = '<option value="">Nenhuma</option>' + plAcoes.map(a => `<option value="${a.id}">${a.titulo||a.nome}</option>`).join('');
   sv2('ftar-desc','');sv2('ftar-origem','Ad-hoc');sv2('ftar-proj','');sv2('ftar-acao','');
   sv2('ftar-resp','');sv2('ftar-email','');sv2('ftar-inicio','');sv2('ftar-data','');
-  sv2('ftar-prior','Média');sv2('ftar-estado','todo');sv2('ftar-notas','');
+  sv2('ftar-prior','Média');sv2('ftar-estado','todo');sv2('ftar-notas','');sv2('ftar-link-doc','');
   el('ftar-existing-attach').innerHTML='';
 }
 function openTarFormEdit(compId){
@@ -6922,8 +7168,8 @@ function openTarFormEdit(compId){
   else { const acaoSelect=el('ftar-acao'); if(acaoSelect) acaoSelect.innerHTML='<option value="">Nenhuma</option>'+plAcoes.map(a=>`<option value="${a.id}"${String(a.id)===String(t.acaoId)?'selected':''}>${a.titulo||a.nome}</option>`).join(''); }
   sv2('ftar-desc',t.titulo);sv2('ftar-origem',t.origem||'Ad-hoc');
   sv2('ftar-resp',t.responsavel||'');sv2('ftar-email',t.responsavelEmail||'');
-  sv2('ftar-inicio',t.dataInicio||'');sv2('ftar-data',t.dataLimite||'');sv2('ftar-prior',t.prioridade||'Média');sv2('ftar-estado',t.estado||'todo');sv2('ftar-notas',t.notas||'');
-  el('ftar-existing-attach').innerHTML=t.attachments?.length?t.attachments.map(a=>`<div class="attach-item"><a href="https://fjuventude.sharepoint.com${a.url}" target="_blank">📎 ${a.name}</a><button class="attach-remove" onclick="removeAttach('${t.lista}',${t.spId},'${a.name.replace(/'/g,"\\'")}')">✕</button></div>`).join(''):'';
+  sv2('ftar-inicio',t.dataInicio||'');sv2('ftar-data',t.dataLimite||'');sv2('ftar-prior',t.prioridade||'Média');sv2('ftar-estado',t.estado||'todo');sv2('ftar-notas',t.notas||'');sv2('ftar-link-doc',t.linkDocumento||'');
+  el('ftar-existing-attach').innerHTML='';
 }
 function closeTarForm(){el('frm-pl-tar-ov').style.display='none';plEditTarId=null;}
 async function delPlTarefa(compId){
@@ -6995,6 +7241,7 @@ async function plSaveTarefa(){
     if(data)body.DataLimite=data+'T00:00:00Z';
     const pid=gv('ftar-proj');if(pid)body.ProjetoIdId=parseInt(pid);
     const aid=gv('ftar-acao');if(aid)body.AcaoIdId=parseInt(aid);
+    const linkDoc=gv('ftar-link-doc').trim();if(linkDoc)body.LinkDocumento=linkDoc;
     let itemId=null;
     if(plEditTarId){
       const t=plTarefas.find(x=>x.id===plEditTarId);
@@ -7002,13 +7249,6 @@ async function plSaveTarefa(){
     }else{
       const r=await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tarefas')/items`,body,'POST');
       try{const d=await r.json();itemId=d.d?.Id;}catch(e){}
-    }
-    // Upload de anexos
-    const fileInput=document.getElementById('ftar-file');
-    if(itemId&&fileInput?.files?.length){
-      for(const f of Array.from(fileInput.files)){
-        try{await uploadAttachment('FJ_Tarefas',itemId,f);}catch(e){console.warn('Attach error',e);}
-      }
     }
     closeTarForm();await loadTarefas();renderSem();renderHier();renderDash();showNotif('Tarefa guardada!','success');
   }catch(e){showNotif('Erro: '+e.message,'error');console.error(e);}
@@ -11535,7 +11775,8 @@ function coAddTarefa() {
     dataLimite: document.getElementById('co-tar-data').value || '',
     prioridade: document.getElementById('co-tar-prior').value || 'Média',
     estado:     document.getElementById('co-tar-estado').value || 'Por fazer',
-    notas:      document.getElementById('co-tar-notas').value.trim()
+    notas:      document.getElementById('co-tar-notas').value.trim(),
+    linkDocumento: document.getElementById('co-tar-link-doc')?.value.trim() || ''
   });
   // Limpar campos de tarefa
   document.getElementById('co-tar-titulo').value = '';
@@ -11543,6 +11784,8 @@ function coAddTarefa() {
   document.getElementById('co-tar-notas').value  = '';
   document.getElementById('co-tar-resp').value   = '';
   document.getElementById('co-tar-email').value  = '';
+  const coTarLinkDoc = document.getElementById('co-tar-link-doc');
+  if (coTarLinkDoc) coTarLinkDoc.value = '';
   coRenderTarefasTemp();
 }
 
@@ -11627,7 +11870,8 @@ async function coSaveRegisto() {
           ResponsavelEmail:t.respEmail,
           Prioridade:      t.prioridade,
           Estado:          t.estado,
-          Notas:           t.notas
+          Notas:           t.notas,
+          LinkDocumento:   t.linkDocumento || null
         };
         if (t.dataLimite) tarBody.DataLimite = t.dataLimite + 'T00:00:00Z';
         await spWrite(`${SP}/_api/web/lists/getbytitle('${CO_TAR_LIST}')/items`, tarBody, 'POST');
@@ -11785,6 +12029,207 @@ function coOpenTarEdit(id) {
 }
 function coCloseTarModal() { document.getElementById('co-tar-modal').style.display = 'none'; }
 
+// ═══ MÓDULO DEFINIÇÕES (ST) ═══
+function stInit() {
+  stNav('permissoes');
+}
+
+function stNav(page) {
+  ['permissoes'].forEach(p => {
+    const elPage = document.getElementById('st-page-' + p);
+    const elNav = document.getElementById('st-nav-' + p);
+    if(elPage) elPage.style.display = (p === page ? 'block' : 'none');
+    if(elNav) elNav.classList.toggle('active', p === page);
+  });
+  if(page === 'permissoes') stRenderPermissoes();
+}
+
+let _stSelectedUserId = null;
+let _stCurrentPerms = {};
+
+function stRenderPermissoes() {
+  stRenderUserList();
+}
+
+function stRenderUserList() {
+  const container = document.getElementById('st-user-list');
+  if(!container) return;
+  
+  const search = (document.getElementById('st-perm-search')?.value || '').toLowerCase();
+  const filtered = fjUtilizadores.filter(u => 
+    u.titulo.toLowerCase().includes(search) || 
+    u.email.toLowerCase().includes(search)
+  );
+  
+  if(!filtered.length) {
+    container.innerHTML = '<div class="empty" style="padding:2rem">Nenhum colaborador encontrado.</div>';
+    return;
+  }
+  
+  container.innerHTML = filtered.map(u => `
+    <div class="st-user-item ${String(u.id) === String(_stSelectedUserId) ? 'active' : ''}" 
+         onclick="stSelectUser('${u.id}')"
+         style="padding:12px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:all .2s; ${String(u.id) === String(_stSelectedUserId) ? 'background:var(--blue-l); border-left:4px solid var(--fj-blue);' : ''}">
+      <div style="font-weight:600; font-size:14px;">${u.titulo}</div>
+      <div style="font-size:11px; color:var(--text3);">${u.email}</div>
+    </div>
+  `).join('');
+}
+
+function stSelectUser(userId) {
+  _stSelectedUserId = userId;
+  const u = fjUtilizadores.find(x => String(x.id) === String(userId));
+  if(!u) return;
+  
+  // Mostrar painel e esconder aviso
+  document.getElementById('st-config-panel').style.display = 'block';
+  document.getElementById('st-no-selection').style.display = 'none';
+  
+  // Atualizar cabeçalho
+  document.getElementById('st-user-name').textContent = u.titulo;
+  document.getElementById('st-user-email').textContent = u.email;
+  const initials = u.titulo.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+  document.getElementById('st-user-avatar').textContent = initials;
+  
+  // Carregar permissões (Simulação por agora, depois lerá do SharePoint)
+  _stCurrentPerms = stGetDefaultPerms(u);
+  stRenderConfigModules();
+  stRenderUserList(); // Atualizar estado ativo na lista
+}
+
+function stGetDefaultPerms(u) {
+  // Lógica inicial baseada no cargo/equipa atual
+  const isDir = u.cargo === 'Diretor' || u.cargo === 'Presidente Executivo';
+  const isPE = u.cargo === 'Presidente Executivo';
+  
+  return {
+    rn: { enabled: u.equipa.length > 0 || isDir, level: isDir ? 'total' : 'dept', depts: [...u.equipa] },
+    pl: { enabled: true, level: isDir ? 'total' : 'dept', depts: [...u.equipa] },
+    gf: { enabled: u.equipa.includes('Financeiro') || isDir, level: isDir ? 'total' : 'dept', depts: [...u.equipa], approver: isDir ? 2 : 0 },
+    au: { enabled: true, level: isDir ? 'total' : 'dept', depts: [...u.equipa], approver: isDir ? 2 : 0 },
+    co: { enabled: true, level: isDir ? 'total' : 'dept', depts: [...u.equipa] }
+  };
+}
+
+function stRenderConfigModules() {
+  const container = document.getElementById('st-modules-config');
+  if(!container) return;
+  
+  const modules = [
+    { id: 'rn', name: '🤝 Reuniões', desc: 'Acesso a atas, assuntos e condução de reuniões.' },
+    { id: 'pl', name: '📊 Planeamento', desc: 'Acesso a projetos, ações e tarefas semanais.' },
+    { id: 'gf', name: '💰 Financeiro', desc: 'Acesso a orçamentos, solicitações e aprovações.' },
+    { id: 'au', name: '🏖️ Ausências', desc: 'Acesso a férias, faltas e teletrabalho.' },
+    { id: 'co', name: '📬 Correio', desc: 'Acesso ao registo de correspondência.' }
+  ];
+  
+  container.innerHTML = modules.map(m => {
+    const p = _stCurrentPerms[m.id];
+    return `
+      <div class="panel" style="background:var(--bg2); border:1px solid ${p.enabled ? 'var(--fj-blue)' : 'var(--border)'};">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div>
+            <div style="font-weight:700; font-size:15px;">${m.name}</div>
+            <div style="font-size:12px; color:var(--text3);">${m.desc}</div>
+          </div>
+          <div style="width:40px; height:22px; background:${p.enabled ? 'var(--green-mid)' : 'var(--border2)'}; border-radius:11px; position:relative; cursor:pointer" onclick="stToggleModule('${m.id}')">
+            <div style="width:18px; height:18px; background:#fff; border-radius:50%; position:absolute; top:2px; ${p.enabled ? 'right:2px' : 'left:2px'}; transition:all .2s"></div>
+          </div>
+        </div>
+        
+        ${p.enabled ? `
+          <div style="padding-top:12px; border-top:1px solid var(--border); display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+            <div>
+              <label style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text3); display:block; margin-bottom:8px;">Nível de Visibilidade</label>
+              <select onchange="stSetLevel('${m.id}', this.value)" style="width:100%">
+                <option value="own" ${p.level === 'own' ? 'selected' : ''}>Apenas o Próprio</option>
+                <option value="dept" ${p.level === 'dept' ? 'selected' : ''}>Departamentos Específicos</option>
+                <option value="total" ${p.level === 'total' ? 'selected' : ''}>Total (Organização)</option>
+              </select>
+            </div>
+            ${(m.id === 'gf' || m.id === 'au') ? `
+              <div>
+                <label style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text3); display:block; margin-bottom:8px;">Poder de Aprovação</label>
+                <select onchange="stSetApprover('${m.id}', this.value)" style="width:100%">
+                  <option value="0" ${p.approver === 0 ? 'selected' : ''}>Nenhum</option>
+                  <option value="1" ${p.approver === 1 ? 'selected' : ''}>Nível 1 (Área)</option>
+                  <option value="2" ${p.approver === 2 ? 'selected' : ''}>Nível 2 (Final)</option>
+                </select>
+              </div>
+            ` : ''}
+          </div>
+          
+          ${p.level === 'dept' ? `
+            <div style="margin-top:12px;">
+              <label style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text3); display:block; margin-bottom:8px;">Departamentos com Acesso</label>
+              <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;">
+                ${plDepartamentos.map(d => `
+                  <label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">
+                    <input type="checkbox" ${p.depts.includes(d.Title) ? 'checked' : ''} onchange="stToggleDept('${m.id}', '${d.Title}')">
+                    ${d.Title}
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function stToggleModule(modId) {
+  _stCurrentPerms[modId].enabled = !_stCurrentPerms[modId].enabled;
+  stRenderConfigModules();
+}
+
+function stSetLevel(modId, level) {
+  _stCurrentPerms[modId].level = level;
+  stRenderConfigModules();
+}
+
+function stSetApprover(modId, val) {
+  _stCurrentPerms[modId].approver = parseInt(val);
+}
+
+function stToggleDept(modId, dept) {
+  const idx = _stCurrentPerms[modId].depts.indexOf(dept);
+  if(idx === -1) _stCurrentPerms[modId].depts.push(dept);
+  else _stCurrentPerms[modId].depts.splice(idx, 1);
+}
+
+function stResetConfig() {
+  _stSelectedUserId = null;
+  document.getElementById('st-config-panel').style.display = 'none';
+  document.getElementById('st-no-selection').style.display = 'flex';
+  stRenderUserList();
+}
+
+async function stSavePermissions() {
+  const btn = document.getElementById('st-save-btn');
+  btn.disabled = true;
+  btn.textContent = 'A guardar...';
+  
+  showNotif('A gravar permissões no SharePoint...', 'info');
+  
+  try {
+    // Aqui implementaremos a escrita real no campo PermissoesJSON da lista FJ_Utilizadores
+    // await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Utilizadores')/items(${_stSelectedUserId})`, {
+    //   PermissoesJSON: JSON.stringify(_stCurrentPerms)
+    // }, 'MERGE', '*');
+    
+    setTimeout(() => {
+      showNotif('Permissões gravadas com sucesso!', 'success');
+      btn.disabled = false;
+      btn.textContent = 'Guardar Alterações';
+    }, 1000);
+  } catch(e) {
+    showNotif('Erro ao gravar: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Guardar Alterações';
+  }
+}
+
 async function coSaveTarefaEdit() {
   const id      = parseInt(document.getElementById('co-edit-tar-id').value);
   const titulo  = document.getElementById('co-edit-tar-titulo').value.trim();
@@ -11935,6 +12380,422 @@ async function gfToggleBloqueioEAtualizar() {
 }
 
 // ═══════════════ FIM MÓDULO CORREIO ═══════════════
+
+// ══════════════════════════════════════════════════════════════
+// ══════════  MÓDULO DESPACHO  ═════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+
+const DE_LIST = 'FJ_Despachos';
+let DE_ITEMS = [];
+let _deEditId = null;
+let _deSelectedFiles = [];
+
+// ── Navegação ──
+function deNav(page) {
+  document.querySelectorAll('.de-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#sidebar-de .nav-item').forEach(n => n.classList.remove('active'));
+  const pg  = document.getElementById('de-page-' + page);
+  const nav = document.getElementById('de-nav-' + page);
+  if (pg)  pg.classList.add('active');
+  if (nav) nav.classList.add('active');
+  if (page === 'lista')   deRenderLista();
+  if (page === 'novo')    deOpenForm(null);
+  if (page === 'decisao') deRenderDecisao();
+}
+
+// ── Init ──
+async function deInit() {
+  const isPE  = userCargo() === 'Presidente Executivo';
+  const isDir = userCargo() === 'Diretor';
+  // Mostrar sidebar "Novo Despacho" só a Diretores
+  const navNovo = document.getElementById('de-nav-novo');
+  if (navNovo) navNovo.style.display = isDir ? 'flex' : 'none';
+  // Mostrar "Pendentes de Decisão" só ao PE
+  const navDec = document.getElementById('de-nav-decisao');
+  if (navDec) navDec.style.display = isPE ? 'flex' : 'none';
+  // Mostrar botão "Novo Despacho" na lista só a Diretores
+  const btnNovo = document.getElementById('de-btn-novo');
+  if (btnNovo) btnNovo.style.display = isDir ? 'inline-flex' : 'none';
+  await deLoadAll();
+  deNav('lista');
+}
+
+// ── Carregar dados ──
+async function deLoadAll() {
+  try {
+    const d = await spRead(
+      `${SP}/_api/web/lists/getbytitle('${DE_LIST}')/items` +
+      `?$select=*,AttachmentFiles,Autor/Title,Autor/EMail&$expand=AttachmentFiles,Autor` +
+      `&$orderby=Created desc&$top=500`
+    );
+    DE_ITEMS = (d.d?.results || []).map(r => ({
+      id:           r.Id,
+      numero:       r.Numero || '',
+      data:         r.DataDespacho ? r.DataDespacho.split('T')[0] : '',
+      para:         r.Para || '',
+      assunto:      r.Title || '',
+      contexto:     r.Contexto || '',
+      proposta:     r.Proposta || '',
+      topicos:      r.Topicos || '',
+      comunicacao:  r.Comunicacao || '',
+      estado:       r.Estado || 'Pendente',
+      decisaoPE:    r.DecisaoPE || '',
+      notasPE:      r.NotasPE || '',
+      dataDecisao:  r.DataDecisao ? r.DataDecisao.split('T')[0] : '',
+      autorNome:    r.Autor?.Title || '',
+      autorEmail:   (r.Autor?.EMail || '').toLowerCase(),
+      attachments:  (r.AttachmentFiles?.results || []).map(a => ({ name: a.FileName, url: a.ServerRelativeUrl }))
+    }));
+    deUpdateStats();
+    deBadgeDecisao();
+  } catch(e) {
+    console.warn('deLoadAll:', e);
+  }
+}
+
+function deUpdateStats() {
+  const vis = deVisibleItems();
+  document.getElementById('de-s-total').textContent = vis.length;
+  document.getElementById('de-s-pend').textContent  = vis.filter(d => d.estado === 'Pendente').length;
+  document.getElementById('de-s-aprov').textContent = vis.filter(d => d.estado === 'Aprovado').length;
+  document.getElementById('de-s-rever').textContent = vis.filter(d => d.estado === 'A rever').length;
+}
+
+function deBadgeDecisao() {
+  const badge = document.getElementById('de-badge-decisao');
+  if (!badge) return;
+  const pend = DE_ITEMS.filter(d => d.estado === 'Pendente').length;
+  badge.textContent = pend;
+  badge.style.display = pend > 0 ? 'inline' : 'none';
+}
+
+// ── Visibilidade: Diretores veem os seus; PE vê tudo ──
+function deVisibleItems() {
+  const isPE    = userCargo() === 'Presidente Executivo';
+  const myEmail = (user?.username || '').toLowerCase();
+  if (isPE) return DE_ITEMS;
+  return DE_ITEMS.filter(d => d.autorEmail === myEmail);
+}
+
+// ── Numeração automática ──
+async function deGerarNumero() {
+  const ano = new Date().getFullYear();
+  const deste_ano = DE_ITEMS.filter(d => d.numero && d.numero.endsWith('_' + ano));
+  const nums = deste_ano.map(d => parseInt(d.numero.split('_')[0]) || 0);
+  const max  = nums.length ? Math.max(...nums) : 0;
+  return String(max + 1).padStart(4, '0') + '_' + ano;
+}
+
+// ── Render lista ──
+function deRenderLista() {
+  const tbody = document.getElementById('de-tbody');
+  if (!tbody) return;
+  const q      = (document.getElementById('de-q')?.value || '').toLowerCase();
+  const estado = document.getElementById('de-ff-estado')?.value || '';
+  const para   = document.getElementById('de-ff-para')?.value || '';
+
+  const list = deVisibleItems().filter(d => {
+    if (q && !d.assunto.toLowerCase().includes(q) && !d.numero.toLowerCase().includes(q)) return false;
+    if (estado && d.estado !== estado) return false;
+    if (para   && d.para   !== para)   return false;
+    return true;
+  });
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty">Nenhum despacho encontrado.</div></td></tr>`;
+    document.getElementById('de-tcount').textContent = '';
+    return;
+  }
+
+  const estadoBadge = e => {
+    const m = { Pendente: 'b-pend', Aprovado: 'b-aprov', 'Não aprovado': 'b-nap', 'A rever': 'b-processo' };
+    return `<span class="badge ${m[e] || 'b-na'}">${e}</span>`;
+  };
+  const paraBadge = p => {
+    const m = { 'Conselho de Administração': 'b-ca', 'Presidente Executivo': 'b-gestao' };
+    return `<span class="badge ${m[p] || 'b-na'}" style="font-size:10px">${p === 'Conselho de Administração' ? 'CAdm' : 'PE'}</span>`;
+  };
+
+  tbody.innerHTML = list.map(d => `<tr>
+    <td style="font-weight:600;font-size:12px">${d.numero || '—'}</td>
+    <td style="font-size:12px">${fd(d.data)}</td>
+    <td style="font-weight:500" title="${d.assunto}">${d.assunto}</td>
+    <td>${paraBadge(d.para)}</td>
+    <td style="font-size:12px">${d.autorNome || '—'}</td>
+    <td>${estadoBadge(d.estado)}</td>
+    <td style="font-size:12px">${d.decisaoPE ? `<span class="badge ${d.decisaoPE==='Aprovado'?'b-aprov':d.decisaoPE==='Não aprovado'?'b-nap':'b-processo'}">${d.decisaoPE}</span>` : '—'}</td>
+    <td><div class="actions">
+      <button class="btn btn-sm" onclick="deOpenDetalhe(${d.id})">👁 Ver</button>
+      ${(userCargo()==='Diretor' && d.estado==='A rever') ? `<button class="btn btn-sm" onclick="deOpenForm(${d.id})">✎ Rever</button>` : ''}
+    </div></td>
+  </tr>`).join('');
+
+  document.getElementById('de-tcount').textContent = `${list.length} despacho${list.length !== 1 ? 's' : ''}`;
+}
+
+// ── Formulário ──
+function deOpenForm(id) {
+  _deEditId = id || null;
+  _deSelectedFiles = [];
+  document.querySelectorAll('.de-page').forEach(p => p.classList.remove('active'));
+  document.getElementById('de-page-novo').classList.add('active');
+  document.getElementById('de-existing-attachments').innerHTML = '';
+  document.getElementById('de-f-file').value = '';
+
+  if (id) {
+    const d = DE_ITEMS.find(x => x.id === id);
+    if (!d) return;
+    document.getElementById('de-form-title').textContent    = 'Rever Despacho';
+    document.getElementById('de-form-subtitle').textContent = d.numero;
+    sv2('de-f-data',       d.data);
+    sv2('de-f-para',       d.para);
+    sv2('de-f-assunto',    d.assunto);
+    sv2('de-f-contexto',   d.contexto);
+    sv2('de-f-proposta',   d.proposta);
+    sv2('de-f-topicos',    d.topicos);
+    sv2('de-f-comunicacao',d.comunicacao);
+    if (d.attachments.length) {
+      document.getElementById('de-existing-attachments').innerHTML = d.attachments.map(a =>
+        `<div class="attach-item"><a href="https://fjuventude.sharepoint.com${a.url}" target="_blank">📄 ${a.name}</a>
+         <button class="attach-remove" onclick="deRemoveAttach(${id},'${a.name.replace(/'/g,"\\'")}')">✕</button></div>`
+      ).join('');
+    }
+    // Mostrar notas PE se existirem
+    if (d.notasPE) {
+      document.getElementById('de-existing-attachments').innerHTML +=
+        `<div style="margin-top:12px;padding:10px 14px;background:#FEF3C7;border-left:3px solid #F59E0B;border-radius:0 6px 6px 0;font-size:12px;color:#92400E">
+          <strong>Nota do PE:</strong> ${d.notasPE}
+        </div>`;
+    }
+  } else {
+    document.getElementById('de-form-title').textContent    = 'Novo Despacho';
+    document.getElementById('de-form-subtitle').textContent = 'Preencha os campos do despacho';
+    ['de-f-assunto','de-f-contexto','de-f-proposta','de-f-topicos','de-f-comunicacao'].forEach(id => sv2(id,''));
+    sv2('de-f-data', today());
+    sv2('de-f-para', '');
+  }
+}
+
+async function deSave() {
+  const data      = gv('de-f-data');
+  const para      = gv('de-f-para');
+  const assunto   = gv('de-f-assunto').trim();
+  const contexto  = document.getElementById('de-f-contexto').value.trim();
+  const proposta  = document.getElementById('de-f-proposta').value.trim();
+  const topicos   = document.getElementById('de-f-topicos').value.trim();
+  const comunicacao = document.getElementById('de-f-comunicacao').value.trim();
+
+  if (!data)      { showNotif('Data obrigatória.', 'error'); return; }
+  if (!para)      { showNotif('Seleciona o destinatário.', 'error'); return; }
+  if (!assunto)   { showNotif('Assunto obrigatório.', 'error'); return; }
+  if (!contexto)  { showNotif('Contexto obrigatório.', 'error'); return; }
+  if (!proposta)  { showNotif('Proposta de Decisão obrigatória.', 'error'); return; }
+  if (!topicos)   { showNotif('Tópicos a decidir obrigatórios.', 'error'); return; }
+
+  const btn = document.getElementById('de-save-btn');
+  btn.disabled = true; btn.textContent = 'A submeter...';
+
+  try {
+    const meta = await spRead(`${SP}/_api/web/lists/getbytitle('${DE_LIST}')?$select=ListItemEntityTypeFullName`);
+    const listType = meta.d.ListItemEntityTypeFullName;
+
+    const numero = _deEditId ? (DE_ITEMS.find(x => x.id === _deEditId)?.numero || '') : await deGerarNumero();
+
+    const body = {
+      __metadata: { type: listType },
+      Title:        assunto,
+      Numero:       numero,
+      DataDespacho: data + 'T00:00:00Z',
+      Para:         para,
+      Contexto:     contexto,
+      Proposta:     proposta,
+      Topicos:      topicos,
+      Comunicacao:  comunicacao || null,
+      Estado:       'Pendente'
+    };
+
+    let itemId = _deEditId;
+    if (_deEditId) {
+      await spWrite(`${SP}/_api/web/lists/getbytitle('${DE_LIST}')/items(${_deEditId})`, body, 'MERGE');
+    } else {
+      const r = await spWrite(`${SP}/_api/web/lists/getbytitle('${DE_LIST}')/items`, body, 'POST');
+      const rd = await r.json(); itemId = rd.d?.Id;
+    }
+
+    // Upload de anexos PDF
+    const files = document.getElementById('de-f-file').files;
+    if (itemId && files.length) {
+      for (const f of Array.from(files)) {
+        try { await uploadAttachment(DE_LIST, itemId, f); } catch(e) { console.warn('Attach error', e); }
+      }
+    }
+
+    showNotif(_deEditId ? 'Despacho atualizado e submetido!' : `Despacho ${numero} submetido com sucesso!`, 'success');
+    _deEditId = null;
+    await deLoadAll();
+    deNav('lista');
+  } catch(e) {
+    showNotif('Erro: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Submeter Despacho';
+  }
+}
+
+async function deRemoveAttach(itemId, fileName) {
+  if (!confirm(`Remover "${fileName}"?`)) return;
+  try {
+    await removeAttach(DE_LIST, itemId, fileName);
+    await deLoadAll();
+    deOpenForm(itemId);
+  } catch(e) { showNotif('Erro ao remover: ' + e.message, 'error'); }
+}
+
+// ── Detalhe ──
+function deOpenDetalhe(id) {
+  const d = DE_ITEMS.find(x => x.id === id);
+  if (!d) return;
+  document.querySelectorAll('.de-page').forEach(p => p.classList.remove('active'));
+  document.getElementById('de-page-detalhe').classList.add('active');
+  document.getElementById('de-det-numero').textContent = d.numero || 'Despacho';
+
+  const isPE    = userCargo() === 'Presidente Executivo';
+  const isMineu = d.autorEmail === (user?.username || '').toLowerCase();
+  const podeDecidir = isPE && d.estado === 'Pendente';
+
+  const estadoBadge = e => {
+    const m = { Pendente: 'b-pend', Aprovado: 'b-aprov', 'Não aprovado': 'b-nap', 'A rever': 'b-processo' };
+    return `<span class="badge ${m[e] || 'b-na'}">${e}</span>`;
+  };
+
+  document.getElementById('de-det-body').innerHTML = `
+    <div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;margin-bottom:16px">
+      <div style="background:var(--fj-blue);padding:16px 24px;display:flex;align-items:center;justify-content:space-between">
+        <div style="color:#fff">
+          <div style="font-size:11px;opacity:.7;margin-bottom:2px">Despacho</div>
+          <div style="font-size:18px;font-weight:700">${d.numero || '—'}</div>
+        </div>
+        <div style="text-align:right;color:#fff">
+          ${estadoBadge(d.estado)}
+          <div style="font-size:11px;opacity:.7;margin-top:4px">${fd(d.data)}</div>
+        </div>
+      </div>
+      <div style="padding:20px 24px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div><div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Para</div><div style="font-size:13px;font-weight:500">${d.para}</div></div>
+        <div><div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Responsável</div><div style="font-size:13px">${d.autorNome}</div></div>
+      </div>
+    </div>
+
+    <div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;margin-bottom:16px">
+      <div style="padding:14px 20px;border-bottom:0.5px solid var(--border);background:var(--bg3)">
+        <div style="font-size:12px;font-weight:600;color:var(--text2)">Assunto</div>
+        <div style="font-size:15px;font-weight:600;color:var(--text);margin-top:2px">${d.assunto}</div>
+      </div>
+      <div style="padding:20px 24px;display:flex;flex-direction:column;gap:16px">
+        ${d.contexto ? `<div><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Contexto</div><div style="font-size:13px;line-height:1.6;color:var(--text)">${d.contexto.replace(/\n/g,'<br>')}</div></div>` : ''}
+        ${d.proposta ? `<div style="background:var(--blue-l);border-left:3px solid var(--blue-d);border-radius:0 6px 6px 0;padding:12px 16px"><div style="font-size:11px;font-weight:600;color:var(--blue-d);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Proposta de Decisão</div><div style="font-size:13px;line-height:1.6;color:var(--blue-d)">${d.proposta.replace(/\n/g,'<br>')}</div></div>` : ''}
+        ${d.topicos ? `<div><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Tópicos a decidir</div><div style="font-size:13px;line-height:1.6;color:var(--text)">${d.topicos.replace(/\n/g,'<br>')}</div></div>` : ''}
+        ${d.comunicacao ? `<div><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Proposta de Comunicação</div><div style="font-size:13px;line-height:1.6;color:var(--text)">${d.comunicacao.replace(/\n/g,'<br>')}</div></div>` : ''}
+        ${d.attachments.length ? `<div><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">📎 Anexos</div><div class="attach-list">${d.attachments.map(a=>`<div class="attach-item"><a href="https://fjuventude.sharepoint.com${a.url}" target="_blank" style="color:var(--blue-d);text-decoration:none">📄 ${a.name}</a></div>`).join('')}</div></div>` : ''}
+      </div>
+    </div>
+
+    ${d.decisaoPE || d.notasPE ? `
+    <div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;margin-bottom:16px">
+      <div style="padding:14px 20px;border-bottom:0.5px solid var(--border);background:var(--bg3)">
+        <div style="font-size:12px;font-weight:600;color:var(--text2)">Decisão do Presidente Executivo</div>
+      </div>
+      <div style="padding:20px 24px">
+        ${d.decisaoPE ? `<div style="margin-bottom:10px"><span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Decisão: </span><span class="badge ${d.decisaoPE==='Aprovado'?'b-aprov':d.decisaoPE==='Não aprovado'?'b-nap':'b-processo'}">${d.decisaoPE}</span>${d.dataDecisao?`<span style="font-size:11px;color:var(--text3);margin-left:8px">${fd(d.dataDecisao)}</span>`:''}</div>` : ''}
+        ${d.notasPE ? `<div style="background:#FEF3C7;border-left:3px solid #F59E0B;border-radius:0 6px 6px 0;padding:10px 14px;font-size:13px;color:#92400E">${d.notasPE.replace(/\n/g,'<br>')}</div>` : ''}
+      </div>
+    </div>` : ''}
+
+    ${podeDecidir ? `
+    <div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;margin-bottom:16px">
+      <div style="padding:14px 20px;border-bottom:0.5px solid var(--border);background:var(--bg3)">
+        <div style="font-size:12px;font-weight:600;color:var(--text2)">Registar Decisão</div>
+      </div>
+      <div style="padding:20px 24px">
+        <div style="margin-bottom:14px">
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Decisão *</label>
+          <div style="display:flex;gap:10px">
+            <button class="btn" id="de-dec-aprov" onclick="deSelectDecisao('Aprovado')" style="flex:1">✅ Aprovado</button>
+            <button class="btn" id="de-dec-nap" onclick="deSelectDecisao('Não aprovado')" style="flex:1">❌ Não aprovado</button>
+            <button class="btn" id="de-dec-rever" onclick="deSelectDecisao('A rever')" style="flex:1">🔄 A rever</button>
+          </div>
+          <input type="hidden" id="de-dec-valor">
+        </div>
+        <div style="margin-bottom:14px">
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Notas</label>
+          <textarea id="de-dec-notas" rows="3" placeholder="Observações, condicionantes ou instruções de revisão..." style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);resize:vertical"></textarea>
+        </div>
+        <div style="display:flex;justify-content:flex-end">
+          <button class="btn btn-primary" onclick="deGuardarDecisao(${d.id})">Guardar Decisão</button>
+        </div>
+      </div>
+    </div>` : ''}
+  `;
+}
+
+let _deDecisaoSel = '';
+function deSelectDecisao(val) {
+  _deDecisaoSel = val;
+  ['Aprovado','Não aprovado','A rever'].forEach(v => {
+    const id = { 'Aprovado':'de-dec-aprov', 'Não aprovado':'de-dec-nap', 'A rever':'de-dec-rever' }[v];
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    const sel = v === val;
+    btn.style.background = sel ? (v==='Aprovado'?'var(--green-mid)':v==='Não aprovado'?'var(--red)':'var(--blue-d)') : '';
+    btn.style.color      = sel ? '#fff' : '';
+    btn.style.borderColor= sel ? 'transparent' : '';
+  });
+}
+
+async function deGuardarDecisao(id) {
+  if (!_deDecisaoSel) { showNotif('Seleciona uma decisão.', 'error'); return; }
+  const notas = document.getElementById('de-dec-notas')?.value.trim() || '';
+  try {
+    const meta = await spRead(`${SP}/_api/web/lists/getbytitle('${DE_LIST}')?$select=ListItemEntityTypeFullName`);
+    const body = {
+      __metadata: { type: meta.d.ListItemEntityTypeFullName },
+      DecisaoPE:   _deDecisaoSel,
+      NotasPE:     notas || null,
+      DataDecisao: new Date().toISOString(),
+      Estado:      _deDecisaoSel === 'A rever' ? 'A rever' : _deDecisaoSel
+    };
+    await spWrite(`${SP}/_api/web/lists/getbytitle('${DE_LIST}')/items(${id})`, body, 'MERGE');
+    showNotif('Decisão guardada!', 'success');
+    _deDecisaoSel = '';
+    await deLoadAll();
+    deOpenDetalhe(id);
+    deBadgeDecisao();
+  } catch(e) {
+    showNotif('Erro: ' + e.message, 'error');
+  }
+}
+
+// ── Pendentes de decisão (PE) ──
+function deRenderDecisao() {
+  const wrap = document.getElementById('de-decisao-list');
+  if (!wrap) return;
+  const pend = DE_ITEMS.filter(d => d.estado === 'Pendente');
+  if (!pend.length) {
+    wrap.innerHTML = '<div class="empty" style="padding:3rem">Sem pedidos pendentes de decisão. 🎉</div>';
+    return;
+  }
+  wrap.innerHTML = pend.map(d => `
+    <div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);padding:16px 20px;margin-bottom:10px;cursor:pointer" onclick="deOpenDetalhe(${d.id})">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:12px;font-weight:700;color:var(--fj-blue)">${d.numero}</div>
+        <span class="badge b-pend">Pendente</span>
+      </div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px">${d.assunto}</div>
+      <div style="font-size:12px;color:var(--text3)">${d.autorNome} · ${fd(d.data)} · Para: ${d.para}</div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════ FIM MÓDULO DESPACHO ═══════════════
 
 // ══════════════════════════════════════════════════════════════
 // MODAL + PROCESSADO
@@ -12129,6 +12990,7 @@ function gerarLinkViewer(tipo, snapshotItems){
       titulo:i.titulo, tipo:i.tipo,
       responsavel:i.responsavel||'',
       notas:i.notas||'', proposta:i.proposta||'',
+      linkDocumento:i.linkDocumento||'',
       attachments:(i.attachments||[]).map(a=>({name:a.name, url:'https://fjuventude.sharepoint.com'+a.url}))
     }))
   };
@@ -12191,6 +13053,7 @@ function renderViewer(data){
       </div>
       <div class="viewer-item-body">
         ${it.notas?`<div><div class="viewer-sec">Contextualização</div><div class="viewer-content">${it.notas.replace(/\n/g,'<br>')}</div></div>`:''}
+        ${it.linkDocumento?`<div><div class="viewer-sec">📝 Documento em Desenvolvimento</div><div class="viewer-content"><a href="${it.linkDocumento}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:#E6F1FB;color:#0C447C;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:500;text-decoration:none;border:0.5px solid #c3d9f0">🔗 Abrir documento</a></div></div>`:''}
         ${isD&&it.proposta?`<div><div class="viewer-sec">Proposta de Decisão</div><div class="viewer-proposta">${it.proposta.replace(/\n/g,'<br>')}</div></div>`:''}
         ${it.attachments?.length?`<div><div class="viewer-sec">Anexos</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${it.attachments.map(a=>`<a href="${a.url}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;background:var(--blue-l);color:var(--blue-d);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:500;text-decoration:none;border:0.5px solid #c3d9f0">📎 ${a.name}</a>`).join('')}</div></div>`:''}
       </div>
