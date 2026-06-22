@@ -2599,62 +2599,67 @@ tr:hover td{background:var(--bg3)}
   </div>
 </div>
 </div><!-- /main -->
-2422	</div><!-- /layout -->
-2423	
-2424	<!-- MÓDULO DEFINIÇÕES (ST) -->
-2425	<div id="module-st" style="display:none">
-2426	  <div class="sidebar" id="sidebar-st">
-2427	    <div class="sidebar-label">Definições</div>
-2428	    <div class="nav-item active" id="st-nav-permissoes" onclick="stNav('permissoes')">
-2429	      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM2 14c0-3 3-5 6-5s6 2 6 5"/></svg>
-2430	      Permissões de Acesso
-2431	    </div>
-2432	  </div>
-2433	  <div class="      <div id="st-page-permissoes">
-2433	        <div class="page-header">
-2434	          <div class="page-title">🛡️ Gestão de Permissões</div>
-2435	          <div class="page-desc">Selecione um colaborador para configurar os seus acessos granulares.</div>
-2436	        </div>
-2437	        
-2438	        <div style="display:grid; grid-template-columns: 350px 1fr; gap: 24px; align-items: start;">
-2439	          <!-- Lista de Utilizadores -->
-2440	          <div class="panel" style="padding:0; overflow:hidden;">
-2441	            <div style="padding:16px; border-bottom:1px solid var(--border);">
-2442	              <input type="text" id="st-perm-search" placeholder="Procurar colaborador..." oninput="stRenderUserList()" style="width:100%">
-2443	            </div>
-2444	            <div id="st-user-list" style="max-height: 600px; overflow-y: auto;">
-2445	              <div class="empty" style="padding:2rem">A carregar...</div>
-2446	            </div>
-2447	          </div>
-2448	          
-2449	          <!-- Painel de Configuração -->
-2450	          <div id="st-config-panel" class="panel" style="display:none;">
-2451	            <div id="st-config-header" style="margin-bottom:24px; padding-bottom:16px; border-bottom:1px solid var(--border);">
-2452	              <div style="display:flex; align-items:center; gap:16px;">
-2453	                <div id="st-user-avatar" class="user-avatar" style="width:48px; height:48px; font-size:18px;"></div>
-2454	                <div>
-2455	                  <div id="st-user-name" style="font-size:18px; font-weight:700;"></div>
-2456	                  <div id="st-user-email" style="font-size:13px; color:var(--text3);"></div>
-2457	                </div>
-2458	              </div>
-2459	            </div>
-2460	            
-2461	            <div id="st-modules-config" style="display:flex; flex-direction:column; gap:20px;">
-2462	              <!-- Os módulos serão injetados aqui via JS -->
-2463	            </div>
-2464	            
-2465	            <div style="margin-top:32px; padding-top:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px;">
-2466	              <button class="btn" onclick="stResetConfig()">Cancelar</button>
-2467	              <button class="btn btn-primary" id="st-save-btn" onclick="stSavePermissions()">Guardar Alterações</button>
-2468	            </div>
-2469	          </div>
-2470	          
-2471	          <div id="st-no-selection" class="panel" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4rem; color:var(--text3);">
-2472	            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin-bottom:16px; opacity:0.5;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-2473	            <div>Selecione um colaborador à esquerda para gerir as suas permissões.</div>
-2474	          </div>
-2475	        </div>
-2476	      </div>2455	</div>- Overlay global de novo projeto (acessível de qualquer módulo) -->
+</div><!-- /layout -->
+
+<!-- MÓDULO DEFINIÇÕES (ST) -->
+<div id="module-st" style="display:none">
+  <div class="sidebar" id="sidebar-st">
+    <div class="sidebar-label">Definições</div>
+    <div class="nav-item active" id="st-nav-permissoes" onclick="stNav('permissoes')">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM2 14c0-3 3-5 6-5s6 2 6 5"/></svg>
+      Permissões de Acesso
+    </div>
+  </div>
+  <div class="main">
+    <div id="st-page-permissoes">
+        <div class="page-header">
+          <div class="page-title">🛡️ Gestão de Permissões</div>
+          <div class="page-desc">Selecione um colaborador para configurar os seus acessos granulares.</div>
+        </div>
+        
+        <div style="display:grid; grid-template-columns: 350px 1fr; gap: 24px; align-items: start;">
+          <!-- Lista de Utilizadores -->
+          <div class="panel" style="padding:0; overflow:hidden;">
+            <div style="padding:16px; border-bottom:1px solid var(--border);">
+              <input type="text" id="st-perm-search" placeholder="Procurar colaborador..." oninput="stRenderUserList()" style="width:100%">
+            </div>
+            <div id="st-user-list" style="max-height: 600px; overflow-y: auto;">
+              <div class="empty" style="padding:2rem">A carregar...</div>
+            </div>
+          </div>
+          
+          <!-- Painel de Configuração -->
+          <div id="st-config-panel" class="panel" style="display:none;">
+            <div id="st-config-header" style="margin-bottom:24px; padding-bottom:16px; border-bottom:1px solid var(--border);">
+              <div style="display:flex; align-items:center; gap:16px;">
+                <div id="st-user-avatar" class="user-avatar" style="width:48px; height:48px; font-size:18px;"></div>
+                <div>
+                  <div id="st-user-name" style="font-size:18px; font-weight:700;"></div>
+                  <div id="st-user-email" style="font-size:13px; color:var(--text3);"></div>
+                </div>
+              </div>
+            </div>
+            
+            <div id="st-modules-config" style="display:flex; flex-direction:column; gap:20px;">
+              <!-- Os módulos serão injetados aqui via JS -->
+            </div>
+            
+            <div style="margin-top:32px; padding-top:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px;">
+              <button class="btn" onclick="stResetConfig()">Cancelar</button>
+              <button class="btn btn-primary" id="st-save-btn" onclick="stSavePermissions()">Guardar Alterações</button>
+            </div>
+          </div>
+          
+          <div id="st-no-selection" class="panel" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4rem; color:var(--text3);">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin-bottom:16px; opacity:0.5;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            <div>Selecione um colaborador à esquerda para gerir as suas permissões.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- Overlay global de novo projeto (acessível de qualquer módulo) -->
 <div id="frm-proj-ov-global" class="overlay">
   <div class="panel">
     <div class="panel-title" id="frm-proj-title-global">Novo projeto</div>
@@ -2689,7 +2694,6 @@ tr:hover td{background:var(--bg3)}
   </div>
 </div>
 
-</div><!-- /app-screen -->
 
 <!-- Modal Banco Global (Exclusivo Diretora Financeira) -->
 <div id="banco-global-modal" class="overlay">
@@ -9729,7 +9733,6 @@ function gfRenderSolicitacaoView() {
           <div style="color:var(--text3);font-size:13px">A carregar...</div>
         </div>
         <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" onload="gfLoadSolicitacaoAttachments(${sol.id})" style="display:none" alt="">
-        </div>
         
         ${(canApproveDir || canApproveDF) ? `
         <div class="card" style="background:#FFFBEB;border-color:#FCD34D">
@@ -12408,15 +12411,15 @@ function deNav(page) {
 async function deInit() {
   const isPE  = userCargo() === 'Presidente Executivo';
   const isDir = userCargo() === 'Diretor';
-  // Mostrar sidebar "Novo Despacho" só a Diretores
+  // Mostrar sidebar "Novo Despacho" a Diretores e PE
   const navNovo = document.getElementById('de-nav-novo');
-  if (navNovo) navNovo.style.display = isDir ? 'flex' : 'none';
+  if (navNovo) navNovo.style.display = (isDir || isPE) ? 'flex' : 'none';
   // Mostrar "Pendentes de Decisão" só ao PE
   const navDec = document.getElementById('de-nav-decisao');
   if (navDec) navDec.style.display = isPE ? 'flex' : 'none';
-  // Mostrar botão "Novo Despacho" na lista só a Diretores
+  // Mostrar botão "Novo Despacho" na lista a Diretores e PE
   const btnNovo = document.getElementById('de-btn-novo');
-  if (btnNovo) btnNovo.style.display = isDir ? 'inline-flex' : 'none';
+  if (btnNovo) btnNovo.style.display = (isDir || isPE) ? 'inline-flex' : 'none';
   await deLoadAll();
   deNav('lista');
 }
