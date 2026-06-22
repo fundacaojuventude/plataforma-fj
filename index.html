@@ -2609,40 +2609,45 @@ tr:hover td{background:var(--bg3)}
 </div><!-- /layout -->
 
 <!-- MÓDULO DEFINIÇÕES (ST) - conteúdo injetado via switchModule dentro do main -->
-<div id="module-st" style="display:none;width:100%;padding:2rem">
-  <div id="st-page-permissoes">
-    <div class="page-header">
-      <div class="page-title">🛡️ Gestão de Permissões</div>
-      <div class="page-desc">Selecione um colaborador para configurar os seus acessos granulares.</div>
-    </div>
-    <div style="display:grid; grid-template-columns: 350px 1fr; gap: 24px; align-items: start;">
-      <div class="panel" style="padding:0; overflow:hidden;">
-        <div style="padding:16px; border-bottom:1px solid var(--border);">
-          <input type="text" id="st-perm-search" placeholder="Procurar colaborador..." oninput="stRenderUserList()" style="width:100%">
-        </div>
-        <div id="st-user-list" style="max-height: 600px; overflow-y: auto;">
-          <div class="empty" style="padding:2rem">A carregar...</div>
-        </div>
+<div id="module-st" style="display:none;width:100%">
+  <div style="padding:2rem;max-width:1100px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:1.5rem">
+      <div style="width:40px;height:40px;background:var(--fj-blue);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">🛡️</div>
+      <div>
+        <div style="font-size:20px;font-weight:700;color:var(--text)">Gestão de Permissões</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:2px">Selecione um colaborador para configurar os seus acessos à plataforma</div>
       </div>
-      <div id="st-config-panel" class="panel" style="display:none;">
-        <div id="st-config-header" style="margin-bottom:24px; padding-bottom:16px; border-bottom:1px solid var(--border);">
-          <div style="display:flex; align-items:center; gap:16px;">
-            <div id="st-user-avatar" class="user-avatar" style="width:48px; height:48px; font-size:18px;"></div>
+    </div>
+    <div id="st-page-permissoes">
+      <div style="display:grid;grid-template-columns:300px 1fr;gap:20px;align-items:start">
+        <div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden">
+          <div style="padding:12px 16px;border-bottom:0.5px solid var(--border);background:var(--bg3)">
+            <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Colaboradores</div>
+            <input type="text" id="st-perm-search" placeholder="🔍 Procurar..." oninput="stRenderUserList()" style="width:100%;padding:8px 10px;border:1px solid var(--border2);border-radius:6px;font-size:13px;font-family:inherit;color:var(--text);background:var(--bg2)">
+          </div>
+          <div id="st-user-list" style="max-height:560px;overflow-y:auto"></div>
+        </div>
+        <div id="st-config-panel" style="display:none;background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden">
+          <div id="st-config-header" style="padding:20px 24px;border-bottom:0.5px solid var(--border);background:var(--bg3);display:flex;align-items:center;gap:16px">
+            <div id="st-user-avatar" class="user-avatar" style="width:48px;height:48px;font-size:18px;flex-shrink:0"></div>
             <div>
-              <div id="st-user-name" style="font-size:18px; font-weight:700;"></div>
-              <div id="st-user-email" style="font-size:13px; color:var(--text3);"></div>
+              <div id="st-user-name" style="font-size:16px;font-weight:700;color:var(--text)"></div>
+              <div id="st-user-email" style="font-size:12px;color:var(--text3);margin-top:2px"></div>
+            </div>
+          </div>
+          <div style="padding:20px 24px">
+            <div id="st-modules-config" style="display:flex;flex-direction:column;gap:16px"></div>
+            <div style="margin-top:24px;padding-top:20px;border-top:0.5px solid var(--border);display:flex;justify-content:flex-end;gap:10px">
+              <button class="btn" onclick="stResetConfig()">Cancelar</button>
+              <button class="btn btn-primary" id="st-save-btn" onclick="stSavePermissions()">💾 Guardar Alterações</button>
             </div>
           </div>
         </div>
-        <div id="st-modules-config" style="display:flex; flex-direction:column; gap:20px;"></div>
-        <div style="margin-top:32px; padding-top:20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:12px;">
-          <button class="btn" onclick="stResetConfig()">Cancelar</button>
-          <button class="btn btn-primary" id="st-save-btn" onclick="stSavePermissions()">Guardar Alterações</button>
+        <div id="st-no-selection" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4rem;color:var(--text3);background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg)">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin-bottom:16px;opacity:0.4"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          <div style="font-weight:500;margin-bottom:4px">Nenhum colaborador selecionado</div>
+          <div style="font-size:12px">Escolha um colaborador na lista à esquerda</div>
         </div>
-      </div>
-      <div id="st-no-selection" class="panel" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4rem; color:var(--text3);">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin-bottom:16px; opacity:0.5;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-        <div>Selecione um colaborador à esquerda para gerir as suas permissões.</div>
       </div>
     </div>
   </div>
@@ -5228,8 +5233,13 @@ async function deleteUtilizador(id){
   }catch(e){showNotif('Erro: '+e.message,'error');}
 }
 function showNotif(msg,type='info'){
-  const n=el('notif');n.textContent=msg;
+  const n=el('notif');if(!n)return;
+  n.textContent=msg;
   n.className='notif show'+(type==='success'?' success':type==='error'?' error':'');
+  if(type!=='error'){
+    clearTimeout(n._hideTimer);
+    n._hideTimer=setTimeout(()=>n.classList.remove('show'),2000);
+  }
 }
 
 // ── DATE/WEEK UTILITIES (shared) ──
