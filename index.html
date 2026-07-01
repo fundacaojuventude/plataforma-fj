@@ -4097,6 +4097,9 @@ function renderExtTarefasTable() {
   const hoje = today();
 
   const list = extTarefas.filter(t => {
+    // Membro só vê tarefas atribuídas a ele próprio (campo Responsável da tarefa,
+    // independente de quem criou a reunião associada).
+    if (isMembroFJ() && t.responsavel !== (currentUserFJ?.titulo || '')) return false;
     if (q && !t.titulo.toLowerCase().includes(q) && !t.reuniaoTitulo.toLowerCase().includes(q)) return false;
     if (fe && t.estado !== fe) return false;
     return true;
@@ -5482,15 +5485,19 @@ function rhRenderBlocos(){
 function rhPopulateProjSelect(bid){
   const s=el(`rh-proj-${bid}`);if(!s)return;
   const b=rhBlocos.find(x=>x.id===bid);
+  const membro=!plCanSeeAll();
+  const projsVisiveis=membro?plProjetos.filter(p=>plMeusProjetoIds().has(String(p.id))):plProjetos;
   s.innerHTML=`<option value="">— Selecionar —</option>`+
-    plProjetos.map(p=>`<option value="${p.id}" ${String(b?.projetoId)===String(p.id)?'selected':''}>${p.nome}</option>`).join('');
+    projsVisiveis.map(p=>`<option value="${p.id}" ${String(b?.projetoId)===String(p.id)?'selected':''}>${p.nome}</option>`).join('');
   rhPopulateAcaoSelect(bid);
 }
 
 function rhPopulateAcaoSelect(bid){
   const b=rhBlocos.find(x=>x.id===bid);
   const sA=el(`rh-acao-${bid}`);if(!sA)return;
-  const acoes=plAcoes.filter(a=>String(a.projetoId)===String(b?.projetoId));
+  const membro=!plCanSeeAll();
+  let acoes=plAcoes.filter(a=>String(a.projetoId)===String(b?.projetoId));
+  if(membro){ const meusAcaoIds=plMeusAcaoIds(); acoes=acoes.filter(a=>meusAcaoIds.has(String(a.id))); }
   sA.innerHTML=`<option value="">— Selecionar —</option>`+acoes.map(a=>`<option value="${a.id}" ${String(b?.acaoId)===String(a.id)?'selected':''}>${a.nome}</option>`).join('');
   rhPopulateTarSelect(bid);
 }
@@ -5498,7 +5505,8 @@ function rhPopulateAcaoSelect(bid){
 function rhPopulateTarSelect(bid){
   const b=rhBlocos.find(x=>x.id===bid);
   const sT=el(`rh-tar-${bid}`);if(!sT)return;
-  const tarefas=plTarefas.filter(t=>String(t.acaoId)===String(b?.acaoId));
+  let tarefas=plTarefas.filter(t=>String(t.acaoId)===String(b?.acaoId));
+  if(!plCanSeeAll()) tarefas=tarefas.filter(t=>plTarefaEhMinha(t));
   const origemLabel={Plano:'📋',Reunião:'🤝',Correio:'📬'};
   sT.innerHTML=`<option value="">— Sem tarefa —</option>`+
     tarefas.map(t=>`<option value="${t.id}" ${String(b?.tarefaId)===String(t.id)?'selected':''}>${origemLabel[t.origem]||'📋'} ${t.titulo}</option>`).join('');
@@ -6142,25 +6150,22 @@ function renderHier(){
   // ── Permissões ─────────────────────────────────
   const isDir=plCanSeeAll();
   const myEquipas=currentUserFJ?.equipa||[];
-  const myName=(user?.name||'').toLowerCase();
-  const matchMe=nome=>nome&&myName&&nome.toLowerCase().split(/\s+/).some(w=>w.length>2&&myName.split(/\s+/).some(m=>m.includes(w)||w.includes(m)));
-  const myEmail=(user?.username||user?.preferredUsername||'').toLowerCase();
 
-  // Membro pode ver uma ação se: dep dela = seu dept, ou é responsável dela, ou proj dela está no seu dept
+  // Membro vê todos os projetos/ações do seu departamento (não só onde tem tarefa),
+  // mas dentro deles só vê e conta as SUAS próprias tarefas (plTarefaEhMinha).
   const canViewAcao=(a,proj)=>{
     if(isDir) return true;
     if(myEquipas.some(e=>normDep(e)===normDep(a.dep))) return true;
-    if(matchMe(a.responsavel)) return true;
     if(proj&&myEquipas.some(e=>normDep(e)===normDep(proj.dep))) return true;
     return false;
   };
-  // Membro pode ver um projeto se: dep dele = seu dept, ou é responsável, ou tem pelo menos uma ação visível
   const canViewProj=p=>{
     if(isDir) return true;
     if(myEquipas.some(e=>normDep(e)===normDep(p.dep))) return true;
-    if(matchMe(p.responsavel)) return true;
     return plAcoes.some(a=>String(a.projetoId)===String(p.id)&&canViewAcao(a,p));
   };
+  // Lista de tarefas visíveis para o utilizador atual (Diretor+ vê tudo; Membro só as suas)
+  const plVisiveis=list=>isDir?list:list.filter(plTarefaEhMinha);
 
   // Aplicar filtro de dep + colaborador do toolbar + permissões
   const emailOfUser=(email)=>{
@@ -6192,7 +6197,7 @@ function renderHier(){
     // Filtrar ações visíveis para este membro
     const pAcoes=plAcoes.filter(a=>String(a.projetoId)===String(p.id)&&canViewAcao(a,p));
     const tarSemAcao=plTarefas.filter(t=>!t.acaoId&&(String(t.projetoId)===String(p.id)));
-    const tarTotal=plTarefas.filter(t=>String(t.projetoId)===String(p.id)||pAcoes.some(a=>String(t.acaoId)===String(a.id)));
+    const tarTotal=plVisiveis(plTarefas.filter(t=>String(t.projetoId)===String(p.id)||pAcoes.some(a=>String(t.acaoId)===String(a.id))));
     const concTotal=tarTotal.filter(t=>t.estado==='Concluída').length;
     const pct=tarTotal.length?Math.round((concTotal/tarTotal.length)*100):null;
     const rag=pAcoes.length?(['r','a','v'].reduce((best,r)=>pAcoes.some(a=>calcRag(a.id)===r)?r:best,'c')):'c';
@@ -6209,7 +6214,7 @@ function renderHier(){
       </div>
       <div class="hier-acao-wrap" id="hier-plAcoes-${p.id}">
         ${pAcoes.map(a=>{
-          const ts=plTarefas.filter(t=>String(t.acaoId)===String(a.id));
+          const ts=plVisiveis(plTarefas.filter(t=>String(t.acaoId)===String(a.id)));
           const conc=ts.filter(t=>t.estado==='Concluída').length;
           const r=calcRag(a.id);
           return`<div class="hier-acao-row" onclick="toggleHierAcao(${a.id})">
@@ -6264,7 +6269,7 @@ function renderHier(){
       if(panel&&!panel.classList.contains('open')){
         panel.classList.add('open');
         // Re-renderizar conteúdo da ação
-        const ts=plTarefas.filter(t=>String(t.acaoId)===String(aid));
+        const ts=plCanSeeAll()?plTarefas.filter(t=>String(t.acaoId)===String(aid)):plTarefas.filter(t=>String(t.acaoId)===String(aid)&&plTarefaEhMinha(t));
         const kps=plKpdefs.filter(k=>String(k.acaoId)===String(aid));
         const content=el(`hier-t-content-${aid}`);
         if(content){
@@ -6456,7 +6461,7 @@ function toggleHierAcao(acaoId){
   const open=panel.classList.toggle('open');
   plHierOpen[`a_${acaoId}`]=open;
   if(open){
-    const ts=plTarefas.filter(t=>String(t.acaoId)===String(acaoId));
+    const ts=plCanSeeAll()?plTarefas.filter(t=>String(t.acaoId)===String(acaoId)):plTarefas.filter(t=>String(t.acaoId)===String(acaoId)&&plTarefaEhMinha(t));
     const kps=plKpdefs.filter(k=>String(k.acaoId)===String(acaoId));
     const content=el(`hier-t-content-${acaoId}`);
     content.innerHTML=`
@@ -6656,7 +6661,11 @@ function renderGantt(){
     if(u&&responsavel&&responsavel.toLowerCase()===u.titulo.toLowerCase()) return true;
     return false;
   };
+  const isDirGantt=plCanSeeAll();
+  const myEquipasGantt=currentUserFJ?.equipa||[];
   const projs=plProjetos.filter(p=>{
+    // Membro vê projetos do seu departamento (mesma regra de Projetos & Ações)
+    if(!isDirGantt && !myEquipasGantt.some(e=>normDep(e)===normDep(p.dep))) return false;
     if(dep&&normDep(p.dep)!==normDep(dep)) return false;
     if(colEmail){
       const projMatch=gColMatches(p.responsavel,p.responsavelEmail);
@@ -6899,6 +6908,45 @@ function plCanSeeAll(){
   const cargo   = userCargo();
   const equipas = currentUserFJ.equipa || [];
   return cargo==='Presidente Executivo'||cargo==='Diretor'||equipas.includes('CAdm')||equipas.includes('E. Gestão');
+}
+
+// ── Helpers partilhados de correspondência do utilizador atual (Membro) ──
+function plMyEmailLower(){ return (user?.username||user?.preferredUsername||'').toLowerCase(); }
+function plMatchesMe(nome){
+  const myName=(user?.name||'').toLowerCase();
+  return !!(nome&&myName&&nome.toLowerCase().split(/\s+/).some(w=>w.length>2&&myName.split(/\s+/).some(m=>m.includes(w)||w.includes(m))));
+}
+function plTarefaEhMinha(t){
+  const myEmail=plMyEmailLower();
+  return (t.responsavelEmail&&t.responsavelEmail.toLowerCase()===myEmail)||plMatchesMe(t.responsavel);
+}
+// IDs de projeto/ação onde o Membro tem pelo menos uma tarefa atribuída como responsável.
+// Usado para restringir Projetos & Ações, Gantt e Registar Horas — não considera
+// departamento nem responsável do projeto/ação em si, só tarefas atribuídas diretamente.
+function plMeusProjetoIds(){
+  const ids=new Set();
+  plTarefas.forEach(t=>{
+    if(!plTarefaEhMinha(t)) return;
+    if(t.projetoId){ ids.add(String(t.projetoId)); return; }
+    if(t.acaoId){
+      const a=plAcoes.find(a=>String(a.id)===String(t.acaoId));
+      if(a?.projetoId) ids.add(String(a.projetoId));
+    }
+  });
+  return ids;
+}
+function plMeusAcaoIds(){
+  const ids=new Set();
+  plTarefas.forEach(t=>{ if(plTarefaEhMinha(t)&&t.acaoId) ids.add(String(t.acaoId)); });
+  return ids;
+}
+// Esconde separadores do Planeamento não permitidos para Membro
+function plApplyRoleVisibility(){
+  if(plCanSeeAll()) return; // Diretor+/admin vê tudo, sem alterações
+  ['pl-nav-trimestral','pl-nav-kpis','pl-nav-relatorios','pl-nav-analise-horas'].forEach(id=>{
+    const nav=document.getElementById(id);
+    if(nav) nav.style.display='none';
+  });
 }
 
 // ── Vista do Plano Semanal ──────────────────────────────────────────────
@@ -7259,6 +7307,8 @@ async function plSaveTarefa(){
   if(gv('ftar-origem')==='Factorial'){showNotif('As plTarefas do Factorial devem ser criadas no Factorial.','warn');return;}
   const desc=gv('ftar-desc').trim();
   if(!desc){alert('Descrição obrigatória.');return;}
+  const respCheck=gv('ftar-resp').trim();
+  if(!respCheck){alert('Responsável obrigatório.');return;}
   const btn=el('save-tar-btn');btn.textContent='A guardar...';btn.disabled=true;
   try{
     const data=gv('ftar-data');
@@ -7614,7 +7664,7 @@ function plInit(){
   plViewWeek=isoWeek(now);plViewYear=now.getFullYear();
   // Use shared projetos
   if(sharedProjetos.length) plProjetos=sharedProjetos;
-  plLoadAll().then(()=>plInitSemPermissions());
+  plLoadAll().then(()=>{plInitSemPermissions();plApplyRoleVisibility();});
 }
 
 
