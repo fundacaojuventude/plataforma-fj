@@ -3609,7 +3609,8 @@ async function extLoadAll() {
 async function extLoadReunoes() {
   const d = await spRead(
     `${SP}/_api/web/lists/getbytitle('${EXT_LIST}')/items` +
-    `?$select=*,AttachmentFiles&$expand=AttachmentFiles&$orderby=DataReuniao desc&$top=500`
+    `?$select=*,AttachmentFiles,Responsavel/Title,Responsavel/EMail,Departamento/Title,Departamento/Id` +
+    `&$expand=AttachmentFiles,Responsavel,Departamento&$orderby=DataReuniao desc&$top=500`
   );
   extItems = (d.d?.results || []).map(r => ({
     id:             r.Id,
@@ -3617,8 +3618,10 @@ async function extLoadReunoes() {
     entidade:       r.Entidade || '',
     data:           r.DataReuniao ? r.DataReuniao.split('T')[0] : '',
     local:          r.Local || '',
-    departamento:   normalizeDep(typeof r.Departamento === 'string' ? r.Departamento : (r.Departamento?.Title || '')),
-    responsavel:    typeof r.Responsavel === 'string' ? r.Responsavel : (r.Responsavel?.Title || ''),
+    departamento:   normalizeDep(r.Departamento?.Title || ''),
+    departamentoId: r.Departamento?.Id || null,
+    responsavel:    r.Responsavel?.Title || '',
+    responsavelEmail: r.Responsavel?.EMail || '',
     participantes:  r.Participantes || '',
     resumo:         r.Resumo || '',
     proximosPassos: r.ProximosPassos || '',
@@ -3784,10 +3787,21 @@ async function saveExt() {
   if (!depVal)  { showNotif('Seleciona o departamento.', 'error'); return; }
   if (!respVal) { showNotif('Seleciona o responsável FJ.', 'error'); return; }
 
+  // Departamento é campo Lookup (para FJ_Departamentos) — precisa do Id, não do texto.
+  const depObj = plDepartamentos.find(d => d.Title === depVal);
+  if (!depObj) { showNotif('Departamento inválido. Recarrega a página e tenta novamente.', 'error'); return; }
+
+  // Responsavel é campo Pessoa — precisa do Id do utilizador no SharePoint, resolvido pelo email.
+  const respEmailVal = el('fe-resp-email')?.value || '';
+  if (!respEmailVal) { showNotif('Não foi possível identificar o email do responsável. Reabre o formulário e tenta novamente.', 'error'); return; }
+
   const btn = el('save-ext-btn');
   btn.disabled = true; btn.textContent = 'A guardar...';
 
   try {
+    const respUID = await getSpUID(respEmailVal);
+    if (!respUID) { showNotif('Não foi possível identificar o responsável no SharePoint (email inválido ou sem acesso ao site).', 'error'); btn.disabled=false; btn.textContent='Guardar'; return; }
+
     // 1) tipo OData dinâmico — exactamente como Correio
     const meta = await spRead(`${SP}/_api/web/lists/getbytitle('${EXT_LIST}')?$select=ListItemEntityTypeFullName`);
     const listType = meta.d.ListItemEntityTypeFullName;
@@ -3795,12 +3809,15 @@ async function saveExt() {
     const body = {
       __metadata:     { type: listType },
       Title:          titulo,
-      DataReuniao:    dataVal + 'T00:00:00Z'
-      // TODOS OS OUTROS CAMPOS TEMPORARIAMENTE REMOVIDOS PARA TESTE DE DIAGNÓSTICO
+      Entidade:       el('fe-entidade').value.trim() || null,
+      DataReuniao:    dataVal + 'T00:00:00Z',
+      Local:          el('fe-local').value.trim() || null,
+      DepartamentoId: depObj.id,
+      ResponsavelId:  respUID,
+      Participantes:  el('fe-part').value.trim() || null,
+      Resumo:         el('fe-resumo').value.trim() || null,
+      ProximosPassos: el('fe-passos').value.trim() || null
     };
-
-    // DIAGNÓSTICO TEMPORÁRIO — remover depois de identificar o campo problemático
-    alert('DEBUG (teste mínimo: só Title + DataReuniao) — listType: ' + listType + '\n\nPayload:\n' + JSON.stringify(body, null, 2));
 
     let itemId = editExtId;
     if (editExtId) {
