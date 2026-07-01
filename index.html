@@ -3799,14 +3799,14 @@ async function saveExt() {
       DataReuniao:    dataVal + 'T00:00:00Z',
       Local:          el('fe-local').value.trim() || null,
       Departamento:   depVal,
-      Responsavel:    respVal,
+      // Responsavel: respVal,  // TEMPORARIAMENTE REMOVIDO PARA TESTE DE DIAGNÓSTICO
       Participantes:  el('fe-part').value.trim() || null,
       Resumo:         el('fe-resumo').value.trim() || null,
       ProximosPassos: el('fe-passos').value.trim() || null
     };
 
     // DIAGNÓSTICO TEMPORÁRIO — remover depois de identificar o campo problemático
-    alert('DEBUG — listType: ' + listType + '\n\nPayload:\n' + JSON.stringify(body, null, 2));
+    alert('DEBUG (teste sem Responsavel) — listType: ' + listType + '\n\nPayload:\n' + JSON.stringify(body, null, 2));
 
     let itemId = editExtId;
     if (editExtId) {
