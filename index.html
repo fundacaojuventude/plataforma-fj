@@ -2813,7 +2813,7 @@ function switchModule(mod){
     plShowPage('semanal');
   }
   if(mod==='gf'&&!_gfLoaded){_gfLoaded=true;gfInit();}
-  if(mod==='rn')showPage('assuntos');
+  if(mod==='rn')showPage(isMembroFJ()?'externas':'assuntos');
   if(mod==='au'){if(!_auLoaded){_auLoaded=true;auInit();}else auNav('dashboard');}
   if(mod==='co'){if(!_coLoaded){_coLoaded=true;coInit();}else coNav('registo');}
   if(mod==='de'){if(!_deLoaded){_deLoaded=true;deInit();}else deNav('lista');}
@@ -2974,6 +2974,7 @@ async function loadFJUtilizadores(){
       _financeRole='worker';
       _financeDepts=[];
     }
+    applyRoleVisibilityRN();
   }catch(e){
     console.warn('Erro ao carregar FJ_Utilizadores:', e.message);
     fjUtilizadores=[];
@@ -3119,6 +3120,33 @@ function userCanView(departamento){
 function isAdmin(){
   const email=(user?.username||user?.preferredUsername||'').toLowerCase();
   return email==='conselho.administracao@fjuventude.pt';
+}
+
+// Verificar se o utilizador é "Membro" (sem cargo elevado) — usado para restringir
+// visibilidade em Reuniões (Assuntos/Conduzir reunião escondidos, Externas só as próprias)
+function isMembroFJ(){
+  if(isAdmin()) return false;
+  const cargo   = userCargo();
+  const equipas = currentUserFJ?.equipa || [];
+  const elevado = cargo==='Presidente Executivo' || cargo==='Diretor' || equipas.includes('CAdm') || equipas.includes('E. Gestão');
+  return !elevado;
+}
+
+// Esconder Assuntos / Conduzir reunião do menu lateral para role Membro
+function applyRoleVisibilityRN(){
+  const membro = isMembroFJ();
+  const navAssuntos = document.getElementById('nav-assuntos');
+  const navReuniao  = document.getElementById('nav-reuniao');
+  if(navAssuntos) navAssuntos.style.display = membro ? 'none' : '';
+  if(navReuniao)  navReuniao.style.display  = membro ? 'none' : '';
+  // A página "Assuntos" vem marcada como active diretamente no HTML estático;
+  // se o Membro ainda lá estiver (ex: primeiro carregamento), redireciona.
+  if(membro){
+    const paginaAtual = document.querySelector('.page.active');
+    if(paginaAtual && (paginaAtual.id === 'page-assuntos' || paginaAtual.id === 'page-reuniao')){
+      showPage('externas');
+    }
+  }
 }
 
 // Carregar utilizadores da organização via Graph API
@@ -3642,6 +3670,10 @@ function renderExtTable() {
 
   const list = extItems.filter(r => {
     if (!userCanView(r.departamento)) return false;
+    // Membro só vê as reuniões externas onde é o próprio responsável.
+    // Comparação por nome (r.responsavel), pois é assim que o campo é
+    // gravado em saveExt() — não é um campo Pessoa verdadeiro do SharePoint.
+    if (isMembroFJ() && r.responsavel !== (currentUserFJ?.titulo || '')) return false;
     if (q && !r.titulo.toLowerCase().includes(q) && !r.entidade.toLowerCase().includes(q)) return false;
     if (dep  && r.departamento !== dep) return false;
     if (from && r.data < from) return false;
