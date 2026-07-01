@@ -3726,6 +3726,7 @@ function openExtForm(id) {
   _extRenderTarefasTemp();
   _extSelectedFiles = [];
   _extRenderFilesPreview();
+  lockRespSelectToSelf('fe-tar-resp',null);
 
   const modal = el('frm-ext-ov');
   if (!modal) return;
@@ -3901,6 +3902,7 @@ function extAddTarefaTemp() {
   el('fe-tar-titulo').value = '';
   el('fe-tar-data').value   = '';
   if(el('fe-tar-resp')) el('fe-tar-resp').value = '';
+  lockRespSelectToSelf('fe-tar-resp',null);
   _extRenderTarefasTemp();
 }
 function extRemoveTarefaTemp(uid) {
@@ -3936,7 +3938,7 @@ function extOpenDetail(id) {
   if (!modal || !body || !title) return;
   title.textContent = r.titulo;
 
-  const tarefas = extTarefas.filter(t => t.reuniaoId === id);
+  const tarefas = extTarefas.filter(t => t.reuniaoId === id && (!isMembroFJ() || t.responsavel === (currentUserFJ?.titulo || '')));
   const EM = { 'Por fazer':'b-pfazer','Em curso':'b-emcurso','Concluída':'b-concluido','Cancelada':'b-cancelado' };
   const eBadge = e => `<span class="badge ${EM[e] || 'b-na'}">${e}</span>`;
 
@@ -3987,6 +3989,7 @@ function extOpenAddTarefaModal(reuniaoId) {
   ['ext-add-tar-titulo','ext-add-tar-data','ext-add-tar-notas'].forEach(x => { const e = el(x); if(e) e.value = ''; });
   sv2('ext-add-tar-estado', 'Por fazer');
   sv2('ext-add-tar-resp', '');
+  lockRespSelectToSelf('ext-add-tar-resp',null);
   el('ext-add-tar-modal').style.display = 'block';
 }
 function extCloseAddTarModal() { el('ext-add-tar-modal').style.display = 'none'; }
@@ -4030,6 +4033,7 @@ function extOpenTarEdit(tarId, reuniaoId) {
   el('ext-edit-tar-notas').value  = t.notas || '';
   sv2('ext-edit-tar-estado',  t.estado || 'Por fazer');
   sv2('ext-edit-tar-resp',    t.responsavel || '');
+  lockRespSelectToSelf('ext-edit-tar-resp',null);
   el('ext-tar-modal').style.display = 'block';
 }
 function extCloseTarModal() { el('ext-tar-modal').style.display = 'none'; }
@@ -7241,6 +7245,7 @@ function openTarForm(){
   sv2('ftar-resp','');sv2('ftar-email','');sv2('ftar-inicio','');sv2('ftar-data','');
   sv2('ftar-prior','Média');sv2('ftar-estado','todo');sv2('ftar-notas','');sv2('ftar-link-doc','');
   el('ftar-existing-attach').innerHTML='';
+  lockRespSelectToSelf('ftar-resp','ftar-email');
 }
 function openTarFormEdit(compId){
   const t=plTarefas.find(x=>x.id===compId);if(!t)return;
@@ -7259,6 +7264,18 @@ function openTarFormEdit(compId){
   el('ftar-existing-attach').innerHTML='';
 }
 function closeTarForm(){el('frm-pl-tar-ov').style.display='none';plEditTarId=null;}
+
+// Membros só podem atribuir tarefas a si próprios — Diretores/PE podem atribuir a qualquer um.
+// Aplica-se a qualquer <select class="user-resp-sel"> usado para atribuir responsável de tarefa.
+function lockRespSelectToSelf(selId,emailId){
+  if(plCanSeeAll()) return;
+  const sel=el(selId);
+  if(!sel) return;
+  const myName=currentUserFJ?.titulo||user?.name||'';
+  sel.innerHTML=`<option value="${myName.replace(/"/g,'&quot;')}" selected>${myName}</option>`;
+  sel.disabled=true;
+  if(emailId){ const ef=el(emailId); if(ef) ef.value=plMyEmailLower(); }
+}
 async function delPlTarefa(compId){
   if(!confirm('Eliminar esta tarefa?'))return;
   const t=plTarefas.find(x=>x.id===compId);if(!t)return;
@@ -11872,6 +11889,7 @@ function coAddTarefa() {
   document.getElementById('co-tar-notas').value  = '';
   document.getElementById('co-tar-resp').value   = '';
   document.getElementById('co-tar-email').value  = '';
+  lockRespSelectToSelf('co-tar-resp','co-tar-email');
   const coTarLinkDoc = document.getElementById('co-tar-link-doc');
   if (coTarLinkDoc) coTarLinkDoc.value = '';
   coRenderTarefasTemp();
@@ -12033,6 +12051,7 @@ function coResetForm() {
   coSetDataHoje();
   _coTarefasTemp = [];
   coRenderTarefasTemp();
+  lockRespSelectToSelf('co-tar-resp','co-tar-email');
 }
 
 // ── Detalhe de registo ────────────────────────────
@@ -12044,7 +12063,7 @@ function coOpenDetail(id) {
   const title = document.getElementById('co-detail-title');
   title.textContent = r.assunto;
 
-  const tarefas = CO_TAREFAS.filter(t => t.correioId === id);
+  const tarefas = CO_TAREFAS.filter(t => t.correioId === id && (!isMembroFJ() || t.respNome === (currentUserFJ?.titulo || '')));
   const priorBadge = p => {
     const m = { Alta: 'b-alta', Média: 'b-media', Baixa: 'b-baixa' };
     return `<span class="badge ${m[p] || 'b-na'}">${p}</span>`;
@@ -12113,6 +12132,7 @@ function coOpenTarEdit(id) {
   // set responsavel
   const sel = document.getElementById('co-edit-tar-resp');
   if (sel) sel.value = t.respNome || '';
+  lockRespSelectToSelf('co-edit-tar-resp',null);
   document.getElementById('co-tar-modal').style.display = 'block';
 }
 function coCloseTarModal() { document.getElementById('co-tar-modal').style.display = 'none'; }
