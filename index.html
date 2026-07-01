@@ -3795,18 +3795,12 @@ async function saveExt() {
     const body = {
       __metadata:     { type: listType },
       Title:          titulo,
-      Entidade:       el('fe-entidade').value.trim() || null,
-      DataReuniao:    dataVal + 'T00:00:00Z',
-      Local:          el('fe-local').value.trim() || null,
-      // Departamento: depVal,  // TEMPORARIAMENTE REMOVIDO PARA TESTE DE DIAGNÓSTICO
-      Responsavel:    respVal,
-      Participantes:  el('fe-part').value.trim() || null,
-      Resumo:         el('fe-resumo').value.trim() || null,
-      ProximosPassos: el('fe-passos').value.trim() || null
+      DataReuniao:    dataVal + 'T00:00:00Z'
+      // TODOS OS OUTROS CAMPOS TEMPORARIAMENTE REMOVIDOS PARA TESTE DE DIAGNÓSTICO
     };
 
     // DIAGNÓSTICO TEMPORÁRIO — remover depois de identificar o campo problemático
-    alert('DEBUG (teste sem Departamento) — listType: ' + listType + '\n\nPayload:\n' + JSON.stringify(body, null, 2));
+    alert('DEBUG (teste mínimo: só Title + DataReuniao) — listType: ' + listType + '\n\nPayload:\n' + JSON.stringify(body, null, 2));
 
     let itemId = editExtId;
     if (editExtId) {
