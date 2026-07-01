@@ -3805,6 +3805,9 @@ async function saveExt() {
       ProximosPassos: el('fe-passos').value.trim() || null
     };
 
+    // DIAGNÓSTICO TEMPORÁRIO — remover depois de identificar o campo problemático
+    alert('DEBUG — listType: ' + listType + '\n\nPayload:\n' + JSON.stringify(body, null, 2));
+
     let itemId = editExtId;
     if (editExtId) {
       await spWrite(`${SP}/_api/web/lists/getbytitle('${EXT_LIST}')/items(${editExtId})`, body, 'MERGE');
