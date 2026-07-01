@@ -3125,7 +3125,6 @@ function isAdmin(){
 // Verificar se o utilizador é "Membro" (sem cargo elevado) — usado para restringir
 // visibilidade em Reuniões (Assuntos/Conduzir reunião escondidos, Externas só as próprias)
 function isMembroFJ(){
-  if(isAdmin()) return false;
   const cargo   = userCargo();
   const equipas = currentUserFJ?.equipa || [];
   const elevado = cargo==='Presidente Executivo' || cargo==='Diretor' || equipas.includes('CAdm') || equipas.includes('E. Gestão');
@@ -3762,6 +3761,7 @@ function openExtForm(id) {
     sv2('fe-dep', ''); sv2('fe-resp', '');
     el('fe-attachments').innerHTML = '';
   }
+  lockRespSelectToSelf('fe-resp','fe-resp-email');
 }
 
 function editExt(id) { openExtForm(id); }
