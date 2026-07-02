@@ -7799,7 +7799,7 @@ async function gfLoadAll() {
     }));
 
     // Solicitações com expand
-    const ds = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items?$select=*,ProjetoId/Title,RubricaId/Title,Autor/Title,AprovDir/Title,AprovDF/Title&$expand=ProjetoId,RubricaId,Autor,AprovDir,AprovDF&$orderby=Created desc&$top=500`);
+    const ds = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items?$select=*,ProjetoId/Title,RubricaId/Title,Autor/Title,Autor/EMail,AprovDir/Title,AprovDF/Title&$expand=ProjetoId,RubricaId,Autor,AprovDir,AprovDF&$orderby=Created desc&$top=500`);
     GF_SOLICITACOES = (ds.d?.results || []).map(r => ({
       id: r.Id,
       codigo: r.Codigo || '',
@@ -7815,6 +7815,7 @@ async function gfLoadAll() {
       emailForn: r.EmailFornecedor || '',
       justificacao: r.Justificacao || '',
       autorNome: r.Autor?.Title || '',
+      autorEmail: (r.Autor?.EMail || '').toLowerCase(),
       dataSubmissao: r.DataSubmissao || null,
       aprovDirNome: r.AprovDir?.Title || null,
       dataAprovDir: r.DataAprovDir || null,
@@ -7827,7 +7828,7 @@ async function gfLoadAll() {
     }));
 
     // Alterações Orçamentais
-    const da = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items?$select=*,DestProjetoId/Title,DestRubricaId/Title,Solicitante/Title,AprovDir/Title,AprovDF/Title,AprovPE/Title,AprovPCA/Title&$expand=DestProjetoId,DestRubricaId,Solicitante,AprovDir,AprovDF,AprovPE,AprovPCA&$orderby=Created desc&$top=200`);
+    const da = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items?$select=*,DestProjetoId/Title,DestRubricaId/Title,Solicitante/Title,Solicitante/EMail,AprovDir/Title,AprovDF/Title,AprovPE/Title,AprovPCA/Title&$expand=DestProjetoId,DestRubricaId,Solicitante,AprovDir,AprovDF,AprovPE,AprovPCA&$orderby=Created desc&$top=200`);
     GF_ALTERACOES = (da.d?.results || []).map(r => ({
       id: r.Id,
       titulo: r.Title || '',
@@ -7840,6 +7841,7 @@ async function gfLoadAll() {
       destRubricaId: r.DestRubricaId?.Id || r.DestRubricaIdId || null,
       destRubricaNome: r.DestRubricaId?.Title || '',
       solicitanteNome: r.Solicitante?.Title || '',
+      solicitanteEmail: (r.Solicitante?.EMail || '').toLowerCase(),
       dataSubmissao: r.DataSubmissao || null,
       aprovDirNome: r.AprovDir?.Title || null,
       dataAprovDir: r.DataAprovDir || null,
@@ -8163,6 +8165,8 @@ function gfRenderHome() {
 function gfCanApprove() { return ['area_director', 'df', 'pe', 'pca'].includes(_financeRole); }
 // Podem VER aprovações (sem botões de ação): aprovadores + membros da equipa Financeiro
 function gfCanViewAprovacoes() { return gfCanApprove() || isFinanceiroEquipa(); }
+// Membro fora da equipa Financeiro: só vê as suas próprias solicitações/alterações
+function gfIsMembroRestrito() { return isMembroFJ() && !isFinanceiroEquipa(); }
 // Tesouraria: apenas equipa Financeiro (inclui DF) ou Presidente Executivo
 function gfCanViewTesouraria() { return _financeRole === 'pe' || isFinanceiroEquipa(); }
 
@@ -9434,13 +9438,19 @@ async function gfDeleteSolicitacao(id){
   }catch(e){showNotif('Erro ao eliminar: '+e.message,'error');}
 }
 function gfRenderSolicitacoes() {
-  const tab = GF.tab.sol;
-  let lista = tab === 'minhas' ? GF_SOLICITACOES.filter(s => s.autorNome === user?.name) : GF_SOLICITACOES;
+  const myEmail = plMyEmailLower();
+  const restrito = gfIsMembroRestrito();
+  let tab = GF.tab.sol;
+  if (restrito && tab === 'lista') tab = 'minhas'; // Membro sem separador "Todas"
+  let lista = tab === 'minhas' ? GF_SOLICITACOES.filter(s => s.autorEmail === myEmail) : GF_SOLICITACOES;
   if (tab === 'realizadas') lista = GF_SOLICITACOES.filter(s => s.estado === 'Processado' || s.estado === 'Pago');
   
   // FILTRAR solicitações de projetos que o utilizador pode ver
   // canViewFinanceProject já trata todos os roles (PE, Diretores, Membros)
   lista = lista.filter(s => canViewFinanceProject(s.projetoId));
+
+  // Membro fora do Financeiro: só as suas, mesmo dentro de "Realizadas"
+  if (restrito) lista = lista.filter(s => s.autorEmail === myEmail);
   
   return `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text3)">
@@ -9457,7 +9467,7 @@ function gfRenderSolicitacoes() {
     </div>
     
     <div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border)">
-      <button onclick="GF.tab.sol='lista';gfRender()" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:${tab === 'lista' ? 'var(--mod-financeiro)' : 'var(--text3)'};border-bottom:2px solid ${tab === 'lista' ? 'var(--mod-financeiro)' : 'transparent'}">Todas</button>
+      ${!restrito ? `<button onclick="GF.tab.sol='lista';gfRender()" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:${tab === 'lista' ? 'var(--mod-financeiro)' : 'var(--text3)'};border-bottom:2px solid ${tab === 'lista' ? 'var(--mod-financeiro)' : 'transparent'}">Todas</button>` : ''}
       <button onclick="GF.tab.sol='minhas';gfRender()" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:${tab === 'minhas' ? 'var(--mod-financeiro)' : 'var(--text3)'};border-bottom:2px solid ${tab === 'minhas' ? 'var(--mod-financeiro)' : 'transparent'}">Minhas</button>
       <button onclick="GF.tab.sol='realizadas';gfRender()" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:${tab === 'realizadas' ? 'var(--mod-financeiro)' : 'var(--text3)'};border-bottom:2px solid ${tab === 'realizadas' ? 'var(--mod-financeiro)' : 'transparent'}">Realizadas ✓</button>
     </div>
@@ -10025,9 +10035,13 @@ async function gfRejeitarSolicitacao(id) {
 // ══════════════════════════════════════════════════════════════
 function gfRenderAlteracoes() {
   const tab = GF.tab.alt;
+  const restrito = gfIsMembroRestrito();
   // FILTRAR alterações de projetos que o utilizador pode ver
   // PE vê tudo, não aplica filtro
   let alteracoesFiltradas = _financeRole === 'pe' ? GF_ALTERACOES : GF_ALTERACOES.filter(a => canViewFinanceProject(a.destProjetoId));
+
+  // Membro fora do Financeiro: só os pedidos que ele próprio submeteu
+  if (restrito) alteracoesFiltradas = alteracoesFiltradas.filter(a => a.solicitanteEmail === plMyEmailLower());
   
   const pendentes = alteracoesFiltradas.filter(a => a.estado === 'Pendente');
   const historico = alteracoesFiltradas.filter(a => a.estado !== 'Pendente');
