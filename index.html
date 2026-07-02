@@ -4044,7 +4044,6 @@ function extOpenTarEdit(tarId, reuniaoId) {
   el('ext-edit-tar-id').value    = tarId;
   el('ext-edit-tar-titulo').value = t.titulo;
   el('ext-edit-tar-data').value   = t.dataLimite || '';
-  el('ext-edit-tar-notas').value  = t.notas || '';
   sv2('ext-edit-tar-estado',  t.estado || 'Por fazer');
   sv2('ext-edit-tar-resp',    t.responsavel || '');
   lockRespSelectToSelf('ext-edit-tar-resp',null);
