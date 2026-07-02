@@ -8002,6 +8002,9 @@ function gfUpdateSidebarNav() {
     const el = document.getElementById(id);
     if (el) el.style.display = canTes ? (id === 'gf-nav-tesouraria-lbl' ? 'block' : 'flex') : 'none';
   });
+  // Aprovações: mesma regra do cartão da página inicial (gfCanViewAprovacoes)
+  const aprovNav = document.getElementById('gf-nav-aprovacoes');
+  if (aprovNav) aprovNav.style.display = gfCanViewAprovacoes() ? 'flex' : 'none';
 }
 
 // ── MAIN RENDER ──
@@ -8064,6 +8067,7 @@ function gfRenderHome() {
       <div style="font-size:14px;color:var(--text3)">Ano orçamental: ${GF.year}</div>
     </div>
     
+    ${!isMembroFJ() ? `
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
       <div class="card" style="padding:16px">
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Orçamento Total</div>
@@ -8082,6 +8086,7 @@ function gfRenderHome() {
         <div style="font-size:20px;font-weight:600;color:${pendAprov > 0 ? '#D97706' : 'inherit'}">${pendAprov}</div>
       </div>
     </div>
+    ` : ''}
 
     ${canTes ? `
     <div style="margin-bottom:8px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Tesouraria</div>
