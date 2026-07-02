@@ -1400,7 +1400,7 @@ tr:hover td{background:var(--bg3)}
                     <input id="fa-nome" placeholder="Nome da ação" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:14px;font-family:inherit;color:var(--text)">
                   </div>
                   <div>
-                    <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Projeto (Factorial) *</label>
+                    <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Projeto *</label>
                     <select id="fa-proj" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:#fff;color:var(--text)"><option value="">Selecionar...</option></select>
                   </div>
                   <div>
@@ -1661,18 +1661,15 @@ tr:hover td{background:var(--bg3)}
                 </div>
               </div>
 
-              <!-- Linha: Responsável + Origem -->
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+              <!-- Linha: Responsável -->
+              <div style="margin-bottom:16px">
                 <div class="people-wrap">
                   <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Responsável</label>
                   <select id="ftar-resp" class="user-resp-sel" onchange="onUserSelChange(this,'ftar-email')" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:var(--bg2);color:var(--text)"><option value="">— Selecionar —</option></select>
                   <input id="ftar-email" type="hidden">
                 </div>
-                <div>
-                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Origem</label>
-                  <select id="ftar-origem" onchange="checkOrigem(this.value)" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:var(--bg2);color:var(--text)"><option value="Ad-hoc">Ad-hoc</option><option value="Reunião">Reunião externa</option><option value="Factorial">Factorial (só leitura)</option></select>
-                </div>
               </div>
+              <input id="ftar-origem" type="hidden" value="Ad-hoc">
 
               <!-- Linha: Datas -->
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
@@ -6527,7 +6524,7 @@ function openAcaoForm(projId,acaoId){
 function closeAcaoForm(){el('frm-acao-ov').style.display='none';editAcaoId=null;}
 async function saveAcao(){
   const nome=gv('fa-nome').trim();if(!nome){alert('Nome obrigatório.');return;}
-  const pid=gv('fa-proj');if(!pid){alert('Seleciona o projeto do Factorial.');return;}
+  const pid=gv('fa-proj');if(!pid){alert('Seleciona o projeto.');return;}
   const btn=el('save-acao-btn');btn.textContent='A guardar...';btn.disabled=true;
   try{
     const depVal=gv('fa-dep');
@@ -6960,7 +6957,7 @@ function plMeusAcaoIds(){
 // Esconde separadores do Planeamento não permitidos para Membro
 function plApplyRoleVisibility(){
   if(plCanSeeAll()) return; // Diretor+/admin vê tudo, sem alterações
-  ['pl-nav-trimestral','pl-nav-kpis','pl-nav-relatorios','pl-nav-analise-horas'].forEach(id=>{
+  ['pl-nav-trimestral','pl-nav-kpis','pl-nav-relatorios','pl-nav-analise-horas','pl-nav-gantt'].forEach(id=>{
     const nav=document.getElementById(id);
     if(nav) nav.style.display='none';
   });
