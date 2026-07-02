@@ -3283,6 +3283,10 @@ function showApp(){
       const deTab = document.getElementById('tab-de');
       if(deTab) deTab.style.display = 'block';
     }
+    if(isMembroFJ()){
+      const coTab = document.getElementById('tab-co');
+      if(coTab) coTab.style.display = 'none';
+    }
   });
   
   // Carrega departamentos globalmente (fonte de verdade para todos os módulos)
