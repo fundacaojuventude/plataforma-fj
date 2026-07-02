@@ -7062,6 +7062,7 @@ function renderSem(){
     if(!t.dataLimite) return false;
     const dl=new Date(t.dataLimite+'T23:59:59');
     if(dl>wr.end) return false;
+    if(!isDir && t.lista==='FJ_CorreioTarefas') return false; // Membro não tem acesso ao módulo Correio
 
     // Modo "Minhas tarefas" (membros sempre; diretores quando toggled)
     if(!isDir || plSemMyTasks){
