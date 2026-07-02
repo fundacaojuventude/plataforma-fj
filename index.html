@@ -7146,14 +7146,14 @@ function renderSem(){
           <span style="font-size:11px;font-weight:600;color:var(--mod-planeamento-mid)">↳ ${acao?.nome||'Ação #'+acaoId}</span>
           <span style="font-size:11px;color:var(--text3);margin-left:6px">(${acaoTarefas.length})</span>
         </td></tr>`;
-        acaoTarefas.forEach(t=>{html+=_semTarefaRow(t,hoje);});
+        acaoTarefas.forEach(t=>{html+=_semTarefaRow(t,hoje,isDir);});
       });
       const semAcao=projTarefas.filter(t=>!t.acaoId);
       if(semAcao.length){
         html+=`<tr><td colspan="8" style="background:#fafafa;padding:5px 14px 5px 28px;border-bottom:0.5px solid var(--border)">
           <span style="font-size:11px;color:var(--text3)">↳ Sem ação (${semAcao.length})</span>
         </td></tr>`;
-        semAcao.forEach(t=>{html+=_semTarefaRow(t,hoje);});
+        semAcao.forEach(t=>{html+=_semTarefaRow(t,hoje,isDir);});
       }
     });
     const semProj=planoTasks.filter(t=>!getProjId(t));
@@ -7161,7 +7161,7 @@ function renderSem(){
       html+=`<tr><td colspan="8" style="background:#fafafa;padding:6px 14px;border-top:1px solid var(--border)">
         <span style="font-size:11px;font-weight:600;color:var(--text3)">📋 Sem projeto (${semProj.length})</span>
       </td></tr>`;
-      semProj.forEach(t=>{html+=_semTarefaRow(t,hoje);});
+      semProj.forEach(t=>{html+=_semTarefaRow(t,hoje,isDir);});
     }
   }
 
@@ -7178,7 +7178,7 @@ function renderSem(){
         <span style="font-size:11px;font-weight:600;color:var(--mod-reunioes)">↳ ${orig}</span>
         <span style="font-size:11px;color:var(--text3);margin-left:6px">(${grupo.length})</span>
       </td></tr>`;
-      grupo.forEach(t=>{html+=_semTarefaRow(t,hoje);});
+      grupo.forEach(t=>{html+=_semTarefaRow(t,hoje,isDir);});
     });
   }
 
@@ -7195,7 +7195,7 @@ function renderSem(){
         <span style="font-size:11px;font-weight:600;color:var(--mod-correio-mid)">↳ ${assunto}</span>
         <span style="font-size:11px;color:var(--text3);margin-left:6px">(${grupo.length})</span>
       </td></tr>`;
-      grupo.forEach(t=>{html+=_semTarefaRow(t,hoje);});
+      grupo.forEach(t=>{html+=_semTarefaRow(t,hoje,isDir);});
     });
   }
 
@@ -7204,7 +7204,7 @@ function renderSem(){
   if(elCount)elCount.textContent=`${total} tarefa${total!==1?'s':''} pendente${total!==1?'s':''}`;
 }
 
-function _semTarefaRow(t,hoje){
+function _semTarefaRow(t,hoje,isDir){
   if(!hoje){hoje=new Date();hoje.setHours(0,0,0,0);}
   const atrasada=t.dataLimite&&new Date(t.dataLimite+'T23:59:59')<hoje;
   const dataStr=t.dataLimite
