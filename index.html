@@ -3675,7 +3675,7 @@ function renderExtTable() {
     // Membro só vê as reuniões externas onde é o próprio responsável.
     // Comparação por nome (r.responsavel), pois é assim que o campo é
     // gravado em saveExt() — não é um campo Pessoa verdadeiro do SharePoint.
-    if (isMembroFJ() && r.responsavel !== (currentUserFJ?.titulo || '')) return false;
+    if (isMembroFJ() && (r.responsavelEmail||'').toLowerCase() !== plMyEmailLower()) return false;
     if (q && !r.titulo.toLowerCase().includes(q) && !r.entidade.toLowerCase().includes(q)) return false;
     if (dep  && r.departamento !== dep) return false;
     if (from && r.data < from) return false;
