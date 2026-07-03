@@ -5287,8 +5287,12 @@ async function deleteUtilizador(id){
 }
 function showNotif(msg,type='info'){
   const n=el('notif');if(!n)return;
+  if(type==='success'){
+    // Mensagens de sucesso deixaram de mostrar a caixa visual (pedido do utilizador)
+    return;
+  }
   n.textContent=msg;
-  n.className='notif show'+(type==='success'?' success':type==='error'?' error':'');
+  n.className='notif show'+(type==='error'?' error':'');
   if(type!=='error'){
     clearTimeout(n._hideTimer);
     n._hideTimer=setTimeout(()=>n.classList.remove('show'),2000);
