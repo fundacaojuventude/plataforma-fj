@@ -9771,7 +9771,14 @@ async function gfSaveSolicitacao(id, estado) {
   if (estado === 'Submetido') {
     body.DataSubmissao = new Date().toISOString();
   }
-  
+
+  // Autor é campo Pessoa — só se define na criação, nunca se sobrepõe numa edição
+  if (!id) {
+    const myEmail = (user?.username || user?.preferredUsername || '');
+    const uid = await getSpUID(myEmail);
+    if (uid) body.AutorId = uid;
+  }
+
   try {
     let itemId = id;
     if (id) {
@@ -10379,7 +10386,9 @@ async function gfSubmitAlteracao() {
       DestRubricaIdId: destRubId,
       DataSubmissao: new Date().toISOString()
     };
-    
+    const solicitanteUserId = await getCurrentUserId();
+    if (solicitanteUserId) bodyAlt.SolicitanteId = solicitanteUserId;
+
     const res = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items`, bodyAlt, 'POST');
     const altData = await res.json();
     const altId = altData.d?.Id;
