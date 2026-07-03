@@ -181,7 +181,7 @@ tr:hover td{background:var(--bg3)}
 .toggle::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left .12s}
 .toggle.on::after{left:18px}
 .panel-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:1.25rem;padding-top:1rem;border-top:0.5px solid var(--border)}
-.notif{background:var(--blue-l);border:0.5px solid var(--fj-blue);border-radius:var(--r);padding:10px 14px;margin-bottom:1rem;font-size:13px;color:var(--blue-d);display:none}
+.notif{background:var(--blue-l);border:0.5px solid var(--fj-blue);border-radius:var(--r);padding:10px 14px;margin-bottom:1rem;font-size:13px;color:var(--blue-d);display:none;width:100%;box-sizing:border-box}
 .notif.show{display:block}
 .notif.success{background:var(--green-bg);border-color:var(--green-mid);color:var(--green)}
 .notif.error{background:var(--red-bg);border-color:var(--red);color:var(--red)}
@@ -5289,6 +5289,9 @@ function showNotif(msg,type='info'){
   const n=el('notif');if(!n)return;
   n.textContent=msg;
   n.className='notif show'+(type==='success'?' success':type==='error'?' error':'');
+  if(type==='error'){
+    alert('DEBUG (temporário) — Erro:\n\n'+msg); // remover depois de diagnosticado
+  }
   if(type!=='error'){
     clearTimeout(n._hideTimer);
     n._hideTimer=setTimeout(()=>n.classList.remove('show'),2000);
