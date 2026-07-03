@@ -786,7 +786,7 @@ tr:hover td{background:var(--bg3)}
 
       <!-- Alterações -->
       <div class="sidebar-lbl" style="color:rgba(255,255,255,.4);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;padding:.6rem .75rem .15rem">Alterações Orç.</div>
-      <div class="nav-item" id="gf-nav-alt-nova" onclick="GF.origens=[];GF.altTitulo='';GF.altJustificacao='';gfNav('alteracao-form')" style="color:rgba(255,255,255,.75);padding-left:1.25rem">
+      <div class="nav-item" id="gf-nav-alt-nova" onclick="GF.alteracao=null;GF.origens=[];GF.altTitulo='';GF.altJustificacao='';GF.altDestProj=null;GF.altDestRub=null;gfNav('alteracao-form')" style="color:rgba(255,255,255,.75);padding-left:1.25rem">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
         + Pedido de Alteração
       </div>
@@ -7725,6 +7725,8 @@ let GF = {
   origens: [], // Para alterações orçamentais
   altTitulo: '', // Persiste Título/Justificação do form de Alteração entre re-renders
   altJustificacao: '',
+  altDestProj: null,
+  altDestRub: null,
   bloqueado: false,  // controla se edições de valores orçamentados estão bloqueadas pela DF
   _bloqueadoId: null // Id do item em FJ_Configuracoes (para MERGE)
 };
@@ -8036,6 +8038,7 @@ function gfRender() {
     case 'solicitacao-view': html = gfRenderSolicitacaoView(); break;
     case 'alteracoes': html = gfRenderAlteracoes(); break;
     case 'alteracao-form': html = gfRenderAlteracaoForm(); break;
+    case 'alteracao-view': html = gfRenderAlteracaoView(); break;
     case 'aprovacoes': html = gfRenderAprovacoes(); break;
     case 'faturas': html = gfRenderFaturas(); break;
     case 'configuracoes': html = gfRenderConfiguracoes(); break;
@@ -10045,17 +10048,22 @@ async function gfRejeitarSolicitacao(id) {
 // ALTERAÇÕES ORÇAMENTAIS
 // ══════════════════════════════════════════════════════════════
 function gfRenderAlteracoes() {
-  const tab = GF.tab.alt;
+  const myEmail = plMyEmailLower();
   const restrito = gfIsMembroRestrito();
+  let tab = GF.tab.alt;
+  if (restrito && tab === 'lista') tab = 'minhas'; // Membro sem separador "Todas"
+
   // FILTRAR alterações de projetos que o utilizador pode ver
   // PE vê tudo, não aplica filtro
   let alteracoesFiltradas = _financeRole === 'pe' ? GF_ALTERACOES : GF_ALTERACOES.filter(a => canViewFinanceProject(a.destProjetoId));
 
-  // Membro fora do Financeiro: só os pedidos que ele próprio submeteu
-  if (restrito) alteracoesFiltradas = alteracoesFiltradas.filter(a => a.solicitanteEmail === plMyEmailLower());
-  
-  const pendentes = alteracoesFiltradas.filter(a => a.estado === 'Pendente');
-  const historico = alteracoesFiltradas.filter(a => a.estado !== 'Pendente');
+  const minhas = alteracoesFiltradas.filter(a => a.solicitanteEmail === myEmail);
+  const realizadas = alteracoesFiltradas.filter(a => a.estado === 'Aprovado DF' || a.estado === 'Rejeitado');
+
+  let list = tab === 'minhas' ? minhas : tab === 'realizadas' ? realizadas : alteracoesFiltradas;
+
+  // Membro fora do Financeiro: só os pedidos que ele próprio submeteu, mesmo dentro de "Realizadas"
+  if (restrito) list = list.filter(a => a.solicitanteEmail === myEmail);
   
   return `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text3)">
@@ -10065,15 +10073,16 @@ function gfRenderAlteracoes() {
     
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div style="font-size:20px;font-weight:600">Alterações Orçamentais</div>
-      <button class="btn btn-primary" onclick="GF.alteracao=null;GF.origens=[];GF.altTitulo='';GF.altJustificacao='';gfNav('alteracao-form')">+ Nova Alteração</button>
+      <button class="btn btn-primary" onclick="GF.alteracao=null;GF.origens=[];GF.altTitulo='';GF.altJustificacao='';GF.altDestProj=null;GF.altDestRub=null;gfNav('alteracao-form')">+ Nova Alteração</button>
     </div>
     
     <div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border)">
-      <button onclick="GF.tab.alt='lista';gfRender()" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:${tab === 'lista' ? 'var(--blue)' : 'var(--text3)'};border-bottom:2px solid ${tab === 'lista' ? 'var(--blue)' : 'transparent'}">Todas (${alteracoesFiltradas.length})</button>
-      <button onclick="GF.tab.alt='pendentes';gfRender()" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:${tab === 'pendentes' ? 'var(--blue)' : 'var(--text3)'};border-bottom:2px solid ${tab === 'pendentes' ? 'var(--blue)' : 'transparent'}">Pendentes (${pendentes.length})</button>
+      ${!restrito ? `<button onclick="GF.tab.alt='lista';gfRender()" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:${tab === 'lista' ? 'var(--blue)' : 'var(--text3)'};border-bottom:2px solid ${tab === 'lista' ? 'var(--blue)' : 'transparent'}">Todas (${alteracoesFiltradas.length})</button>` : ''}
+      <button onclick="GF.tab.alt='minhas';gfRender()" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:${tab === 'minhas' ? 'var(--blue)' : 'var(--text3)'};border-bottom:2px solid ${tab === 'minhas' ? 'var(--blue)' : 'transparent'}">Minhas (${minhas.length})</button>
+      <button onclick="GF.tab.alt='realizadas';gfRender()" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:${tab === 'realizadas' ? 'var(--blue)' : 'var(--text3)'};border-bottom:2px solid ${tab === 'realizadas' ? 'var(--blue)' : 'transparent'}">Realizadas ✓</button>
     </div>
     
-    ${gfRenderAltList(tab === 'pendentes' ? pendentes : alteracoesFiltradas)}
+    ${gfRenderAltList(list)}
   `;
 }
 
@@ -10094,6 +10103,7 @@ function gfRenderAltList(list) {
             <th style="padding:12px 16px;text-align:center;font-weight:500">Dir. Financeira</th>
             <th style="padding:12px 16px;text-align:center;font-weight:500">Estado</th>
             <th style="padding:12px 16px;text-align:center;font-weight:500">Data</th>
+            <th style="padding:12px 16px;text-align:center;font-weight:500">Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -10117,6 +10127,10 @@ function gfRenderAltList(list) {
               </td>
               <td style="padding:14px 16px;text-align:center">${GF_BADGES[a.estado] || a.estado}</td>
               <td style="padding:14px 16px;text-align:center;font-size:12px">${gfDate(a.dataSubmissao)}</td>
+              <td style="padding:14px 16px;text-align:center;overflow:visible;text-overflow:clip;white-space:nowrap">
+                <button class="btn btn-sm" onclick="GF.alteracao=${a.id};gfNav('alteracao-view')">Ver</button>
+                ${a.estado === 'Pendente' ? `<button class="btn btn-sm" onclick="gfOpenAlteracaoEdit(${a.id})" style="margin-left:4px">Editar</button><button class="btn btn-sm btn-danger" onclick="gfDeleteAlteracao(${a.id})" style="margin-left:4px">✕</button>` : ''}
+              </td>
             </tr>
           `).join('')}
         </tbody>
@@ -10129,6 +10143,8 @@ function gfRenderAltList(list) {
 // ALTERAÇÃO FORM (MASTER-DETAIL)
 // ══════════════════════════════════════════════════════════════
 function gfRenderAlteracaoForm() {
+  const altEdit = GF.alteracao ? GF_ALTERACOES.find(x => x.id === GF.alteracao) : null;
+  const isEdit = !!altEdit;
   const totalOrigens = GF.origens.reduce((a, o) => a + (o.valor || 0), 0);
   
   // Calcular nível de aprovação automático
@@ -10145,10 +10161,10 @@ function gfRenderAlteracaoForm() {
       <a onclick="gfNav('home')" style="color:var(--mod-financeiro);cursor:pointer">Início</a>
       <span>›</span>
       <a onclick="gfNav('alteracoes')" style="color:var(--mod-financeiro);cursor:pointer">Alterações</a>
-      <span>›</span><span>Nova Alteração</span>
+      <span>›</span><span>${isEdit ? 'Editar Alteração' : 'Nova Alteração'}</span>
     </div>
     
-    <div style="font-size:22px;font-weight:700;margin-bottom:20px;color:var(--text)">Nova Alteração Orçamental</div>
+    <div style="font-size:22px;font-weight:700;margin-bottom:20px;color:var(--text)">${isEdit ? 'Editar' : 'Nova'} Alteração Orçamental</div>
     
     <!-- Identificação -->
     <div class="card" style="margin-bottom:16px;border-left:4px solid var(--mod-financeiro)">
@@ -10217,14 +10233,14 @@ function gfRenderAlteracaoForm() {
             <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Projeto Destino <span style="color:#EF4444">*</span></label>
             <select id="gf-alt-dest-proj" onchange="gfAltDestProjChange()" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
               <option value="">Selecionar projeto...</option>
-              ${gfProjetosOptions()}
+              ${gfProjetosOptions(GF.altDestProj)}
             </select>
           </div>
           
           <div style="margin-bottom:16px">
             <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Rúbrica Destino <span style="color:#EF4444">*</span></label>
-            <select id="gf-alt-dest-rub" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
-              <option value="">Selecionar projeto primeiro...</option>
+            <select id="gf-alt-dest-rub" onchange="GF.altDestRub=parseInt(this.value)||null" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+              ${GF.altDestProj ? gfOrigRubOptions(GF.altDestProj, GF.altDestRub) : '<option value="">Selecionar projeto primeiro...</option>'}
             </select>
           </div>
           
@@ -10239,9 +10255,9 @@ function gfRenderAlteracaoForm() {
     
     <!-- Botões -->
     <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button class="btn" onclick="gfNav('alteracoes')">Cancelar</button>
-      <button class="btn" onclick="gfSaveAlteracaoRascunho()">Guardar Rascunho</button>
-      <button class="btn btn-primary" style="background:var(--mod-financeiro);border-color:var(--mod-financeiro)" onclick="gfSubmitAlteracao()">Submeter Pedido</button>
+      <button class="btn" onclick="GF.alteracao=null;GF.altDestProj=null;GF.altDestRub=null;gfNav('alteracoes')">Cancelar</button>
+      ${!isEdit ? `<button class="btn" onclick="gfSaveAlteracaoRascunho()">Guardar Rascunho</button>` : ''}
+      <button class="btn btn-primary" style="background:var(--mod-financeiro);border-color:var(--mod-financeiro)" onclick="gfSubmitAlteracao()">${isEdit ? 'Guardar Alterações' : 'Submeter Pedido'}</button>
     </div>
   `;
 }
@@ -10297,7 +10313,9 @@ function gfOrigRubOptions(projId, selectedId) {
 }
 
 function gfAltDestProjChange() {
-  const projId = parseInt(gfVal('gf-alt-dest-proj'));
+  const projId = parseInt(gfVal('gf-alt-dest-proj')) || null;
+  GF.altDestProj = projId;
+  GF.altDestRub = null;
   const rubSel = gfEl('gf-alt-dest-rub');
   if (!projId) {
     rubSel.innerHTML = '<option value="">Selecionar projeto primeiro...</option>';
@@ -10306,6 +10324,80 @@ function gfAltDestProjChange() {
   const rubs = GF_RUBRICAS.filter(r => r.projetoId === projId);
   rubSel.innerHTML = '<option value="">Selecionar rúbrica...</option>' + 
     rubs.map(r => `<option value="${r.id}">${r.titulo}</option>`).join('');
+}
+
+function gfOpenAlteracaoEdit(id) {
+  const a = GF_ALTERACOES.find(x => x.id === id);
+  if (!a) return;
+  GF.alteracao = id;
+  GF.altTitulo = a.titulo || '';
+  GF.altJustificacao = a.justificacao || '';
+  GF.altDestProj = a.destProjetoId || null;
+  GF.altDestRub = a.destRubricaId || null;
+  GF.origens = GF_ALTERACOES_ORIGENS
+    .filter(o => o.alteracaoId === id)
+    .map(o => ({ projetoId: o.origProjetoId, rubricaId: o.origRubricaId, valor: o.valor }));
+  gfNav('alteracao-form');
+}
+
+async function gfDeleteAlteracao(id) {
+  if (!confirm('Eliminar este pedido de alteração?')) return;
+  try {
+    const origens = GF_ALTERACOES_ORIGENS.filter(o => o.alteracaoId === id);
+    for (const o of origens) {
+      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items(${o.id})`, null, 'DELETE');
+    }
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items(${id})`, null, 'DELETE');
+    showNotif('Pedido eliminado.', 'success');
+    await gfLoadAll();
+    gfNav('alteracoes');
+  } catch (e) {
+    showNotif('Erro ao eliminar: ' + e.message, 'error');
+  }
+}
+
+function gfRenderAlteracaoView() {
+  const a = GF_ALTERACOES.find(x => x.id === GF.alteracao);
+  if (!a) return '<p style="padding:40px;text-align:center">Alteração não encontrada</p>';
+  const origens = GF_ALTERACOES_ORIGENS.filter(o => o.alteracaoId === a.id);
+  return `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text3)">
+      <a onclick="gfNav('home')" style="color:var(--mod-financeiro);cursor:pointer">Início</a>
+      <span>›</span>
+      <a onclick="gfNav('alteracoes')" style="color:var(--mod-financeiro);cursor:pointer">Alterações Orçamentais</a>
+      <span>›</span><span>${a.titulo || 'Alteração'}</span>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div style="font-size:20px;font-weight:600">${a.titulo || 'Alteração'}</div>
+        <div style="margin-top:4px">${GF_BADGES[a.estado] || a.estado}</div>
+      </div>
+      <div style="font-size:24px;font-weight:600;color:var(--mod-financeiro)">${gfFmt(a.valorTotal)}</div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Justificação</div>
+      <div style="font-size:13px;margin-bottom:16px">${a.justificacao || '—'}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Projeto Destino</div>
+          <div style="font-weight:500">${a.destProjetoNome || '—'}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Rúbrica Destino</div>
+          <div style="font-weight:500">${a.destRubricaNome || '—'}</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:12px">Origens</div>
+      ${origens.length ? origens.map(o => `
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <span>${o.origProjetoNome} › ${o.origRubricaNome}</span>
+          <span style="font-weight:500">${gfFmt(o.valor)}</span>
+        </div>
+      `).join('') : '<div style="color:var(--text3);font-size:13px">Sem origens</div>'}
+    </div>
+  `;
 }
 
 function gfAddOrigem() {
@@ -10343,6 +10435,8 @@ async function gfSaveAlteracaoRascunho() {
 }
 
 async function gfSubmitAlteracao() {
+  const isEdit = !!GF.alteracao;
+
   // Collect origem data from form
   GF.origens = GF.origens.map((o, i) => ({
     projetoId: parseInt(gfVal(`gf-orig-proj-${i}`)) || null,
@@ -10376,26 +10470,47 @@ async function gfSubmitAlteracao() {
   const destRub = GF_RUBRICAS.find(r => r.id === destRubId);
   
   try {
-    // 1. Criar registo principal
-    const bodyAlt = {
-      __metadata: { type: 'SP.Data.FJ_x005f_AlteracoesOrcamentaisListItem' },
-      Title: titulo || `Alteração: ${destRub?.titulo || 'Rúbrica'} — ${destProj?.nome || 'Projeto'}`,
-      Justificacao: justificacao,
-      ValorTotal: valorTotal,
-      Estado: 'Pendente',
-      NivelAprovacao: nivel,
-      DestProjetoIdId: destProjId,
-      DestRubricaIdId: destRubId,
-      DataSubmissao: new Date().toISOString()
-    };
-    const solicitanteUserId = await getCurrentUserId();
-    if (solicitanteUserId) bodyAlt.SolicitanteId = solicitanteUserId;
+    let altId;
+    if (isEdit) {
+      // 1. Atualizar registo principal existente (não mexe em Solicitante nem DataSubmissao originais)
+      altId = GF.alteracao;
+      const bodyAltEdit = {
+        __metadata: { type: 'SP.Data.FJ_x005f_AlteracoesOrcamentaisListItem' },
+        Title: titulo || `Alteração: ${destRub?.titulo || 'Rúbrica'} — ${destProj?.nome || 'Projeto'}`,
+        Justificacao: justificacao,
+        ValorTotal: valorTotal,
+        NivelAprovacao: nivel,
+        DestProjetoIdId: destProjId,
+        DestRubricaIdId: destRubId
+      };
+      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items(${altId})`, bodyAltEdit, 'MERGE');
 
-    const res = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items`, bodyAlt, 'POST');
-    const altData = await res.json();
-    const altId = altData.d?.Id;
-    
-    if (!altId) throw new Error('Não foi possível obter o ID da alteração');
+      // Apagar origens antigas e recriar do zero (mais simples e seguro do que sincronizar/diff)
+      const origensAntigas = GF_ALTERACOES_ORIGENS.filter(o => o.alteracaoId === altId);
+      for (const o of origensAntigas) {
+        await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items(${o.id})`, null, 'DELETE');
+      }
+    } else {
+      // 1. Criar registo principal
+      const bodyAlt = {
+        __metadata: { type: 'SP.Data.FJ_x005f_AlteracoesOrcamentaisListItem' },
+        Title: titulo || `Alteração: ${destRub?.titulo || 'Rúbrica'} — ${destProj?.nome || 'Projeto'}`,
+        Justificacao: justificacao,
+        ValorTotal: valorTotal,
+        Estado: 'Pendente',
+        NivelAprovacao: nivel,
+        DestProjetoIdId: destProjId,
+        DestRubricaIdId: destRubId,
+        DataSubmissao: new Date().toISOString()
+      };
+      const solicitanteUserId = await getCurrentUserId();
+      if (solicitanteUserId) bodyAlt.SolicitanteId = solicitanteUserId;
+
+      const res = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items`, bodyAlt, 'POST');
+      const altData = await res.json();
+      altId = altData.d?.Id;
+      if (!altId) throw new Error('Não foi possível obter o ID da alteração');
+    }
     
     // 2. Criar registos de origem
     for (const o of GF.origens) {
@@ -10410,10 +10525,13 @@ async function gfSubmitAlteracao() {
       await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items`, bodyOrig, 'POST');
     }
     
-    showNotif('Alteração submetida com sucesso!', 'success');
+    showNotif(isEdit ? 'Alteração atualizada com sucesso!' : 'Alteração submetida com sucesso!', 'success');
     GF.origens = [];
     GF.altTitulo = '';
     GF.altJustificacao = '';
+    GF.altDestProj = null;
+    GF.altDestRub = null;
+    GF.alteracao = null;
     await gfLoadAll();
     gfNav('alteracoes');
   } catch (e) {
