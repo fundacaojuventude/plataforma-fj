@@ -181,7 +181,7 @@ tr:hover td{background:var(--bg3)}
 .toggle::after{content:'';position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left .12s}
 .toggle.on::after{left:18px}
 .panel-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:1.25rem;padding-top:1rem;border-top:0.5px solid var(--border)}
-.notif{background:var(--blue-l);border:0.5px solid var(--fj-blue);border-radius:var(--r);padding:10px 14px;margin-bottom:1rem;font-size:13px;color:var(--blue-d);display:none;width:100%;box-sizing:border-box}
+.notif{background:var(--blue-l);border:0.5px solid var(--fj-blue);border-radius:var(--r);padding:10px 14px;margin-bottom:1rem;font-size:13px;color:var(--blue-d);display:none;width:100%;min-width:min(500px,90vw);box-sizing:border-box}
 .notif.show{display:block}
 .notif.success{background:var(--green-bg);border-color:var(--green-mid);color:var(--green)}
 .notif.error{background:var(--red-bg);border-color:var(--red);color:var(--red)}
@@ -7777,6 +7777,45 @@ const GF_BADGES = {
 };
 
 // ── LOAD DATA FROM SHAREPOINT ──
+// Recarregamento leve — só Alterações + Origens, para usar depois de gravar/eliminar
+// uma alteração, em vez de gfLoadAll() (que recarrega orçamento, solicitações, faturas, etc.)
+async function gfLoadAlteracoes() {
+  const da = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items?$select=*,DestProjetoId/Title,DestRubricaId/Title,Solicitante/Title,Solicitante/EMail,AprovDir/Title,AprovDF/Title,AprovPE/Title,AprovPCA/Title&$expand=DestProjetoId,DestRubricaId,Solicitante,AprovDir,AprovDF,AprovPE,AprovPCA&$orderby=Created desc&$top=200`);
+  GF_ALTERACOES = (da.d?.results || []).map(r => ({
+    id: r.Id,
+    titulo: r.Title || '',
+    justificacao: r.Justificacao || '',
+    valorTotal: r.ValorTotal || 0,
+    estado: r.Estado || 'Pendente',
+    nivelAprovacao: r.NivelAprovacao || 'df',
+    destProjetoId: r.DestProjetoId?.Id || r.DestProjetoIdId || null,
+    destProjetoNome: r.DestProjetoId?.Title || '',
+    destRubricaId: r.DestRubricaId?.Id || r.DestRubricaIdId || null,
+    destRubricaNome: r.DestRubricaId?.Title || '',
+    solicitanteNome: r.Solicitante?.Title || '',
+    solicitanteEmail: (r.Solicitante?.EMail || '').toLowerCase(),
+    dataSubmissao: r.DataSubmissao || null,
+    aprovDirNome: r.AprovDir?.Title || null,
+    dataAprovDir: r.DataAprovDir || null,
+    aprovDFNome: r.AprovDF?.Title || null,
+    dataAprovDF: r.DataAprovDF || null,
+    aprovPENome: r.AprovPE?.Title || null,
+    aprovPCANome: r.AprovPCA?.Title || null,
+    motivoRejeicao: r.MotivoRejeicao || ''
+  }));
+
+  const dao = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items?$select=*,AlteracaoId/Id,OrigProjetoId/Title,OrigRubricaId/Title&$expand=AlteracaoId,OrigProjetoId,OrigRubricaId&$top=1000`);
+  GF_ALTERACOES_ORIGENS = (dao.d?.results || []).map(r => ({
+    id: r.Id,
+    alteracaoId: r.AlteracaoId?.Id || r.AlteracaoIdId || null,
+    origProjetoId: r.OrigProjetoId?.Id || r.OrigProjetoIdId || null,
+    origProjetoNome: r.OrigProjetoId?.Title || '',
+    origRubricaId: r.OrigRubricaId?.Id || r.OrigRubricaIdId || null,
+    origRubricaNome: r.OrigRubricaId?.Title || '',
+    valor: r.Valor || 0
+  }));
+}
+
 async function gfLoadAll() {
   try {
     // Projetos (usando sharedProjetos ou carregando direto)
@@ -10348,12 +10387,12 @@ async function gfDeleteAlteracao(id) {
   if (!confirm('Eliminar este pedido de alteração?')) return;
   try {
     const origens = GF_ALTERACOES_ORIGENS.filter(o => o.alteracaoId === id);
-    for (const o of origens) {
-      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items(${o.id})`, null, 'DELETE');
-    }
+    await Promise.all(origens.map(o =>
+      spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items(${o.id})`, null, 'DELETE')
+    ));
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items(${id})`, null, 'DELETE');
     showNotif('Pedido eliminado.', 'success');
-    await gfLoadAll();
+    await gfLoadAlteracoes();
     gfNav('alteracoes');
   } catch (e) {
     showNotif('Erro ao eliminar: ' + e.message, 'error');
@@ -10491,9 +10530,9 @@ async function gfSubmitAlteracao() {
 
       // Apagar origens antigas e recriar do zero (mais simples e seguro do que sincronizar/diff)
       const origensAntigas = GF_ALTERACOES_ORIGENS.filter(o => o.alteracaoId === altId);
-      for (const o of origensAntigas) {
-        await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items(${o.id})`, null, 'DELETE');
-      }
+      await Promise.all(origensAntigas.map(o =>
+        spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items(${o.id})`, null, 'DELETE')
+      ));
     } else {
       // 1. Criar registo principal
       const bodyAlt = {
@@ -10516,8 +10555,8 @@ async function gfSubmitAlteracao() {
       if (!altId) throw new Error('Não foi possível obter o ID da alteração');
     }
     
-    // 2. Criar registos de origem
-    for (const o of GF.origens) {
+    // 2. Criar registos de origem (em paralelo)
+    await Promise.all(GF.origens.map(o => {
       const bodyOrig = {
         __metadata: { type: 'SP.Data.FJ_x005f_AlteracoesOrigensListItem' },
         Title: `Origem #${altId}`,
@@ -10526,8 +10565,8 @@ async function gfSubmitAlteracao() {
         OrigRubricaIdId: o.rubricaId,
         Valor: o.valor
       };
-      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items`, bodyOrig, 'POST');
-    }
+      return spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items`, bodyOrig, 'POST');
+    }));
     
     showNotif(isEdit ? 'Alteração atualizada com sucesso!' : 'Alteração submetida com sucesso!', 'success');
     GF.origens = [];
@@ -10536,7 +10575,7 @@ async function gfSubmitAlteracao() {
     GF.altDestProj = null;
     GF.altDestRub = null;
     GF.alteracao = null;
-    await gfLoadAll();
+    await gfLoadAlteracoes();
     gfNav('alteracoes');
   } catch (e) {
     showNotif('Erro: ' + e.message, 'error');
