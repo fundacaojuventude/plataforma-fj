@@ -786,7 +786,7 @@ tr:hover td{background:var(--bg3)}
 
       <!-- Alterações -->
       <div class="sidebar-lbl" style="color:rgba(255,255,255,.4);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;padding:.6rem .75rem .15rem">Alterações Orç.</div>
-      <div class="nav-item" id="gf-nav-alt-nova" onclick="GF.origens=[];gfNav('alteracao-form')" style="color:rgba(255,255,255,.75);padding-left:1.25rem">
+      <div class="nav-item" id="gf-nav-alt-nova" onclick="GF.origens=[];GF.altTitulo='';GF.altJustificacao='';gfNav('alteracao-form')" style="color:rgba(255,255,255,.75);padding-left:1.25rem">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v12M2 8h12"/></svg>
         + Pedido de Alteração
       </div>
@@ -5289,9 +5289,6 @@ function showNotif(msg,type='info'){
   const n=el('notif');if(!n)return;
   n.textContent=msg;
   n.className='notif show'+(type==='success'?' success':type==='error'?' error':'');
-  if(type==='error'){
-    alert('DEBUG (temporário) — Erro:\n\n'+msg); // remover depois de diagnosticado
-  }
   if(type!=='error'){
     clearTimeout(n._hideTimer);
     n._hideTimer=setTimeout(()=>n.classList.remove('show'),2000);
@@ -7726,6 +7723,8 @@ let GF = {
   alteracao: null,
   tab: { orc: 'projetos', sol: 'lista', alt: 'lista', aprov: 'pendentes' },
   origens: [], // Para alterações orçamentais
+  altTitulo: '', // Persiste Título/Justificação do form de Alteração entre re-renders
+  altJustificacao: '',
   bloqueado: false,  // controla se edições de valores orçamentados estão bloqueadas pela DF
   _bloqueadoId: null // Id do item em FJ_Configuracoes (para MERGE)
 };
@@ -10066,7 +10065,7 @@ function gfRenderAlteracoes() {
     
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div style="font-size:20px;font-weight:600">Alterações Orçamentais</div>
-      <button class="btn btn-primary" onclick="GF.alteracao=null;GF.origens=[];gfNav('alteracao-form')">+ Nova Alteração</button>
+      <button class="btn btn-primary" onclick="GF.alteracao=null;GF.origens=[];GF.altTitulo='';GF.altJustificacao='';gfNav('alteracao-form')">+ Nova Alteração</button>
     </div>
     
     <div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border)">
@@ -10158,7 +10157,7 @@ function gfRenderAlteracaoForm() {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
         <div>
           <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Título da Alteração <span style="color:#EF4444">*</span></label>
-          <input type="text" id="gf-alt-titulo" placeholder="Ex: Reforço rúbrica formações Q2" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+          <input type="text" id="gf-alt-titulo" value="${(GF.altTitulo||'').replace(/"/g,'&quot;')}" oninput="GF.altTitulo=this.value" placeholder="Ex: Reforço rúbrica formações Q2" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
         </div>
         <div>
           <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Nível de Aprovação</label>
@@ -10171,7 +10170,7 @@ function gfRenderAlteracaoForm() {
       
       <div>
         <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Justificação <span style="color:#EF4444">*</span></label>
-        <textarea id="gf-alt-justificacao" placeholder="Explique detalhadamente o motivo desta transferência orçamental..." style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;min-height:80px;resize:vertical"></textarea>
+        <textarea id="gf-alt-justificacao" oninput="GF.altJustificacao=this.value" placeholder="Explique detalhadamente o motivo desta transferência orçamental..." style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;min-height:80px;resize:vertical">${GF.altJustificacao||''}</textarea>
       </div>
     </div>
     
@@ -10413,6 +10412,8 @@ async function gfSubmitAlteracao() {
     
     showNotif('Alteração submetida com sucesso!', 'success');
     GF.origens = [];
+    GF.altTitulo = '';
+    GF.altJustificacao = '';
     await gfLoadAll();
     gfNav('alteracoes');
   } catch (e) {
