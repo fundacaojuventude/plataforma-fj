@@ -7228,7 +7228,7 @@ function _semTarefaRow(t,hoje,isDir){
     <td style="padding:7px 4px">${estB(t.prioridade)}</td>
     <td style="padding:7px 4px">${estB(t.estado)}</td>
     <td style="padding:7px 4px">${notasHtml}</td>
-    <td style="padding:7px 4px">${canEdit?`<button class="btn btn-sm" onclick="openTarFormEdit('${t.id}')">Editar</button>`:''}</td>
+    <td style="padding:7px 4px">${canEdit?`<button class="btn btn-sm" onclick="openTarFormEdit('${t.id}')">Editar</button><button class="btn btn-sm btn-danger" onclick="delPlTarefa('${t.id}')" style="margin-left:3px">✕</button>`:''}</td>
   </tr>`;
 }
 
