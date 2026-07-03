@@ -1507,7 +1507,7 @@ tr:hover td{background:var(--bg3)}
         <div class="toolbar">
           <select class="flt" id="ff-h-dep" onchange="renderHier()"><option value="">Todos os departamentos</option></select>
           <select class="flt" id="ff-h-col" onchange="renderHier()"><option value="">Todos os colaboradores</option></select>
-          <button class="btn btn-primary" onclick="openProjetoForm()">+ Novo projeto</button>
+          <button class="btn btn-primary" id="btn-novo-projeto" onclick="openProjetoForm()">+ Novo projeto</button>
           <button class="btn btn-green" onclick="openPresMode()" title="Modo Apresentação para TV">📺 Modo Apresentação</button>
         </div>
         <div id="hier-container"></div>
@@ -6240,7 +6240,7 @@ function renderHier(){
             <span class="hier-acao-name">${a.nome}</span>
             ${depBadgeAcao(a.dep)}
             <span style="font-size:11px;color:var(--tx3);white-space:nowrap;flex-shrink:0">${conc}/${ts.length} tarefas</span>
-            ${isDir?`<button class="btn btn-sm" onclick="event.stopPropagation();openAcaoForm(${p.id},${a.id})">Editar</button>`:''}
+            <button class="btn btn-sm" onclick="event.stopPropagation();openAcaoForm(${p.id},${a.id})">Editar</button>
             ${isDir?`<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();delAcao(${a.id})">✕</button>`:''}
             <button class="btn btn-sm btn-or" onclick="event.stopPropagation();openTarFormForAcao(${a.id})">+ Tarefa</button>
           </div>
@@ -6965,6 +6965,8 @@ function plApplyRoleVisibility(){
     const nav=document.getElementById(id);
     if(nav) nav.style.display='none';
   });
+  const btnNovoProj=document.getElementById('btn-novo-projeto');
+  if(btnNovoProj) btnNovoProj.style.display='none';
 }
 
 // ── Vista do Plano Semanal ──────────────────────────────────────────────
