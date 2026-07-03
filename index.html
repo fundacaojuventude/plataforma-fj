@@ -6225,7 +6225,7 @@ function renderHier(){
         <span style="font-size:14px;font-weight:700;color:var(--g1);flex:1">${p.nome}</span>
         ${depBadgeAcao(p.dep)}
         <span style="font-size:11px;background:var(--bg3);border-radius:6px;padding:2px 8px;color:var(--tx2)">${pAcoes.length} ações · ${tarTotal.length} tarefas${pct!==null?' · '+pct+'% conc.':''}</span>
-        ${isDir?`<button class="btn btn-sm btn-primary" style="font-size:11px" onclick="event.stopPropagation();openAcaoForm(${p.id})">+ Ação</button>`:''}
+        <button class="btn btn-sm btn-primary" style="font-size:11px" onclick="event.stopPropagation();openAcaoForm(${p.id})">+ Ação</button>
         ${isDir?`<button class="btn btn-sm" style="font-size:11px" onclick="event.stopPropagation();openProjetoForm(${p.id})" title="Editar projeto">✎</button>`:''}
         ${isDir?`<button class="btn btn-sm btn-danger" style="font-size:11px" onclick="event.stopPropagation();delProjeto(${p.id})" title="Eliminar projeto">✕</button>`:''}
         <svg id="hier-arrow-${p.id}" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="transition:transform .2s"><path d="M4 6l4 4 4-4"/></svg>
@@ -6270,7 +6270,7 @@ function renderHier(){
             </table>
           </div>`:''}
         ${(()=>{const projKPIs=plKpdefs.filter(k=>String(k.projetoId)===String(p.id)&&!k.acaoId);return projKPIs.length?`<div style="background:#F5F3FF;border-top:1px solid #DDD8FE;border-left:4px solid #7C3AED;padding:10px 16px"><div style="font-size:11px;font-weight:700;color:#5B21B6;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">📊 KPIs do Projeto (${projKPIs.length})</div>${projKPIs.map(k=>{const lr=plKpregs.filter(r=>r.kpiId==k.id).sort((a,b)=>b.id-a.id)[0];const pct=lr&&k.meta?Math.round((lr.valor/k.meta)*100):null;const c=pct!==null?kpiColor(k,pct):'var(--tx3)';return`<div style="display:flex;align-items:center;gap:10px;padding:5px 0;font-size:12px;border-bottom:1px dashed #DDD8FE"><span style="flex:1;font-weight:500;color:#3C3489">${k.nome}</span><span style="color:var(--tx2)">${lr?lr.valor+' '+k.uni:'—'}</span><span style="font-weight:700;color:${c}">${pct!==null?pct+'%':'—'}</span></div>`;}).join('')}</div>`:'';})()}
-        ${!pAcoes.length&&!tarSemAcao.length?`<div style="padding:12px 24px;font-size:13px;color:var(--tx3)">Sem ações nem plTarefas.${isDir?` <button class="btn btn-sm btn-primary" onclick="openAcaoForm(${p.id})">+ Criar ação</button>`:''}</div>`:''}
+        ${!pAcoes.length&&!tarSemAcao.length?`<div style="padding:12px 24px;font-size:13px;color:var(--tx3)">Sem ações nem plTarefas. <button class="btn btn-sm btn-primary" onclick="openAcaoForm(${p.id})">+ Criar ação</button></div>`:''}
       </div>
     </div>`;
   }).join('');
