@@ -9510,7 +9510,7 @@ function gfRenderSolicitacoes() {
                     ? `<span style="font-weight:500;color:${limVenc ? '#A32D2D' : 'var(--text)'}">${limVenc ? '⚠️ ' : ''}${gfDate(s.dataLimitePagamento)}</span>`
                     : '<span style="color:var(--text3)">—</span>'}
                 </td>` : ''}
-                <td style="padding:14px 16px;text-align:center">
+                <td style="padding:14px 16px;text-align:center;overflow:visible;text-overflow:clip;white-space:nowrap">
                   <button class="btn btn-sm" onclick="GF.solicitacao=${s.id};gfNav('solicitacao-view')">Ver</button>
                   ${['Rascunho','Pendente','Submetido'].includes(s.estado)?`<button class="btn btn-sm" onclick="GF.solicitacao=${s.id};gfNav('solicitacao-form')" style="margin-left:4px">Editar</button><button class="btn btn-sm btn-danger" onclick="gfDeleteSolicitacao(${s.id})" style="margin-left:4px">✕</button>`:''}
                 </td>
