@@ -8018,7 +8018,7 @@ function gfRender() {
   
   // Previsões são assíncronas — render direto ao DOM
   if (GF.screen === 'tesouraria-previsoes') {
-    app.innerHTML = `<div style="max-width:1200px;margin:0 auto"><div class="empty" style="padding:3rem">⏳ A carregar previsões...</div></div>`;
+    app.innerHTML = `<div style="max-width:1200px;margin:0 auto;padding-top:12px"><div class="empty" style="padding:3rem">⏳ A carregar previsões...</div></div>`;
     gfRenderTesourariaPrevisoes();
     return;
   }
@@ -8041,7 +8041,7 @@ function gfRender() {
     default: html = gfRenderHome();
   }
   
-  app.innerHTML = `<div style="max-width:1200px;margin:0 auto">${html}</div>`;
+  app.innerHTML = `<div style="max-width:1200px;margin:0 auto;padding-top:12px">${html}</div>`;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -8345,7 +8345,7 @@ async function gfSaveSaldoCaixa(valor) {
 async function gfRenderTesourariaPrevisoes() {
   if (!gfCanViewTesouraria()) {
     const app = gfEl('gf-app');
-    if (app) app.innerHTML = `<div style="max-width:1200px;margin:0 auto"><div style="padding:2rem;text-align:center;color:var(--text3)">Não tem permissão para aceder a esta secção.</div></div>`;
+    if (app) app.innerHTML = `<div style="max-width:1200px;margin:0 auto;padding-top:12px"><div style="padding:2rem;text-align:center;color:var(--text3)">Não tem permissão para aceder a esta secção.</div></div>`;
     return;
   }
   // Carregar saldo actual do SP
@@ -8358,7 +8358,7 @@ async function gfRenderTesourariaPrevisoes() {
 
   const app = gfEl('gf-app');
   if (app) {
-    app.innerHTML = `<div style="max-width:1200px;margin:0 auto">${_gfBuildPrevisoes(saldoAtual)}</div>`;
+    app.innerHTML = `<div style="max-width:1200px;margin:0 auto;padding-top:12px">${_gfBuildPrevisoes(saldoAtual)}</div>`;
   }
 }
 
@@ -8402,7 +8402,7 @@ function _gfGetPagamentosMensais() {
 function gfSetPrevPeriodo(p) {
   _gfPrevPeriodo = p;
   const app = gfEl('gf-app');
-  if (app) app.innerHTML = `<div style="max-width:1200px;margin:0 auto">${_gfBuildPrevisoes(_gfSaldoAtualCache)}</div>`;
+  if (app) app.innerHTML = `<div style="max-width:1200px;margin:0 auto;padding-top:12px">${_gfBuildPrevisoes(_gfSaldoAtualCache)}</div>`;
 }
 
 function _gfBuildPrevisoes(saldoAtual) {
@@ -9512,7 +9512,7 @@ function gfRenderSolicitacoes() {
                 </td>` : ''}
                 <td style="padding:14px 16px;text-align:center">
                   <button class="btn btn-sm" onclick="GF.solicitacao=${s.id};gfNav('solicitacao-view')">Ver</button>
-                  ${s.estado==='Pendente'||s.estado==='Rascunho'?`<button class="btn btn-sm btn-danger" onclick="gfDeleteSolicitacao(${s.id})" style="margin-left:4px">✕</button>`:''}
+                  ${['Rascunho','Pendente','Submetido'].includes(s.estado)?`<button class="btn btn-sm" onclick="GF.solicitacao=${s.id};gfNav('solicitacao-form')" style="margin-left:4px">Editar</button><button class="btn btn-sm btn-danger" onclick="gfDeleteSolicitacao(${s.id})" style="margin-left:4px">✕</button>`:''}
                 </td>
               </tr>`;
             }).join('')
@@ -9904,11 +9904,11 @@ function gfRenderSolicitacaoView() {
           <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:14px">Fluxo de Aprovação</div>
           <div style="display:flex;flex-direction:column;gap:12px">
             ${gfWorkflowStep('Submissão', true, sol.autorNome, sol.dataSubmissao)}
-            ${isFinanceiro
+            ${!gfIsMembroRestrito() ? (isFinanceiro
               ? gfWorkflowStep('Dir. Financeira (Aprovação)', sol.estado === 'Aprovado DF' || sol.estado === 'Processado' || sol.estado === 'Pago', sol.aprovDFNome, sol.dataAprovDF)
               : gfWorkflowStep(diretorAreaNome, !!sol.aprovDirNome || sol.estado === 'Aprovado DF' || sol.estado === 'Processado' || sol.estado === 'Pago', sol.aprovDirNome, sol.dataAprovDir)
                 + gfWorkflowStep('Dir. Financeira', sol.estado === 'Aprovado DF' || sol.estado === 'Processado' || sol.estado === 'Pago', sol.aprovDFNome, sol.dataAprovDF)
-            }
+            ) : ''}
             ${gfWorkflowStep('Processado', sol.estado === 'Processado' || sol.estado === 'Pago', null, sol.dataProcessado || null)}
             ${gfWorkflowStep('Pago', sol.estado === 'Pago', null, sol.dataPago || null)}
           </div>
