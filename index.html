@@ -8805,18 +8805,25 @@ function gfRenderOrcamento() {
     <div class="card" style="padding:0;overflow-x:auto">
       <table style="width:100%;min-width:900px;border-collapse:collapse;font-size:13px;table-layout:fixed">
         <colgroup>
+          ${gfIsMembroRestrito() ? `
+          <col style="width:35%">
+          <col style="width:10%">
+          <col style="width:45%">
+          <col style="width:10%">
+          ` : `
           <col style="width:30%">
           <col style="width:10%">
           <col style="width:25%">
           <col style="width:25%">
           <col style="width:10%">
+          `}
         </colgroup>
         <thead>
           <tr style="background:var(--mod-financeiro-bg)">
             <th style="padding:12px 16px;text-align:left;font-weight:600;color:var(--mod-financeiro)">Projeto</th>
             <th style="padding:12px 16px;text-align:center;font-weight:600;color:var(--mod-financeiro)">Dep.</th>
             <th style="padding:12px 16px;text-align:left;font-weight:600;color:var(--mod-financeiro)">Despesas</th>
-            <th style="padding:12px 16px;text-align:left;font-weight:600;color:var(--mod-financeiro)">Receita</th>
+            ${!gfIsMembroRestrito() ? `<th style="padding:12px 16px;text-align:left;font-weight:600;color:var(--mod-financeiro)">Receita</th>` : ''}
             <th style="padding:12px 16px;text-align:center;font-weight:600;color:var(--mod-financeiro)">Ações</th>
           </tr>
         </thead>
@@ -8841,6 +8848,7 @@ function gfRenderOrcamento() {
                       <span style="font-weight:600;color:var(--text)">Orç: ${gfFmt(p.despOrc)}</span>
                     </div>
                   </td>
+                  ${!gfIsMembroRestrito() ? `
                   <td style="padding:14px 20px">
                     ${progressBar(p.recProc, p.recSol, p.recOrc, '#F97316')}
                     <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--text3)">
@@ -8849,6 +8857,7 @@ function gfRenderOrcamento() {
                       <span style="font-weight:600;color:var(--text)">Orç: ${gfFmt(p.recOrc)}</span>
                     </div>
                   </td>
+                  ` : ''}
                   <td style="padding:14px 16px;text-align:center">
                     <button class="btn btn-sm" style="border-color:var(--mod-financeiro);color:var(--mod-financeiro)" onclick="GF.project=${p.id};gfNav('orcamento-rubricas')">Ver</button>
                   </td>
@@ -8863,9 +8872,11 @@ function gfRenderOrcamento() {
             <td style="padding:14px 16px">
               <div style="font-size:12px;color:var(--text2)">Sol: ${gfFmt(totSol)} · Proc: ${gfFmt(totP)} · <span style="color:var(--mod-financeiro)">Total: ${gfFmt(totD)}</span></div>
             </td>
+            ${!gfIsMembroRestrito() ? `
             <td style="padding:14px 16px">
               <div style="font-size:12px;color:var(--text2)">Total: ${gfFmt(totRec)}</div>
             </td>
+            ` : ''}
             <td></td>
           </tr>
         </tfoot>
@@ -8976,7 +8987,7 @@ function gfRenderRubricas() {
     </div>
     
     <!-- KPIs - sumário do projeto com gráfico -->
-    <div class="card" style="padding:20px;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="card" style="padding:20px;margin-bottom:20px;display:grid;grid-template-columns:${gfIsMembroRestrito() ? '1fr' : '1fr 1fr'};gap:16px">
       <!-- DESPESAS totais -->
       <div style="padding:16px;background:#F8FAFC;border-radius:10px;border:1px solid #E2E8F0">
         <div style="font-size:11px;font-weight:700;color:#475569;letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px">DESPESAS</div>
@@ -9015,6 +9026,7 @@ function gfRenderRubricas() {
         </div>
       </div>
       <!-- RECEITA totais -->
+      ${!gfIsMembroRestrito() ? `
       <div style="padding:16px;background:#F8FAFC;border-radius:10px;border:1px solid #E2E8F0">
         <div style="font-size:11px;font-weight:700;color:#475569;letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px">RECEITA</div>
         ${(() => {
@@ -9047,6 +9059,7 @@ function gfRenderRubricas() {
           </div>
         </div>
       </div>
+      ` : ''}
     </div>
     
     <!-- Lista de Rúbricas -->
@@ -9067,7 +9080,7 @@ function gfRenderRubricas() {
             ${hasWarning ? `<div style="padding:8px 16px;background:#FEF3C7;color:#92400E;font-size:12px">⚠ Despesa processada (${gfFmt(desp.processada)}) é superior à solicitada (${gfFmt(desp.solicitada)})</div>` : ''}
             
             <!-- Header da rúbrica -->
-            <div style="padding:14px 16px;cursor:pointer;display:grid;grid-template-columns:200px 1fr 1fr 36px;gap:14px;align-items:center;border-bottom:1px solid var(--border)" onclick="this.parentElement.classList.toggle('rubrica-expanded')">
+            <div style="padding:14px 16px;cursor:pointer;display:grid;grid-template-columns:${gfIsMembroRestrito() ? '200px 1fr 36px' : '200px 1fr 1fr 36px'};gap:14px;align-items:center;border-bottom:1px solid var(--border)" onclick="this.parentElement.classList.toggle('rubrica-expanded')">
               <!-- Nome + tipo -->
               <div>
                 <div style="font-weight:600;font-size:14px">${r.titulo}</div>
@@ -9103,6 +9116,7 @@ function gfRenderRubricas() {
               </div>
               
               <!-- RECEITA mini-panel -->
+              ${!gfIsMembroRestrito() ? `
               <div style="padding:10px 14px;background:#FFF7ED;border-radius:8px;border:1px solid #FED7AA">
                 <div style="font-size:10px;font-weight:700;color:#C2410C;letter-spacing:.04em;margin-bottom:7px">RECEITA</div>
                 ${progressBarRec(rec.solicitada, rec.processada, recOrc)}
@@ -9125,6 +9139,7 @@ function gfRenderRubricas() {
                   </div>
                 </div>
               </div>
+              ` : ''}
               
               <!-- Seta -->
               <div class="rubrica-arrow" style="text-align:center;font-size:14px;color:var(--text3);transition:transform 0.2s">▼</div>
@@ -9132,7 +9147,7 @@ function gfRenderRubricas() {
             
             <!-- Detalhes expandidos -->
             <div class="rubrica-details" style="display:none;padding:16px;background:var(--bg)">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+              <div style="display:grid;grid-template-columns:${gfIsMembroRestrito() ? '1fr' : '1fr 1fr'};gap:16px;margin-bottom:16px">
                 <!-- DESPESAS -->
                 <div style="padding:16px;background:#EFF6FF;border-radius:8px;border:1px solid #BFDBFE">
                   <div style="font-size:12px;font-weight:600;color:#1E40AF;margin-bottom:12px">DESPESAS</div>
@@ -9162,6 +9177,7 @@ function gfRenderRubricas() {
                 </div>
                 
                 <!-- RECEITA -->
+                ${!gfIsMembroRestrito() ? `
                 <div style="padding:16px;background:#FFF7ED;border-radius:8px;border:1px solid #FED7AA">
                   <div style="font-size:12px;font-weight:600;color:#C2410C;margin-bottom:12px">RECEITA</div>
                   ${progressBarRec(rec.solicitada, rec.processada, recOrc)}
@@ -9184,6 +9200,7 @@ function gfRenderRubricas() {
                     </div>
                   </div>
                 </div>
+                ` : ''}
               </div>
               
               <!-- Lista de solicitações/faturas -->
@@ -9220,11 +9237,13 @@ function gfRenderRubricas() {
               <!-- Resultado e ações -->
               <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:#fff;border-radius:6px">
                 <div style="font-size:12px">
+                  ${!gfIsMembroRestrito() ? `
                   <span style="color:var(--text3)">Resultado orçamentado: </span>
                   <span style="font-weight:600">${gfFmt(recOrc - despOrc)}</span>
                   <span style="color:var(--text3);margin-left:16px">Resultado real: </span>
                   <span style="font-weight:600;color:${(rec.processada - desp.processada) >= 0 ? '#10B981' : '#EF4444'}">${gfFmt(rec.processada - desp.processada)}</span>
                   <br>
+                  ` : ''}
                   <span style="font-size:11px;color:${canClose ? '#10B981' : '#9CA3AF'}">
                     ${canClose ? '✓ Condição de encerramento satisfeita' : ''}
                   </span>
