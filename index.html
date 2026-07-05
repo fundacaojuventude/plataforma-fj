@@ -8867,18 +8867,18 @@ function gfRenderOrcamento() {
           }
         </tbody>
         <tfoot>
+          ${!gfIsMembroRestrito() ? `
           <tr style="background:var(--mod-financeiro-bg);font-weight:600">
             <td colspan="2" style="padding:14px 16px;color:var(--mod-financeiro)">Total Geral</td>
             <td style="padding:14px 16px">
               <div style="font-size:12px;color:var(--text2)">Sol: ${gfFmt(totSol)} · Proc: ${gfFmt(totP)} · <span style="color:var(--mod-financeiro)">Total: ${gfFmt(totD)}</span></div>
             </td>
-            ${!gfIsMembroRestrito() ? `
             <td style="padding:14px 16px">
               <div style="font-size:12px;color:var(--text2)">Total: ${gfFmt(totRec)}</div>
             </td>
-            ` : ''}
             <td></td>
           </tr>
+          ` : ''}
         </tfoot>
       </table>
     </div>
