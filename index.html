@@ -12901,6 +12901,7 @@ function deRenderLista() {
     <td><div class="actions">
       <button class="btn btn-sm" onclick="deOpenDetalhe(${d.id})">👁 Ver</button>
       ${(userCargo()==='Diretor' && d.estado==='A rever') ? `<button class="btn btn-sm" onclick="deOpenForm(${d.id})">✎ Rever</button>` : ''}
+      ${d.estado==='Pendente' ? `<button class="btn btn-sm" onclick="deOpenForm(${d.id})">✎ Editar</button><button class="btn btn-sm btn-danger" onclick="deDelete(${d.id})">✕</button>` : ''}
     </div></td>
   </tr>`).join('');
 
@@ -13012,6 +13013,18 @@ async function deSave() {
     showNotif('Erro: ' + e.message, 'error');
   } finally {
     btn.disabled = false; btn.textContent = 'Submeter Despacho';
+  }
+}
+
+async function deDelete(id) {
+  if (!confirm('Eliminar este despacho?')) return;
+  try {
+    await spWrite(`${SP}/_api/web/lists/getbytitle('${DE_LIST}')/items(${id})`, null, 'DELETE');
+    showNotif('Despacho eliminado.', 'success');
+    await deLoadAll();
+    deRenderLista();
+  } catch(e) {
+    showNotif('Erro ao eliminar: ' + e.message, 'error');
   }
 }
 
