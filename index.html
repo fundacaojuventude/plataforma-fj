@@ -1494,6 +1494,11 @@ tr:hover td{background:var(--bg3)}
                     <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Notas</label>
                     <textarea id="fp-notas" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);min-height:80px;resize:vertical"></textarea>
                   </div>
+                  <div style="grid-column:1/-1">
+                    <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Membros Afetos ao Projeto</label>
+                    <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Só quem estiver aqui marcado vê este projeto (Financeiro e Planeamento), além de PE e Diretores, que veem sempre tudo.</div>
+                    <div id="fp-membros-list" style="max-height:180px;overflow-y:auto;border:1px solid var(--border2);border-radius:8px;padding:8px 12px;background:#fff"></div>
+                  </div>
                 </div>
               </div>
               <!-- Rodapé -->
@@ -2822,14 +2827,15 @@ let _plLoaded=false,_gfLoaded=false,_auLoaded=false,_coLoaded=false,_stLoaded=fa
 let sharedProjetos=[];
 async function loadSharedProjetos(){
   try{
-    const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Projetos')/items?$select=*,Departamento/Title&$expand=Departamento&$orderby=Title asc&$top=500`);
+    const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Projetos')/items?$select=*,Departamento/Title,MembrosAfetos/Id,MembrosAfetos/Title,MembrosAfetos/EMail&$expand=Departamento,MembrosAfetos&$orderby=Title asc&$top=500`);
     sharedProjetos=d.d.results.map(r=>({
       id:r.Id,nome:r.Title||'',codigo:r.Codigo||'',
       dep:normalizeDep(r.Departamento?.Title||r.Departamento||''),
       estado:r.Estado||'Ativo',dataInicio:r.DataInicio?r.DataInicio.split('T')[0]:'',
       dataFim:r.DataFim?r.DataFim.split('T')[0]:'',
       anoOrcamental:r.AnoOrcamental||new Date().getFullYear(),
-      isBancoGlobal:r.IsBancoGlobal||false
+      isBancoGlobal:r.IsBancoGlobal||false,
+      membrosAfetos:(r.MembrosAfetos?.results||[]).map(m=>({id:m.Id,nome:m.Title,email:(m.EMail||'').toLowerCase()}))
     }));
   }catch(e){console.warn('loadSharedProjetos',e);}
 }
@@ -3065,10 +3071,10 @@ function canViewFinanceProject(projetoId){
   // Membros da equipa Financeiro vêem todos os projetos (só leitura)
   if(isFinanceiroEquipa()) return true;
 
-  // Outros membros: apenas projetos do seu departamento
+  // Outros membros: apenas projetos a que estejam explicitamente afetos
   const proj = GF_PROJETOS.find(p => p.id === projetoId);
   if(!proj) return false;
-  return equipas.some(e => e === proj.dep);
+  return isAfetoProjeto(proj);
 }
 
 // Filtrar projetos financeiros que o utilizador pode ver
@@ -5967,8 +5973,8 @@ function populateDeptSelects(){
 }
 async function loadProjetos(){
   // Factorial_Projetos = plProjetos top-level (vindos do Factorial)
-  const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Projetos')/items?$select=*,Departamento/Title&$expand=Departamento&$orderby=Title asc&$top=1000`);
-  plProjetos=d.d.results.map(r=>({id:r.Id,nome:r.Title||'',dep:normalizeDep(r.Departamento?.Title||''),estado:r.Estado||'active',dataInicio:r.DataInicio?r.DataInicio.split('T')[0]:'',dataFim:r.DataFim?r.DataFim.split('T')[0]:'',notas:r.Notas||'',responsavel:r.Responsavel?.Title||'',membros:r.Membros||[]}));
+  const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Projetos')/items?$select=*,Departamento/Title,MembrosAfetos/Id,MembrosAfetos/Title,MembrosAfetos/EMail&$expand=Departamento,MembrosAfetos&$orderby=Title asc&$top=1000`);
+  plProjetos=d.d.results.map(r=>({id:r.Id,nome:r.Title||'',dep:normalizeDep(r.Departamento?.Title||''),estado:r.Estado||'active',dataInicio:r.DataInicio?r.DataInicio.split('T')[0]:'',dataFim:r.DataFim?r.DataFim.split('T')[0]:'',notas:r.Notas||'',responsavel:r.Responsavel?.Title||'',membrosAfetos:(r.MembrosAfetos?.results||[]).map(m=>({id:m.Id,nome:m.Title,email:(m.EMail||'').toLowerCase()}))}));
   console.log('Projetos carregados:', plProjetos);
 }
 async function loadAcoes(){
@@ -6177,18 +6183,15 @@ function renderHier(){
   const isDir=plCanSeeAll();
   const myEquipas=currentUserFJ?.equipa||[];
 
-  // Membro vê todos os projetos/ações do seu departamento (não só onde tem tarefa),
-  // mas dentro deles só vê e conta as SUAS próprias tarefas (plTarefaEhMinha).
+  // Membro só vê projetos/ações a que esteja explicitamente afeto (campo MembrosAfetos),
+  // e dentro deles só vê e conta as SUAS próprias tarefas (plTarefaEhMinha).
   const canViewAcao=(a,proj)=>{
     if(isDir) return true;
-    if(myEquipas.some(e=>normDep(e)===normDep(a.dep))) return true;
-    if(proj&&myEquipas.some(e=>normDep(e)===normDep(proj.dep))) return true;
-    return false;
+    return proj?isAfetoProjeto(proj):false;
   };
   const canViewProj=p=>{
     if(isDir) return true;
-    if(myEquipas.some(e=>normDep(e)===normDep(p.dep))) return true;
-    return plAcoes.some(a=>String(a.projetoId)===String(p.id)&&canViewAcao(a,p));
+    return isAfetoProjeto(p);
   };
   // Lista de tarefas visíveis para o utilizador atual (Diretor+ vê tudo; Membro só as suas)
   const plVisiveis=list=>isDir?list:list.filter(plTarefaEhMinha);
@@ -6582,13 +6585,28 @@ function openProjetoForm(projId){
     sv2('fp-estado',p.estado||'active');sv2('fp-ano',p.anoOrcamental||2026);
     sv2('fp-inicio',p.dataInicio||'');sv2('fp-fim',p.dataFim||'');
     sv2('fp-resp',p.responsavel||'');sv2('fp-notas',p.notas||'');
+    plBuildMembrosCheckboxes((p.membrosAfetos||[]).map(m=>m.email));
   }else{
     el('frm-proj-title').textContent='Novo projeto';
     sv2('fp-nome','');sv2('fp-codigo','');sv2('fp-dep','');
     sv2('fp-estado','active');sv2('fp-ano',2026);
     sv2('fp-inicio','');sv2('fp-fim','');
     sv2('fp-resp','');sv2('fp-resp-email','');sv2('fp-notas','');
+    plBuildMembrosCheckboxes([]);
   }
+}
+
+// Constrói a lista de checkboxes de utilizadores para afetação ao projeto
+function plBuildMembrosCheckboxes(selectedEmails){
+  const wrap=el('fp-membros-list');
+  if(!wrap) return;
+  const sorted=[...fjUtilizadores].sort((a,b)=>a.titulo.localeCompare(b.titulo));
+  wrap.innerHTML=sorted.map(u=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;cursor:pointer">
+      <input type="checkbox" class="fp-membro-chk" value="${u.email}" ${selectedEmails.includes(u.email)?'checked':''}>
+      ${u.titulo}
+    </label>
+  `).join('');
 }
 
 // Funções para o overlay global (acessível do Financeiro)
@@ -6652,6 +6670,10 @@ async function saveProjeto(){
       const depItem=plDepartamentos.find(d=>d.Title===depVal||d.nome===depVal);
       if(depItem)body.DepartamentoId=depItem.id||depItem.ID;
     }
+    // Membros afetos ao projeto — resolver emails marcados para Ids do SharePoint em paralelo
+    const emailsMarcados=[...document.querySelectorAll('.fp-membro-chk:checked')].map(c=>c.value);
+    const idsMembros=(await Promise.all(emailsMarcados.map(e=>getSpUID(e)))).filter(id=>id);
+    body.MembrosAfetosId={results:idsMembros};
     if(editProjId)await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Projetos')/items(${editProjId})`,body,'MERGE','*');
     else await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Projetos')/items`,body,'POST');
     closeProjetoForm();await loadProjetos();renderHier();populateDrops();showNotif('Projeto guardado!','success');
@@ -6688,10 +6710,9 @@ function renderGantt(){
     return false;
   };
   const isDirGantt=plCanSeeAll();
-  const myEquipasGantt=currentUserFJ?.equipa||[];
   const projs=plProjetos.filter(p=>{
-    // Membro vê projetos do seu departamento (mesma regra de Projetos & Ações)
-    if(!isDirGantt && !myEquipasGantt.some(e=>normDep(e)===normDep(p.dep))) return false;
+    // Membro vê projetos a que esteja explicitamente afeto (mesma regra de Projetos & Ações)
+    if(!isDirGantt && !isAfetoProjeto(p)) return false;
     if(dep&&normDep(p.dep)!==normDep(dep)) return false;
     if(colEmail){
       const projMatch=gColMatches(p.responsavel,p.responsavelEmail);
@@ -6949,6 +6970,14 @@ function plTarefaEhMinha(t){
 // IDs de projeto/ação onde o Membro tem pelo menos uma tarefa atribuída como responsável.
 // Usado para restringir Projetos & Ações, Gantt e Registar Horas — não considera
 // departamento nem responsável do projeto/ação em si, só tarefas atribuídas diretamente.
+// Verifica se o utilizador atual está na lista de Membros Afetos de um projeto
+// (campo MembrosAfetos do SharePoint, partilhado entre Financeiro e Planeamento)
+function isAfetoProjeto(proj){
+  if(!proj || !proj.membrosAfetos) return false;
+  const myEmail=plMyEmailLower();
+  return proj.membrosAfetos.some(m=>m.email===myEmail);
+}
+
 function plMeusProjetoIds(){
   const ids=new Set();
   plTarefas.forEach(t=>{
@@ -7831,7 +7860,8 @@ async function gfLoadAll() {
       dep: p.dep || '',
       estado: p.estado || 'Ativo',
       anoOrcamental: p.anoOrcamental || GF.year,
-      isBanco: p.isBancoGlobal || false
+      isBanco: p.isBancoGlobal || false,
+      membrosAfetos: p.membrosAfetos || []
     }));
 
     // Rubricas com expand
