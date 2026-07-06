@@ -12799,7 +12799,7 @@ async function deLoadAll() {
   try {
     const d = await spRead(
       `${SP}/_api/web/lists/getbytitle('${DE_LIST}')/items` +
-      `?$select=*,AttachmentFiles,Autor/Title,Autor/EMail&$expand=AttachmentFiles,Autor` +
+      `?$select=*,AttachmentFiles,Author/Title,Author/EMail&$expand=AttachmentFiles,Author` +
       `&$orderby=Created desc&$top=500`
     );
     DE_ITEMS = (d.d?.results || []).map(r => ({
@@ -12816,8 +12816,8 @@ async function deLoadAll() {
       decisaoPE:    r.DecisaoPE || '',
       notasPE:      r.NotasPE || '',
       dataDecisao:  r.DataDecisao ? r.DataDecisao.split('T')[0] : '',
-      autorNome:    r.Autor?.Title || '',
-      autorEmail:   (r.Autor?.EMail || '').toLowerCase(),
+      autorNome:    r.Author?.Title || '',
+      autorEmail:   (r.Author?.EMail || '').toLowerCase(),
       attachments:  (r.AttachmentFiles?.results || []).map(a => ({ name: a.FileName, url: a.ServerRelativeUrl }))
     }));
     deUpdateStats();
@@ -12992,8 +12992,6 @@ async function deSave() {
     if (_deEditId) {
       await spWrite(`${SP}/_api/web/lists/getbytitle('${DE_LIST}')/items(${_deEditId})`, body, 'MERGE');
     } else {
-      const autorUserId = await getCurrentUserId();
-      if (autorUserId) body.AutorId = autorUserId;
       const r = await spWrite(`${SP}/_api/web/lists/getbytitle('${DE_LIST}')/items`, body, 'POST');
       const rd = await r.json(); itemId = rd.d?.Id;
     }
