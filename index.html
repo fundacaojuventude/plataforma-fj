@@ -1461,11 +1461,7 @@ tr:hover td{background:var(--bg3)}
                     <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Nome do projeto *</label>
                     <input id="fp-nome" placeholder="Nome do projeto" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:14px;font-family:inherit;color:var(--text)">
                   </div>
-                  <div>
-                    <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Código</label>
-                    <input id="fp-codigo" placeholder="Ex: PROJ-001" style="width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
-                  </div>
-                  <div>
+                  <div style="grid-column:1/-1">
                     <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Departamento</label>
                     <select id="fp-dep" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:#fff;color:var(--text)"><option value="">Selecionar...</option></select>
                   </div>
@@ -12996,6 +12992,8 @@ async function deSave() {
     if (_deEditId) {
       await spWrite(`${SP}/_api/web/lists/getbytitle('${DE_LIST}')/items(${_deEditId})`, body, 'MERGE');
     } else {
+      const autorUserId = await getCurrentUserId();
+      if (autorUserId) body.AutorId = autorUserId;
       const r = await spWrite(`${SP}/_api/web/lists/getbytitle('${DE_LIST}')/items`, body, 'POST');
       const rd = await r.json(); itemId = rd.d?.Id;
     }
