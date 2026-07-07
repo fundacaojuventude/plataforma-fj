@@ -6994,7 +6994,7 @@ function plMeusAcaoIds(){
 // Esconde separadores do Planeamento não permitidos para Membro
 function plApplyRoleVisibility(){
   if(plCanSeeAll()) return; // Diretor+/admin vê tudo, sem alterações
-  ['pl-nav-trimestral','pl-nav-kpis','pl-nav-relatorios','pl-nav-analise-horas','pl-nav-gantt'].forEach(id=>{
+  ['pl-nav-trimestral','pl-nav-kpis','pl-nav-relatorios','pl-nav-analise-horas','pl-nav-gantt','pl-nav-reg-horas','pl-nav-ver-reg-horas'].forEach(id=>{
     const nav=document.getElementById(id);
     if(nav) nav.style.display='none';
   });
