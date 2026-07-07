@@ -1653,12 +1653,12 @@ tr:hover td{background:var(--bg3)}
               <!-- Linha: Projeto + Ação -->
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
                 <div>
-                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Projeto</label>
-                  <select id="ftar-proj" onchange="loadAcoesForProj(this.value,'ftar-acao')" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:var(--bg2);color:var(--text)"><option value="">Nenhum</option></select>
+                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Projeto *</label>
+                  <select id="ftar-proj" onchange="loadAcoesForProj(this.value,'ftar-acao')" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:var(--bg2);color:var(--text)"><option value="">Selecionar…</option></select>
                 </div>
                 <div>
-                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Ação</label>
-                  <select id="ftar-acao" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:var(--bg2);color:var(--text)"><option value="">Nenhuma</option></select>
+                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Ação *</label>
+                  <select id="ftar-acao" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:var(--bg2);color:var(--text)"><option value="">Selecionar…</option></select>
                 </div>
               </div>
 
@@ -3093,8 +3093,8 @@ function filterFinanceProjects(projects){
   // Membros da equipa Financeiro vêem todos os projetos (só leitura)
   if(isFinanceiroEquipa()) return projects;
 
-  // Outros membros: apenas projetos do seu departamento
-  return projects.filter(p => equipas.some(e => e === p.dep));
+  // Outros membros: apenas projetos a que estejam explicitamente afetos (MembrosAfetos)
+  return projects.filter(p => isAfetoProjeto(p));
 }
 
 // Gerar options HTML de projetos filtrados
@@ -7383,6 +7383,10 @@ async function plSaveTarefa(){
   if(!desc){alert('Descrição obrigatória.');return;}
   const respCheck=gv('ftar-resp').trim();
   if(!respCheck){alert('Responsável obrigatório.');return;}
+  const pidCheck=gv('ftar-proj').trim();
+  if(!pidCheck){alert('Projeto obrigatório.');return;}
+  const aidCheck=gv('ftar-acao').trim();
+  if(!aidCheck){alert('Ação obrigatória.');return;}
   const btn=el('save-tar-btn');btn.textContent='A guardar...';btn.disabled=true;
   try{
     const data=gv('ftar-data');
