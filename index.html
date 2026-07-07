@@ -5290,7 +5290,7 @@ async function deleteUtilizador(id){
   }catch(e){showNotif('Erro: '+e.message,'error');}
 }
 function showNotif(msg,type='info'){
-  if(type==='error'||type==='info'){
+  if(type==='error'){
     alert(msg);
     return;
   }
