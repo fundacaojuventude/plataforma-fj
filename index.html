@@ -1402,6 +1402,7 @@ tr:hover td{background:var(--bg3)}
                   <div>
                     <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Projeto *</label>
                     <select id="fa-proj" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:#fff;color:var(--text)"><option value="">Selecionar...</option></select>
+                    <div id="fa-proj-locked" style="display:none;align-items:center;gap:6px;width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:#F3F4F6;color:var(--text2);box-sizing:border-box">🔒 <span id="fa-proj-locked-nome"></span></div>
                   </div>
                   <div>
                     <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Tipo</label>
@@ -6070,7 +6071,12 @@ async function loadPlanoTrim(){
 function populateDrops(){
   // Projetos = Factorial_Projetos
   const po=plProjetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
-  ['ft-proj','fk-proj','fa-proj'].forEach(id=>{const e=el(id);if(e)e.innerHTML='<option value="">Selecionar...</option>'+po;});
+  ['ft-proj','fk-proj'].forEach(id=>{const e=el(id);if(e)e.innerHTML='<option value="">Selecionar...</option>'+po;});
+  // fa-proj só é repopulado livremente quando não há edição de ação em curso (openAcaoForm trata do caso de edição)
+  if(!editAcaoId){
+    const faProj=el('fa-proj');
+    if(faProj){faProj.innerHTML='<option value="">Selecionar...</option>'+po;faProj.disabled=false;}
+  }
   const ffkd=el('ff-kd-proj');if(ffkd)ffkd.innerHTML='<option value="">Todos os plProjetos</option>'+po;
   const ffap=el('ff-ac-proj');if(ffap)ffap.innerHTML='<option value="">Todos os plProjetos</option>'+po;
   // Ações = lista Acoes (manual)
@@ -6517,15 +6523,24 @@ let editAcaoId=null;
 function openAcaoForm(projId,acaoId){
   editAcaoId=acaoId||null;
   el('frm-acao-ov').style.display='block';
-  el('fa-proj').innerHTML='<option value="">Selecionar...</option>'+plProjetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
   if(acaoId){
     const a=plAcoes.find(x=>x.id===acaoId);if(!a)return;
     el('frm-acao-title').textContent='Editar ação';
+    const proj=plProjetos.find(p=>String(p.id)===String(a.projetoId));
+    el('fa-proj').innerHTML=proj?`<option value="${proj.id}">${proj.nome}</option>`:'<option value="">Selecionar...</option>'+plProjetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+    el('fa-proj').disabled=true;
+    el('fa-proj').style.display='none';
+    el('fa-proj-locked').style.display='flex';
+    el('fa-proj-locked-nome').textContent=proj?proj.nome:'Projeto não encontrado';
     sv2('fa-nome',a.nome);sv2('fa-proj',a.projetoId||'');sv2('fa-tipo',a.tipoFJ||'Recorrente');
     sv2('fa-dep',a.dep||'');sv2('fa-estado',a.estado||'Ativo');
     sv2('fa-inicio',a.dataInicio||'');sv2('fa-fim',a.dataFim||'');
     sv2('fa-resp',a.responsavel||'');sv2('fa-notas',a.notas||'');
   }else{
+    el('fa-proj').disabled=false;
+    el('fa-proj').style.display='';
+    el('fa-proj-locked').style.display='none';
+    el('fa-proj').innerHTML='<option value="">Selecionar...</option>'+plProjetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
     el('frm-acao-title').textContent='Nova ação';
     sv2('fa-nome','');sv2('fa-proj',projId||'');sv2('fa-tipo','Recorrente');
     sv2('fa-dep','');sv2('fa-estado','Ativo');sv2('fa-inicio','');sv2('fa-fim','');
@@ -9722,22 +9737,22 @@ function gfRenderSolicitacaoForm() {
           
           <div style="margin-bottom:16px">
             <label style="display:block;font-size:13px;font-weight:500;margin-bottom:4px">
-              📋 Orçamentos recebidos
-              <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:6px">Todos os orçamentos/propostas pedidos</span>
+              📋 Orçamentos recebidos <span style="color:#EF4444">*</span>
+              <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:6px">Todos os orçamentos/propostas pedidos — máximo 3 ficheiros</span>
             </label>
-            <input type="file" id="gf-sol-file-orc" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png"
+            <input type="file" id="gf-sol-file-orc" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" onchange="gfSolLimitOrcFiles(this)"
               style="width:100%;padding:8px;border:1px dashed var(--border2);border-radius:6px;font-size:13px;background:var(--bg3)">
-            <div id="gf-sol-orc-list" style="margin-top:6px"></div>
+            <div id="gf-sol-orc-list" style="margin-top:6px;font-size:11px;color:var(--text3)">${sol ? 'Se não selecionar novos ficheiros, mantêm-se os já anexados.' : ''}</div>
           </div>
           
           <div>
             <label style="display:block;font-size:13px;font-weight:500;margin-bottom:4px">
-              ✅ Proposta de adjudicação
+              ✅ Proposta de adjudicação <span style="color:#EF4444">*</span>
               <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:6px">O orçamento escolhido / proposta de adjudicação</span>
             </label>
             <input type="file" id="gf-sol-file-adj" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png"
               style="width:100%;padding:8px;border:1px dashed #10B981;border-radius:6px;font-size:13px;background:#F0FDF4">
-            <div id="gf-sol-adj-list" style="margin-top:6px"></div>
+            <div id="gf-sol-adj-list" style="margin-top:6px;font-size:11px;color:var(--text3)"></div>
           </div>
           
           ${sol ? `
@@ -9826,6 +9841,34 @@ function gfSolRubricaInfo(rubId) {
   }
 }
 
+// Limita a seleção de "Orçamentos recebidos" a 3 ficheiros
+function gfSolLimitOrcFiles(input) {
+  const list = document.getElementById('gf-sol-orc-list');
+  if (input.files.length > 3) {
+    const dt = new DataTransfer();
+    Array.from(input.files).slice(0, 3).forEach(f => dt.items.add(f));
+    input.files = dt.files;
+    showNotif('Máximo de 3 ficheiros em Orçamentos recebidos. Foram mantidos apenas os 3 primeiros.', 'error');
+  }
+  if (list) {
+    list.textContent = input.files.length ? `${input.files.length} ficheiro(s) selecionado(s)` : '';
+  }
+}
+
+// Verifica se a solicitação já tem anexos ORC_/ADJ_ gravados no SharePoint (caso de edição sem novos ficheiros)
+async function gfSolCheckExistingAttach(id) {
+  try {
+    const d = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${id})/AttachmentFiles`);
+    const files = d.d?.results || [];
+    return {
+      hasOrc: files.some(f => f.FileName.startsWith('ORC_')),
+      hasAdj: files.some(f => f.FileName.startsWith('ADJ_'))
+    };
+  } catch (e) {
+    return { hasOrc: false, hasAdj: false };
+  }
+}
+
 async function gfSaveSolicitacao(id, estado) {
   const codigo = gfVal('gf-sol-codigo');
   const titulo = gfVal('gf-sol-titulo').trim();
@@ -9841,6 +9884,33 @@ async function gfSaveSolicitacao(id, estado) {
   if (!titulo || !projetoId || !rubricaId || valor <= 0 || !fornecedor) {
     showNotif('Preencha todos os campos obrigatórios', 'error');
     return;
+  }
+
+  // Anexos: obrigatórios apenas ao submeter (rascunho pode ficar incompleto)
+  const filesOrc = document.getElementById('gf-sol-file-orc')?.files || [];
+  const filesAdj = document.getElementById('gf-sol-file-adj')?.files || [];
+
+  if (filesOrc.length > 3) {
+    showNotif('Máximo de 3 ficheiros em Orçamentos recebidos', 'error');
+    return;
+  }
+
+  if (estado === 'Submetido') {
+    let hasOrc = filesOrc.length > 0;
+    let hasAdj = filesAdj.length > 0;
+    if (id && (!hasOrc || !hasAdj)) {
+      const existing = await gfSolCheckExistingAttach(id);
+      hasOrc = hasOrc || existing.hasOrc;
+      hasAdj = hasAdj || existing.hasAdj;
+    }
+    if (!hasOrc) {
+      showNotif('Anexe pelo menos um orçamento recebido antes de submeter', 'error');
+      return;
+    }
+    if (!hasAdj) {
+      showNotif('Anexe a proposta de adjudicação antes de submeter', 'error');
+      return;
+    }
   }
   
   // Validar disponível (apenas para Despesa)
@@ -9892,8 +9962,6 @@ async function gfSaveSolicitacao(id, estado) {
     }
     // Upload dos dois grupos de anexos
     if(itemId){
-      const filesOrc = document.getElementById('gf-sol-file-orc')?.files || [];
-      const filesAdj = document.getElementById('gf-sol-file-adj')?.files || [];
       for(const f of filesOrc){
         const renamed = new File([f], 'ORC_'+f.name, {type:f.type});
         await uploadAttachment('FJ_Solicitacoes', itemId, renamed);
