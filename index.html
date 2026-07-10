@@ -3713,7 +3713,7 @@ function renderExtTable() {
       <td><div class="actions">
         <button class="btn btn-sm" onclick="extOpenDetail(${r.id})">👁 Ver</button>
         <button class="btn btn-sm" onclick="openExtForm(${r.id})">Editar</button>
-        <button class="btn btn-sm btn-danger" onclick="extDeleteReuniao(${r.id})">✕</button>
+        ${!isMembroFJ() ? `<button class="btn btn-sm btn-danger" onclick="extDeleteReuniao(${r.id})">✕</button>` : ''}
       </div></td>
     </tr>`;
   }).join('');
