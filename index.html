@@ -1680,8 +1680,8 @@ tr:hover td{background:var(--bg3)}
                   <input id="ftar-inicio" type="date" style="width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
                 </div>
                 <div>
-                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Data limite</label>
-                  <input id="ftar-data" type="date" style="width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
+                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Data limite *</label>
+                  <input id="ftar-data" type="date" required style="width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
                 </div>
               </div>
 
@@ -2197,8 +2197,8 @@ tr:hover td{background:var(--bg3)}
               <input type="hidden" id="co-tar-email">
             </div>
             <div class="fg">
-              <label>Data limite</label>
-              <input type="date" id="co-tar-data">
+              <label>Data limite *</label>
+              <input type="date" id="co-tar-data" required>
             </div>
             <div class="fg">
               <label>Prioridade</label>
@@ -2502,7 +2502,7 @@ tr:hover td{background:var(--bg3)}
         <div class="fgrid">
           <div class="fg" style="grid-column:1/-1"><label>Descrição *</label><input type="text" id="ext-add-tar-titulo" placeholder="Descreve a tarefa..."></div>
           <div class="fg"><label>Responsável</label><select id="ext-add-tar-resp" class="user-resp-sel" style="width:100%"><option value="">— Selecionar —</option></select></div>
-          <div class="fg"><label>Data limite</label><input type="date" id="ext-add-tar-data"></div>
+          <div class="fg"><label>Data limite *</label><input type="date" id="ext-add-tar-data" required></div>
           <div class="fg"><label>Estado</label><select id="ext-add-tar-estado"><option>Por fazer</option><option>Em curso</option></select></div>
         </div>
         <div class="panel-footer">
@@ -2527,7 +2527,7 @@ tr:hover td{background:var(--bg3)}
         <div class="fgrid">
           <div class="fg" style="grid-column:1/-1"><label>Descrição *</label><input type="text" id="ext-edit-tar-titulo" placeholder="Descrição da tarefa..."></div>
           <div class="fg"><label>Responsável</label><select id="ext-edit-tar-resp" class="user-resp-sel" style="width:100%"><option value="">— Selecionar —</option></select></div>
-          <div class="fg"><label>Data limite</label><input type="date" id="ext-edit-tar-data"></div>
+          <div class="fg"><label>Data limite *</label><input type="date" id="ext-edit-tar-data" required></div>
           <div class="fg"><label>Estado</label><select id="ext-edit-tar-estado"><option>Por fazer</option><option>Em curso</option><option>Concluída</option><option>Cancelada</option></select></div>
         </div>
         <div class="panel-footer">
@@ -2576,8 +2576,8 @@ tr:hover td{background:var(--bg3)}
             <select id="co-edit-tar-resp" class="user-resp-sel" style="width:100%"><option value="">— Selecionar —</option></select>
           </div>
           <div class="fg">
-            <label>Data limite</label>
-            <input type="date" id="co-edit-tar-data">
+            <label>Data limite *</label>
+            <input type="date" id="co-edit-tar-data" required>
           </div>
           <div class="fg">
             <label>Prioridade</label>
@@ -3911,11 +3911,13 @@ function extRemoveFile(i) { _extSelectedFiles.splice(i, 1); _extRenderFilesPrevi
 function extAddTarefaTemp() {
   const titulo = el('fe-tar-titulo')?.value.trim();
   if (!titulo) { showNotif('Preenche a descrição da tarefa.', 'error'); return; }
+  const dataLimiteTemp = el('fe-tar-data')?.value || '';
+  if (!dataLimiteTemp) { showNotif('Preenche a data limite da tarefa.', 'error'); return; }
   _extTarefasTemp.push({
     _uid:       Date.now() + Math.random(),
     titulo,
     responsavel: el('fe-tar-resp')?.value || '',
-    dataLimite:  el('fe-tar-data')?.value || '',
+    dataLimite:  dataLimiteTemp,
     estado:      el('fe-tar-estado')?.value || 'Por fazer',
     notas:       ''
   });
@@ -4017,6 +4019,8 @@ function extCloseAddTarModal() { el('ext-add-tar-modal').style.display = 'none';
 async function extSaveAddTarefa() {
   const titulo = el('ext-add-tar-titulo')?.value.trim();
   if (!titulo) { showNotif('Indica a descrição da tarefa.', 'error'); return; }
+  const dataVal2Check = el('ext-add-tar-data')?.value;
+  if (!dataVal2Check) { showNotif('Indica a data limite da tarefa.', 'error'); return; }
   const btn = el('ext-add-tar-save-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'A guardar...'; }
   try {
@@ -4061,6 +4065,8 @@ async function extSaveTarefaEdit() {
   const id    = parseInt(el('ext-edit-tar-id').value);
   const titulo = el('ext-edit-tar-titulo').value.trim();
   if (!titulo) { showNotif('Indica a descrição.', 'error'); return; }
+  const dataVal3Check = el('ext-edit-tar-data')?.value;
+  if (!dataVal3Check) { showNotif('Indica a data limite.', 'error'); return; }
   const btn = el('ext-tar-save-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'A guardar...'; }
   try {
@@ -7402,6 +7408,8 @@ async function plSaveTarefa(){
   if(!pidCheck){alert('Projeto obrigatório.');return;}
   const aidCheck=gv('ftar-acao').trim();
   if(!aidCheck){alert('Ação obrigatória.');return;}
+  const dataCheck=gv('ftar-data').trim();
+  if(!dataCheck){alert('Data limite obrigatória.');return;}
   const btn=el('save-tar-btn');btn.textContent='A guardar...';btn.disabled=true;
   try{
     const data=gv('ftar-data');
@@ -12207,6 +12215,8 @@ function coRenderTarefas() {
 function coAddTarefa() {
   const titulo = document.getElementById('co-tar-titulo').value.trim();
   if (!titulo) { showNotif('Preenche a descrição da tarefa.', 'error'); return; }
+  const dataLimiteCo = document.getElementById('co-tar-data').value || '';
+  if (!dataLimiteCo) { showNotif('Preenche a data limite da tarefa.', 'error'); return; }
   const resp     = document.getElementById('co-tar-resp').selectedOptions[0];
   const respNome = resp?.text !== '— Selecionar —' ? resp?.text || '' : '';
   const respEmail= document.getElementById('co-tar-email').value || '';
@@ -12215,7 +12225,7 @@ function coAddTarefa() {
     titulo,
     respNome,
     respEmail,
-    dataLimite: document.getElementById('co-tar-data').value || '',
+    dataLimite: dataLimiteCo,
     prioridade: document.getElementById('co-tar-prior').value || 'Média',
     estado:     document.getElementById('co-tar-estado').value || 'Por fazer',
     notas:      document.getElementById('co-tar-notas').value.trim(),
@@ -12680,6 +12690,8 @@ async function coSaveTarefaEdit() {
   const id      = parseInt(document.getElementById('co-edit-tar-id').value);
   const titulo  = document.getElementById('co-edit-tar-titulo').value.trim();
   if (!titulo)  { showNotif('Preenche a descrição.', 'error'); return; }
+  const dataValCheck = document.getElementById('co-edit-tar-data').value;
+  if (!dataValCheck) { showNotif('Preenche a data limite.', 'error'); return; }
   const btn = document.querySelector('#co-tar-modal .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'A guardar...'; }
   try {
