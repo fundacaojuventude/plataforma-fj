@@ -1028,7 +1028,7 @@ tr:hover td{background:var(--bg3)}
           <h2>Iniciar reunião</h2>
           <p style="font-size:14px;color:var(--text2);margin-bottom:1.5rem">Seleciona o tipo de reunião para carregar os assuntos.</p>
           <select id="r-tipo" onchange="loadSavedSessions()"><option>Reunião com CAdm</option><option>Reunião Gestão</option><option>Reunião O.Norte</option><option>Reunião O.Sul</option><option>Reunião Financeiro</option><option>Reunião Impacto</option></select>
-          <select id="r-filtro"><option value="todos">Incluir todos os assuntos</option><option value="abertos">Apenas não concluídos</option><option value="pendentes">Apenas pendentes de decisão</option></select>
+          <select id="r-filtro"><option value="todos">Incluir todos os assuntos</option><option value="abertos" selected>Apenas não concluídos</option><option value="pendentes">Apenas pendentes de decisão</option></select>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:1rem">
             <button class="btn" style="padding:12px;font-size:14px" onclick="prepararReuniao()">&#128203; Preparar ordem de trabalhos</button>
             <button class="btn btn-orange" style="padding:12px;font-size:14px" onclick="iniciarReuniao()">&#9654; Iniciar reunião</button>
