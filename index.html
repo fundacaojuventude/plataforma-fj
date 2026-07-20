@@ -2558,9 +2558,10 @@ tr:hover td{background:var(--bg3)}
 <div id="pa-registo-modal" class="modal-bg" style="display:none">
   <div class="modal-box" style="max-width:560px">
     <div class="modal-hdr">
-      <div class="modal-title">Novo registo</div>
+      <div class="modal-title" id="pa-registo-modal-title">Novo registo</div>
       <button class="modal-close" onclick="paCloseRegistoModal()">✕</button>
     </div>
+    <input type="hidden" id="pa-r-id">
     <input type="hidden" id="pa-r-entidade">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div style="grid-column:1/-1">
@@ -13754,6 +13755,7 @@ async function paLoadParceiros(){
       estadoRelacaoRaw: r.EstadoRelacao||'Em negociação',
       responsavelId: r.Responsavel?.Id||null,
       responsavelNome: r.Responsavel?.Title||'',
+      responsavelEmail: (r.Responsavel?.EMail||'').toLowerCase(),
       notas: r.Notas||''
     }));
     paRenderLista();
@@ -13784,7 +13786,7 @@ async function paPopulateResponsaveis(){
   const sel=document.getElementById('pa-f-resp');
   if(!sel) return;
   sel.innerHTML='<option value="">— Selecionar —</option>'+
-    fjUtilizadores.map(u=>`<option value="${u.id}">${u.titulo}</option>`).join('');
+    fjUtilizadores.map(u=>`<option value="${u.email}">${u.titulo}</option>`).join('');
 }
 
 // ── Cálculo de estado e data de início (deriva do histórico) ──
@@ -13809,6 +13811,26 @@ function paCalcDataInicio(p){
 }
 function paBadgeClass(estado){
   return {'Ativa':'b-aprov','Em negociação':'b-pend','Suspensa':'b-nap','Terminada':'b-na'}[estado]||'b-na';
+}
+function paTipoBadgeClass(tipo){
+  return {
+    'Contacto':'b-na',
+    'Reunião':'b-info',
+    'Protocolo assinado':'b-aprov',
+    'Renovação':'b-aprov',
+    'Término':'b-nap',
+    'Registo histórico':'b-na'
+  }[tipo]||'b-na';
+}
+function paTipoDotColor(tipo){
+  return {
+    'Contacto':'var(--gray)',
+    'Reunião':'var(--blue-d)',
+    'Protocolo assinado':'var(--green-mid)',
+    'Renovação':'var(--green-mid)',
+    'Término':'var(--red)',
+    'Registo histórico':'var(--gray)'
+  }[tipo]||'var(--fj-blue)';
 }
 
 // ── Stats + lista ──
@@ -13909,17 +13931,20 @@ function paRenderDetalhe(){
     <div style="border-left:0.5px solid var(--border);padding-left:16px">
       ${histFiltrado.length?histFiltrado.map(h=>`
         <div style="position:relative;padding-bottom:18px">
-          <div style="position:absolute;left:-20px;top:2px;width:8px;height:8px;border-radius:50%;background:var(--fj-blue)"></div>
+          <div style="position:absolute;left:-20px;top:2px;width:8px;height:8px;border-radius:50%;background:${paTipoDotColor(h.tipo)}"></div>
           <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
             <p style="font-size:13px;font-weight:500;margin:0">${h.titulo}</p>
             <span style="font-size:12px;color:var(--text3);white-space:nowrap">${fmtDate(h.data)}${h.dataAproximada?' *':''}</span>
           </div>
-          <span class="badge b-na" style="margin:4px 0;display:inline-block">${h.tipo}</span>
+          <span class="badge ${paTipoBadgeClass(h.tipo)}" style="margin:4px 0;display:inline-block">${h.tipo}</span>
           <p style="font-size:13px;color:var(--text2);margin:4px 0">${h.descricao}</p>
           ${h.documentoAnexo?`<a href="${h.documentoAnexo}" target="_blank" style="font-size:12px">🔗 Ver documento</a>`:''}
           ${h.estadoProtocolo?`<div style="font-size:11px;color:var(--text3);margin-top:2px">Estado do protocolo: ${h.estadoProtocolo}${h.validadeProtocolo?` · válido até ${fmtDate(h.validadeProtocolo)}`:''}</div>`:''}
           <div style="font-size:11px;color:var(--text3);margin-top:2px">Registado por ${h.autorNome||'—'}</div>
-          <button class="btn btn-sm btn-danger" style="margin-top:6px" onclick="paDeleteRegisto(${h.id})">Remover</button>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <button class="btn btn-sm" onclick="paOpenEditarRegisto(${h.id})">✎ Editar</button>
+            <button class="btn btn-sm btn-danger" onclick="paDeleteRegisto(${h.id})">Remover</button>
+          </div>
         </div>
       `).join(''):`<div style="color:var(--text3);font-size:13px;padding:8px 0">Sem registos.</div>`}
     </div>
@@ -13973,7 +13998,7 @@ function paOpenEditarParceiro(id){
   document.getElementById('pa-f-contemail').value=p.contactoEmail;
   document.getElementById('pa-f-conttel').value=p.contactoTelefone;
   document.getElementById('pa-f-website').value=p.website;
-  document.getElementById('pa-f-resp').value=p.responsavelId||'';
+  document.getElementById('pa-f-resp').value=p.responsavelEmail||'';
   document.getElementById('pa-f-notas').value=p.notas;
   document.getElementById('pa-parceiro-modal').style.display='flex';
 }
@@ -13986,9 +14011,14 @@ async function paSaveParceiro(){
   const tipo=document.getElementById('pa-f-tipo').value;
   const contnome=document.getElementById('pa-f-contnome').value.trim();
   const contemail=document.getElementById('pa-f-contemail').value.trim();
-  const respId=document.getElementById('pa-f-resp').value;
-  if(!nome||!tipo||!contnome||!contemail||!respId){
+  const respEmail=document.getElementById('pa-f-resp').value;
+  if(!nome||!tipo||!contnome||!contemail||!respEmail){
     alert('Preenche os campos obrigatórios (Nome, Tipo, Contacto, Email do contacto, Responsável).');
+    return;
+  }
+  const respUID=await getSpUID(respEmail);
+  if(!respUID){
+    alert('Não foi possível resolver o utilizador Responsável no SharePoint. Verifica se está registado como utilizador do site.');
     return;
   }
   const body={
@@ -14002,7 +14032,7 @@ async function paSaveParceiro(){
     ContactoPrincipalTelefone: document.getElementById('pa-f-conttel').value.trim(),
     Website: document.getElementById('pa-f-website').value.trim(),
     Notas: document.getElementById('pa-f-notas').value.trim(),
-    ResponsavelId: parseInt(respId)
+    ResponsavelId: respUID
   };
   try{
     if(id){
@@ -14020,6 +14050,8 @@ async function paSaveParceiro(){
 
 // ── Modal Novo Registo de Histórico ──
 function paOpenNovoRegisto(entidadeId){
+  document.getElementById('pa-registo-modal-title').textContent='Novo registo';
+  document.getElementById('pa-r-id').value='';
   document.getElementById('pa-r-entidade').value=entidadeId;
   document.getElementById('pa-r-titulo').value='';
   document.getElementById('pa-r-tipo').value='';
@@ -14032,6 +14064,23 @@ function paOpenNovoRegisto(entidadeId){
   paToggleProtocoloFields();
   document.getElementById('pa-registo-modal').style.display='flex';
 }
+function paOpenEditarRegisto(id){
+  const h=PA_HISTORICO.find(x=>x.id===id);
+  if(!h) return;
+  document.getElementById('pa-registo-modal-title').textContent='Editar registo';
+  document.getElementById('pa-r-id').value=h.id;
+  document.getElementById('pa-r-entidade').value=h.entidadeId;
+  document.getElementById('pa-r-titulo').value=h.titulo;
+  document.getElementById('pa-r-tipo').value=h.tipo;
+  document.getElementById('pa-r-data').value=h.data;
+  document.getElementById('pa-r-aprox').checked=h.dataAproximada;
+  document.getElementById('pa-r-descricao').value=h.descricao;
+  document.getElementById('pa-r-doc').value=h.documentoAnexo;
+  document.getElementById('pa-r-validade').value=h.validadeProtocolo;
+  document.getElementById('pa-r-estadoprotocolo').value=h.estadoProtocolo;
+  paToggleProtocoloFields();
+  document.getElementById('pa-registo-modal').style.display='flex';
+}
 function paCloseRegistoModal(){
   document.getElementById('pa-registo-modal').style.display='none';
 }
@@ -14041,6 +14090,7 @@ function paToggleProtocoloFields(){
   document.getElementById('pa-r-protocolo-fields').style.display=isProtocolo?'grid':'none';
 }
 async function paSaveRegisto(){
+  const regId=document.getElementById('pa-r-id').value;
   const entidadeId=parseInt(document.getElementById('pa-r-entidade').value);
   const titulo=document.getElementById('pa-r-titulo').value.trim();
   const tipo=document.getElementById('pa-r-tipo').value;
@@ -14055,7 +14105,6 @@ async function paSaveRegisto(){
     alert('Indica a validade do protocolo.');
     return;
   }
-  const autorId=await getSpUID((user?.username||'').toLowerCase());
   const body={
     __metadata:{type:'SP.Data.FJ_x005f_Parcerias_x005f_HistoricoListItem'},
     Title: titulo,
@@ -14068,9 +14117,15 @@ async function paSaveRegisto(){
     ValidadeProtocolo: isProtocolo ? (document.getElementById('pa-r-validade').value||null) : null,
     EstadoProtocolo: isProtocolo ? (document.getElementById('pa-r-estadoprotocolo').value||null) : null
   };
-  if(autorId) body.AutorId=autorId;
   try{
-    await spWrite(`${SP}/_api/web/lists/getbytitle('${PA_LIST_HISTORICO}')/items`,body,'POST');
+    if(regId){
+      const h=PA_HISTORICO.find(x=>x.id===parseInt(regId));
+      await spWrite(`${SP}/_api/web/lists/getbytitle('${PA_LIST_HISTORICO}')/items(${regId})`,body,'MERGE',h?.etag);
+    }else{
+      const autorId=await getSpUID((user?.username||'').toLowerCase());
+      if(autorId) body.AutorId=autorId;
+      await spWrite(`${SP}/_api/web/lists/getbytitle('${PA_LIST_HISTORICO}')/items`,body,'POST');
+    }
     paCloseRegistoModal();
     await paLoadHistorico();
     paRenderLista();paRenderDetalhe();
