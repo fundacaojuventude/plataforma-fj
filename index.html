@@ -13904,12 +13904,13 @@ function paRenderDetalhe(){
     </div>
     <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:20px">
       <div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px">
-        <p style="font-size:11px;color:var(--text3);margin:0 0 4px">Responsável</p>
+        <p style="font-size:11px;color:var(--text3);margin:0 0 4px">Responsável FJ</p>
         <p style="font-size:13px;margin:0">${p.responsavelNome||'—'}</p>
       </div>
       <div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px">
         <p style="font-size:11px;color:var(--text3);margin:0 0 4px">Contacto</p>
-        <p style="font-size:13px;margin:0">${p.contactoEmail||'—'}</p>
+        <p style="font-size:13px;margin:0">${p.contactoNome||'—'}</p>
+        <p style="font-size:12px;color:var(--text2);margin:2px 0 0">${p.contactoEmail||'—'}</p>
       </div>
       <div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px">
         <p style="font-size:11px;color:var(--text3);margin:0 0 4px">Início da relação</p>
