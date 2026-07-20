@@ -340,6 +340,8 @@ tr:hover td{background:var(--bg3)}
 #sidebar-de .nav-item:hover { background: rgba(255,255,255,.1); }
 .de-page { display:none }
 .de-page.active { display:block }
+.pa-page { display:none }
+.pa-page.active { display:block }
 
 /* ── PLANEAMENTO ADDITIONS ── */
 /* HIERARCHY */
@@ -655,6 +657,7 @@ tr:hover td{background:var(--bg3)}
       <button class="module-tab" id="tab-au" onclick="switchModule('au')">🏖️ Ausências</button>
       <button class="module-tab" id="tab-co" onclick="switchModule('co')">📬 Correio</button>
       <button class="module-tab" id="tab-de" onclick="switchModule('de')" style="display:none">📋 Despacho</button>
+      <button class="module-tab" id="tab-pa" onclick="switchModule('pa')" style="display:none">🏛️ Parcerias</button>
       <button class="module-tab" id="tab-st" onclick="switchModule('st')" style="display:none">⚙️ Definições</button>
     </div>   <div class="topbar-right">
       <div style="text-align:right">
@@ -882,6 +885,13 @@ tr:hover td{background:var(--bg3)}
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3,8 6,11 13,4"/></svg>
     Pendentes de Decisão
     <span id="de-badge-decisao" style="margin-left:auto;background:var(--fj-orange);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;display:none"></span>
+  </div>
+</div>
+<div class="sidebar" id="sidebar-pa" style="display:none">
+  <div class="sidebar-label" style="color:rgba(255,255,255,.4)">Parcerias</div>
+  <div class="nav-item active" id="pa-nav-parceiros" onclick="paNav('parceiros')" style="color:rgba(255,255,255,.75)">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="9" x2="9" y2="9"/></svg>
+    Parceiros
   </div>
 </div>
 <div class="sidebar" id="sidebar-st" style="display:none">
@@ -2442,6 +2452,163 @@ tr:hover td{background:var(--bg3)}
 
 </div><!-- /module-de -->
 
+<div id="module-pa" style="display:none;width:100%">
+  <div class="pa-page active" id="pa-page-parceiros">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem">
+      <div class="page-title" style="margin:0">Gestão de Parcerias</div>
+    </div>
+    <div class="stats" style="margin-bottom:1.25rem">
+      <div class="stat"><span class="stat-n" id="pa-s-total">—</span><span class="stat-l">Total</span></div>
+      <div class="stat"><span class="stat-n" id="pa-s-ativas" style="color:var(--green-mid)">—</span><span class="stat-l">Ativas</span></div>
+      <div class="stat"><span class="stat-n" id="pa-s-neg" style="color:var(--amber)">—</span><span class="stat-l">Em negociação</span></div>
+      <div class="stat"><span class="stat-n" id="pa-s-susp" style="color:var(--red)">—</span><span class="stat-l">Suspensas</span></div>
+    </div>
+    <div style="display:flex;gap:0;border:0.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;min-height:520px;background:var(--bg2)">
+
+      <div style="width:280px;flex-shrink:0;border-right:0.5px solid var(--border)">
+        <div style="padding:12px 14px;border-bottom:0.5px solid var(--border)">
+          <div class="search-wrap" style="margin-bottom:8px">
+            <svg class="si" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="5"/><line x1="11" y1="11" x2="15" y2="15"/></svg>
+            <input type="text" id="pa-q" placeholder="Pesquisar parceiro..." oninput="paRenderLista()">
+          </div>
+          <select class="flt" id="pa-ff-estado" onchange="paRenderLista()" style="width:100%">
+            <option value="">Estado: todos</option>
+            <option>Em negociação</option><option>Ativa</option><option>Suspensa</option><option>Terminada</option>
+          </select>
+        </div>
+        <div id="pa-lista" style="max-height:600px;overflow-y:auto"></div>
+        <div style="padding:12px 14px">
+          <button class="btn btn-primary" style="width:100%" onclick="paOpenNovoParceiro()">+ Novo parceiro</button>
+        </div>
+      </div>
+
+      <div style="flex:1;padding:20px 24px;min-width:0" id="pa-detalhe">
+        <div style="display:flex;align-items:center;justify-content:center;height:400px;color:var(--text3);font-size:13px">Seleciona um parceiro à esquerda para ver a ficha</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal Novo/Editar Parceiro -->
+<div id="pa-parceiro-modal" class="modal-bg" style="display:none">
+  <div class="modal-box" style="max-width:640px">
+    <div class="modal-hdr">
+      <div class="modal-title" id="pa-parceiro-modal-title">Novo parceiro</div>
+      <button class="modal-close" onclick="paCloseParceiroModal()">✕</button>
+    </div>
+    <input type="hidden" id="pa-f-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div style="grid-column:1/-1">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Nome da entidade *</label>
+        <input type="text" id="pa-f-nome" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Tipo *</label>
+        <select id="pa-f-tipo" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:#fff;color:var(--text)">
+          <option value="">— Selecionar —</option>
+          <option>Empresa</option><option>Autarquia</option><option>Fundação</option>
+          <option>Instituição de ensino</option><option>Entidade pública</option><option>Outra</option>
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">NIF</label>
+        <input type="text" id="pa-f-nif" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
+      </div>
+      <div style="grid-column:1/-1">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Setor</label>
+        <input type="text" id="pa-f-setor" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Nome do contacto *</label>
+        <input type="text" id="pa-f-contnome" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Email do contacto *</label>
+        <input type="email" id="pa-f-contemail" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Telefone do contacto</label>
+        <input type="text" id="pa-f-conttel" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Website</label>
+        <input type="text" id="pa-f-website" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Responsável na FJ *</label>
+        <select id="pa-f-resp" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:#fff;color:var(--text)"><option value="">— Selecionar —</option></select>
+      </div>
+      <div style="grid-column:1/-1">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Notas</label>
+        <textarea id="pa-f-notas" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);min-height:70px;resize:vertical"></textarea>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
+      <button class="btn" onclick="paCloseParceiroModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="paSaveParceiro()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Novo Registo de Histórico -->
+<div id="pa-registo-modal" class="modal-bg" style="display:none">
+  <div class="modal-box" style="max-width:560px">
+    <div class="modal-hdr">
+      <div class="modal-title">Novo registo</div>
+      <button class="modal-close" onclick="paCloseRegistoModal()">✕</button>
+    </div>
+    <input type="hidden" id="pa-r-entidade">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div style="grid-column:1/-1">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Assunto *</label>
+        <input type="text" id="pa-r-titulo" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Tipo *</label>
+        <select id="pa-r-tipo" onchange="paToggleProtocoloFields()" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:#fff;color:var(--text)">
+          <option value="">— Selecionar —</option>
+          <option>Contacto</option><option>Reunião</option><option>Protocolo assinado</option>
+          <option>Renovação</option><option>Término</option><option>Registo histórico</option>
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Data *</label>
+        <input type="date" id="pa-r-data" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
+      </div>
+      <div style="grid-column:1/-1;display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="pa-r-aprox" style="margin:0">
+        <label for="pa-r-aprox" style="font-size:13px;color:var(--text2)">Data aproximada (registo de arquivo histórico)</label>
+      </div>
+      <div style="grid-column:1/-1">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Descrição *</label>
+        <textarea id="pa-r-descricao" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);min-height:80px;resize:vertical"></textarea>
+      </div>
+      <div style="grid-column:1/-1">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Link do documento (protocolo, ata, etc.)</label>
+        <input type="text" id="pa-r-doc" placeholder="https://..." style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
+      </div>
+      <div id="pa-r-protocolo-fields" style="display:none;grid-column:1/-1;gap:14px;grid-template-columns:1fr 1fr">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Validade do protocolo</label>
+          <input type="date" id="pa-r-validade" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Estado do protocolo</label>
+          <select id="pa-r-estadoprotocolo" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:#fff;color:var(--text)">
+            <option value="">— Selecionar —</option>
+            <option>Válido</option><option>Expirado</option><option>Em renovação</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
+      <button class="btn" onclick="paCloseRegistoModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="paSaveRegisto()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Gerar Documento de Reunião -->
 <div id="gerar-doc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:600;overflow-y:auto" onclick="if(event.target===this)fecharGerarDocumento()">
   <div style="max-width:680px;margin:48px auto;padding:0 1rem 2rem">
@@ -2797,7 +2964,7 @@ function getCores(tipo){return REUNIAO_CORES[tipo]||REUNIAO_CORES['Reunião com 
 let _currentModule='rn';
 function switchModule(mod){
   _currentModule=mod;
-  ['rn','pl','gf','au','co','de','st'].forEach(m=>{
+  ['rn','pl','gf','au','co','de','st','pa'].forEach(m=>{
     document.getElementById('tab-'+m)?.classList.toggle('active',m===mod);
     const sb=document.getElementById('sidebar-'+m);
     const mc=document.getElementById('module-'+m);
@@ -2817,6 +2984,7 @@ function switchModule(mod){
   if(mod==='co'){if(!_coLoaded){_coLoaded=true;coInit();}else coNav('registo');}
   if(mod==='de'){if(!_deLoaded){_deLoaded=true;deInit();}else deNav('lista');}
   if(mod==='st'){if(!_stLoaded){_stLoaded=true;stInit();}else stNav('permissoes');}
+  if(mod==='pa'){if(!_paLoaded){_paLoaded=true;paInit();}else paNav('parceiros');}
 }
 let _plLoaded=false,_gfLoaded=false,_auLoaded=false,_coLoaded=false,_stLoaded=false,_deLoaded=false;
 
@@ -3285,6 +3453,8 @@ function showApp(){
     if(isPE || isDir || isAdmin()){
       const deTab = document.getElementById('tab-de');
       if(deTab) deTab.style.display = 'block';
+      const paTab = document.getElementById('tab-pa');
+      if(paTab) paTab.style.display = 'block';
     }
     if(isMembroFJ()){
       const coTab = document.getElementById('tab-co');
@@ -13537,6 +13707,380 @@ function renderViewer(data){
   }).join('');
   const footerHtml=`<div class="viewer-footer">Fundação da Juventude · Documento confidencial · Apenas para membros do Conselho de Administração</div>`;
   body.innerHTML=coverHtml+itemsHtml+footerHtml;
+}
+
+// ══════════════════════════════════════════════════════════════
+// ═══ MÓDULO PARCERIAS ═══
+// ══════════════════════════════════════════════════════════════
+const PA_LIST_PARCEIROS  = 'FJ_Parceiros';
+const PA_LIST_HISTORICO  = 'FJ_Parcerias_Historico';
+let PA_PARCEIROS = [];
+let PA_HISTORICO = [];
+let PA_SELECTED  = null;
+let _paLoaded = false;
+
+async function paInit(){
+  await Promise.all([paLoadParceiros(), paLoadHistorico()]);
+  await paPopulateResponsaveis();
+  paNav('parceiros');
+}
+
+function paNav(page){
+  document.querySelectorAll('.pa-page').forEach(p=>p.classList.remove('active'));
+  const el=document.getElementById('pa-page-'+page);
+  if(el) el.classList.add('active');
+  document.querySelectorAll('#sidebar-pa .nav-item').forEach(n=>n.classList.remove('active'));
+  const nav=document.getElementById('pa-nav-'+page);
+  if(nav) nav.classList.add('active');
+}
+
+async function paLoadParceiros(){
+  try{
+    const d=await spRead(`${SP}/_api/web/lists/getbytitle('${PA_LIST_PARCEIROS}')/items?$select=*,Responsavel/Title,Responsavel/EMail&$expand=Responsavel&$orderby=Title asc&$top=500`);
+    PA_PARCEIROS=(d.d?.results||[]).map(r=>({
+      id: r.Id,
+      etag: r.__metadata?.etag||'*',
+      nome: r.Title||'',
+      nif: r.NIF||'',
+      tipo: r.Tipo||'',
+      setor: r.Setor||'',
+      contactoNome: r.ContactoPrincipalNome||'',
+      contactoEmail: r.ContactoPrincipalEmail||'',
+      contactoTelefone: r.ContactoPrincipalTelefone||'',
+      website: r.Website||'',
+      estadoRelacaoRaw: r.EstadoRelacao||'Em negociação',
+      responsavelId: r.Responsavel?.Id||null,
+      responsavelNome: r.Responsavel?.Title||'',
+      notas: r.Notas||''
+    }));
+    paRenderLista();
+  }catch(e){ console.warn('paLoadParceiros:', e); }
+}
+
+async function paLoadHistorico(){
+  try{
+    const d=await spRead(`${SP}/_api/web/lists/getbytitle('${PA_LIST_HISTORICO}')/items?$select=*,Entidade/Id,Entidade/Title,Autor/Title,Autor/EMail&$expand=Entidade,Autor&$orderby=Data desc&$top=2000`);
+    PA_HISTORICO=(d.d?.results||[]).map(r=>({
+      id: r.Id,
+      etag: r.__metadata?.etag||'*',
+      titulo: r.Title||'',
+      entidadeId: r.Entidade?.Id||null,
+      tipo: r.TipoRegisto||'',
+      data: r.Data ? r.Data.split('T')[0] : '',
+      dataAproximada: !!r.DataAproximada,
+      descricao: r.Descricao||'',
+      autorNome: r.Autor?.Title||'',
+      documentoAnexo: r.DocumentoAnexo||'',
+      validadeProtocolo: r.ValidadeProtocolo ? r.ValidadeProtocolo.split('T')[0] : '',
+      estadoProtocolo: r.EstadoProtocolo||''
+    }));
+  }catch(e){ console.warn('paLoadHistorico:', e); }
+}
+
+async function paPopulateResponsaveis(){
+  const sel=document.getElementById('pa-f-resp');
+  if(!sel) return;
+  sel.innerHTML='<option value="">— Selecionar —</option>'+
+    fjUtilizadores.map(u=>`<option value="${u.id}">${u.titulo}</option>`).join('');
+}
+
+// ── Cálculo de estado e data de início (deriva do histórico) ──
+function paHistoricoDe(entidadeId){
+  return PA_HISTORICO.filter(h=>h.entidadeId===entidadeId);
+}
+function paCalcEstado(p){
+  if(p.estadoRelacaoRaw==='Suspensa') return 'Suspensa';
+  const hist=paHistoricoDe(p.id);
+  const protocolos=hist.filter(h=>h.tipo==='Protocolo assinado'||h.tipo==='Renovação')
+    .slice().sort((a,b)=>new Date(b.data)-new Date(a.data));
+  if(!protocolos.length) return 'Em negociação';
+  const ultimo=protocolos[0];
+  if(ultimo.estadoProtocolo==='Expirado') return 'Terminada';
+  return 'Ativa';
+}
+function paCalcDataInicio(p){
+  const hist=paHistoricoDe(p.id);
+  if(!hist.length) return null;
+  const sorted=hist.slice().sort((a,b)=>new Date(a.data)-new Date(b.data));
+  return sorted[0];
+}
+function paBadgeClass(estado){
+  return {'Ativa':'b-aprov','Em negociação':'b-pend','Suspensa':'b-nap','Terminada':'b-na'}[estado]||'b-na';
+}
+
+// ── Stats + lista ──
+function paRenderStats(){
+  const all=PA_PARCEIROS.map(p=>({p,estado:paCalcEstado(p)}));
+  document.getElementById('pa-s-total').textContent = all.length;
+  document.getElementById('pa-s-ativas').textContent = all.filter(x=>x.estado==='Ativa').length;
+  document.getElementById('pa-s-neg').textContent = all.filter(x=>x.estado==='Em negociação').length;
+  document.getElementById('pa-s-susp').textContent = all.filter(x=>x.estado==='Suspensa').length;
+}
+function paRenderLista(){
+  paRenderStats();
+  const wrap=document.getElementById('pa-lista');
+  if(!wrap) return;
+  const q=(document.getElementById('pa-q')?.value||'').toLowerCase();
+  const ff=document.getElementById('pa-ff-estado')?.value||'';
+  const list=PA_PARCEIROS
+    .map(p=>({p,estado:paCalcEstado(p)}))
+    .filter(x=>{
+      if(q && !x.p.nome.toLowerCase().includes(q)) return false;
+      if(ff && x.estado!==ff) return false;
+      return true;
+    });
+  if(!list.length){
+    wrap.innerHTML=`<div style="padding:20px 16px;color:var(--text3);font-size:13px">Nenhum parceiro encontrado.</div>`;
+    return;
+  }
+  wrap.innerHTML=list.map(x=>`
+    <div style="padding:12px 16px;cursor:pointer;border-bottom:0.5px solid var(--border);${PA_SELECTED===x.p.id?'background:var(--bg3);border-left:2px solid var(--fj-blue)':''}" onclick="paSelectParceiro(${x.p.id})">
+      <p style="font-size:13px;font-weight:500;margin:0 0 4px;color:var(--text)">${x.p.nome}</p>
+      <span class="badge ${paBadgeClass(x.estado)}">${x.estado}</span>
+    </div>
+  `).join('');
+}
+
+function paSelectParceiro(id){
+  PA_SELECTED=id;
+  paRenderLista();
+  paRenderDetalhe();
+}
+
+function paRenderDetalhe(){
+  const wrap=document.getElementById('pa-detalhe');
+  if(!wrap) return;
+  const p=PA_PARCEIROS.find(x=>x.id===PA_SELECTED);
+  if(!p){
+    wrap.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;height:400px;color:var(--text3);font-size:13px">Seleciona um parceiro à esquerda para ver a ficha</div>`;
+    return;
+  }
+  const estado=paCalcEstado(p);
+  const inicio=paCalcDataInicio(p);
+  const hist=paHistoricoDe(p.id).slice().sort((a,b)=>new Date(b.data)-new Date(a.data));
+  const filtroTipo=document.getElementById('pa-hist-filtro')?.value||'';
+  const histFiltrado=filtroTipo?hist.filter(h=>h.tipo===filtroTipo):hist;
+
+  wrap.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <p style="font-size:18px;font-weight:500;margin:0">${p.nome}</p>
+          <span class="badge ${paBadgeClass(estado)}">${estado}</span>
+        </div>
+        <p style="font-size:13px;color:var(--text2);margin:0">${p.tipo||'—'}${p.nif?` · NIF ${p.nif}`:''}</p>
+      </div>
+      <div style="display:flex;gap:8px">
+        ${estado==='Suspensa'
+          ? `<button class="btn" onclick="paReativar(${p.id})">Reativar</button>`
+          : `<button class="btn" onclick="paSuspender(${p.id})">Suspender</button>`}
+        <button class="btn" onclick="paOpenEditarParceiro(${p.id})">✎ Editar</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:20px">
+      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px">
+        <p style="font-size:11px;color:var(--text3);margin:0 0 4px">Responsável</p>
+        <p style="font-size:13px;margin:0">${p.responsavelNome||'—'}</p>
+      </div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px">
+        <p style="font-size:11px;color:var(--text3);margin:0 0 4px">Contacto</p>
+        <p style="font-size:13px;margin:0">${p.contactoEmail||'—'}</p>
+      </div>
+      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px">
+        <p style="font-size:11px;color:var(--text3);margin:0 0 4px">Início da relação</p>
+        <p style="font-size:13px;margin:0">${inicio?fmtDate(inicio.data)+(inicio.dataAproximada?' *':''):'—'}</p>
+      </div>
+    </div>
+    ${p.notas?`<div style="margin-bottom:20px;font-size:13px;color:var(--text2)">${p.notas}</div>`:''}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <p style="font-size:15px;font-weight:500;margin:0">Histórico</p>
+      <div style="display:flex;gap:8px">
+        <select class="flt" id="pa-hist-filtro" onchange="paRenderDetalhe()">
+          <option value="">Tipo: todos</option>
+          <option>Contacto</option><option>Reunião</option><option>Protocolo assinado</option>
+          <option>Renovação</option><option>Término</option><option>Registo histórico</option>
+        </select>
+        <button class="btn btn-primary" onclick="paOpenNovoRegisto(${p.id})">+ Novo registo</button>
+      </div>
+    </div>
+    <div style="border-left:0.5px solid var(--border);padding-left:16px">
+      ${histFiltrado.length?histFiltrado.map(h=>`
+        <div style="position:relative;padding-bottom:18px">
+          <div style="position:absolute;left:-20px;top:2px;width:8px;height:8px;border-radius:50%;background:var(--fj-blue)"></div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+            <p style="font-size:13px;font-weight:500;margin:0">${h.titulo}</p>
+            <span style="font-size:12px;color:var(--text3);white-space:nowrap">${fmtDate(h.data)}${h.dataAproximada?' *':''}</span>
+          </div>
+          <span class="badge b-na" style="margin:4px 0;display:inline-block">${h.tipo}</span>
+          <p style="font-size:13px;color:var(--text2);margin:4px 0">${h.descricao}</p>
+          ${h.documentoAnexo?`<a href="${h.documentoAnexo}" target="_blank" style="font-size:12px">🔗 Ver documento</a>`:''}
+          ${h.estadoProtocolo?`<div style="font-size:11px;color:var(--text3);margin-top:2px">Estado do protocolo: ${h.estadoProtocolo}${h.validadeProtocolo?` · válido até ${fmtDate(h.validadeProtocolo)}`:''}</div>`:''}
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Registado por ${h.autorNome||'—'}</div>
+          <button class="btn btn-sm btn-danger" style="margin-top:6px" onclick="paDeleteRegisto(${h.id})">Remover</button>
+        </div>
+      `).join(''):`<div style="color:var(--text3);font-size:13px;padding:8px 0">Sem registos.</div>`}
+    </div>
+    ${hist.some(h=>h.dataAproximada)?`<p style="font-size:11px;color:var(--text3);margin-top:12px">* data aproximada (registo de arquivo histórico)</p>`:''}
+  `;
+}
+
+function fmtDate(iso){
+  if(!iso) return '—';
+  const [y,m,d]=iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+// ── Suspender / Reativar ──
+async function paSuspender(id){
+  if(!confirm('Suspender esta parceria?')) return;
+  await paUpdateEstadoRelacao(id,'Suspensa');
+}
+async function paReativar(id){
+  await paUpdateEstadoRelacao(id,'Em negociação');
+}
+async function paUpdateEstadoRelacao(id,valor){
+  const p=PA_PARCEIROS.find(x=>x.id===id);
+  if(!p) return;
+  try{
+    await spWrite(`${SP}/_api/web/lists/getbytitle('${PA_LIST_PARCEIROS}')/items(${id})`,
+      {__metadata:{type:'SP.Data.FJ_x005f_ParceirosListItem'},EstadoRelacao:valor},'MERGE',p.etag);
+    p.estadoRelacaoRaw=valor;
+    paRenderLista();paRenderDetalhe();
+  }catch(e){ alert('Erro ao atualizar estado: '+e.message); }
+}
+
+// ── Modal Novo/Editar Parceiro ──
+function paOpenNovoParceiro(){
+  document.getElementById('pa-parceiro-modal-title').textContent='Novo parceiro';
+  ['pa-f-id','pa-f-nome','pa-f-nif','pa-f-setor','pa-f-contnome','pa-f-contemail','pa-f-conttel','pa-f-website','pa-f-notas'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+  document.getElementById('pa-f-tipo').value='';
+  document.getElementById('pa-f-resp').value='';
+  document.getElementById('pa-parceiro-modal').style.display='flex';
+}
+function paOpenEditarParceiro(id){
+  const p=PA_PARCEIROS.find(x=>x.id===id);
+  if(!p) return;
+  document.getElementById('pa-parceiro-modal-title').textContent='Editar parceiro';
+  document.getElementById('pa-f-id').value=p.id;
+  document.getElementById('pa-f-nome').value=p.nome;
+  document.getElementById('pa-f-tipo').value=p.tipo;
+  document.getElementById('pa-f-nif').value=p.nif;
+  document.getElementById('pa-f-setor').value=p.setor;
+  document.getElementById('pa-f-contnome').value=p.contactoNome;
+  document.getElementById('pa-f-contemail').value=p.contactoEmail;
+  document.getElementById('pa-f-conttel').value=p.contactoTelefone;
+  document.getElementById('pa-f-website').value=p.website;
+  document.getElementById('pa-f-resp').value=p.responsavelId||'';
+  document.getElementById('pa-f-notas').value=p.notas;
+  document.getElementById('pa-parceiro-modal').style.display='flex';
+}
+function paCloseParceiroModal(){
+  document.getElementById('pa-parceiro-modal').style.display='none';
+}
+async function paSaveParceiro(){
+  const id=document.getElementById('pa-f-id').value;
+  const nome=document.getElementById('pa-f-nome').value.trim();
+  const tipo=document.getElementById('pa-f-tipo').value;
+  const contnome=document.getElementById('pa-f-contnome').value.trim();
+  const contemail=document.getElementById('pa-f-contemail').value.trim();
+  const respId=document.getElementById('pa-f-resp').value;
+  if(!nome||!tipo||!contnome||!contemail||!respId){
+    alert('Preenche os campos obrigatórios (Nome, Tipo, Contacto, Email do contacto, Responsável).');
+    return;
+  }
+  const body={
+    __metadata:{type:'SP.Data.FJ_x005f_ParceirosListItem'},
+    Title: nome,
+    Tipo: tipo,
+    NIF: document.getElementById('pa-f-nif').value.trim(),
+    Setor: document.getElementById('pa-f-setor').value.trim(),
+    ContactoPrincipalNome: contnome,
+    ContactoPrincipalEmail: contemail,
+    ContactoPrincipalTelefone: document.getElementById('pa-f-conttel').value.trim(),
+    Website: document.getElementById('pa-f-website').value.trim(),
+    Notas: document.getElementById('pa-f-notas').value.trim(),
+    ResponsavelId: parseInt(respId)
+  };
+  try{
+    if(id){
+      const p=PA_PARCEIROS.find(x=>x.id===parseInt(id));
+      await spWrite(`${SP}/_api/web/lists/getbytitle('${PA_LIST_PARCEIROS}')/items(${id})`,body,'MERGE',p?.etag);
+    }else{
+      body.EstadoRelacao='Em negociação';
+      await spWrite(`${SP}/_api/web/lists/getbytitle('${PA_LIST_PARCEIROS}')/items`,body,'POST');
+    }
+    paCloseParceiroModal();
+    await paLoadParceiros();
+    paRenderDetalhe();
+  }catch(e){ alert('Erro ao guardar parceiro: '+e.message); }
+}
+
+// ── Modal Novo Registo de Histórico ──
+function paOpenNovoRegisto(entidadeId){
+  document.getElementById('pa-r-entidade').value=entidadeId;
+  document.getElementById('pa-r-titulo').value='';
+  document.getElementById('pa-r-tipo').value='';
+  document.getElementById('pa-r-data').value=today();
+  document.getElementById('pa-r-aprox').checked=false;
+  document.getElementById('pa-r-descricao').value='';
+  document.getElementById('pa-r-doc').value='';
+  document.getElementById('pa-r-validade').value='';
+  document.getElementById('pa-r-estadoprotocolo').value='';
+  paToggleProtocoloFields();
+  document.getElementById('pa-registo-modal').style.display='flex';
+}
+function paCloseRegistoModal(){
+  document.getElementById('pa-registo-modal').style.display='none';
+}
+function paToggleProtocoloFields(){
+  const tipo=document.getElementById('pa-r-tipo').value;
+  const isProtocolo=(tipo==='Protocolo assinado'||tipo==='Renovação');
+  document.getElementById('pa-r-protocolo-fields').style.display=isProtocolo?'grid':'none';
+}
+async function paSaveRegisto(){
+  const entidadeId=parseInt(document.getElementById('pa-r-entidade').value);
+  const titulo=document.getElementById('pa-r-titulo').value.trim();
+  const tipo=document.getElementById('pa-r-tipo').value;
+  const data=document.getElementById('pa-r-data').value;
+  const descricao=document.getElementById('pa-r-descricao').value.trim();
+  if(!titulo||!tipo||!data||!descricao){
+    alert('Preenche os campos obrigatórios (Assunto, Tipo, Data, Descrição).');
+    return;
+  }
+  const isProtocolo=(tipo==='Protocolo assinado'||tipo==='Renovação');
+  if(isProtocolo && !document.getElementById('pa-r-validade').value){
+    alert('Indica a validade do protocolo.');
+    return;
+  }
+  const autorId=await getSpUID((user?.username||'').toLowerCase());
+  const body={
+    __metadata:{type:'SP.Data.FJ_x005f_Parcerias_x005f_HistoricoListItem'},
+    Title: titulo,
+    EntidadeId: entidadeId,
+    TipoRegisto: tipo,
+    Data: data,
+    DataAproximada: document.getElementById('pa-r-aprox').checked,
+    Descricao: descricao,
+    DocumentoAnexo: document.getElementById('pa-r-doc').value.trim(),
+    ValidadeProtocolo: isProtocolo ? (document.getElementById('pa-r-validade').value||null) : null,
+    EstadoProtocolo: isProtocolo ? (document.getElementById('pa-r-estadoprotocolo').value||null) : null
+  };
+  if(autorId) body.AutorId=autorId;
+  try{
+    await spWrite(`${SP}/_api/web/lists/getbytitle('${PA_LIST_HISTORICO}')/items`,body,'POST');
+    paCloseRegistoModal();
+    await paLoadHistorico();
+    paRenderLista();paRenderDetalhe();
+  }catch(e){ alert('Erro ao guardar registo: '+e.message); }
+}
+async function paDeleteRegisto(id){
+  if(!confirm('Remover este registo de histórico?')) return;
+  const h=PA_HISTORICO.find(x=>x.id===id);
+  try{
+    await spWrite(`${SP}/_api/web/lists/getbytitle('${PA_LIST_HISTORICO}')/items(${id})`,null,'DELETE',h?.etag);
+    await paLoadHistorico();
+    paRenderLista();paRenderDetalhe();
+  }catch(e){ alert('Erro ao remover registo: '+e.message); }
 }
 
 init();
