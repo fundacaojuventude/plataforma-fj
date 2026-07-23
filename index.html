@@ -2465,7 +2465,7 @@ tr:hover td{background:var(--bg3)}
       <div class="stat"><span class="stat-n" id="pa-s-ativas" style="color:var(--green-mid)">—</span><span class="stat-l">Ativas</span></div>
       <div class="stat"><span class="stat-n" id="pa-s-neg" style="color:var(--amber)">—</span><span class="stat-l">Em negociação</span></div>
       <div class="stat"><span class="stat-n" id="pa-s-seg" style="color:var(--blue-d)">—</span><span class="stat-l">Dar seguimento</span></div>
-      <div class="stat"><span class="stat-n" id="pa-s-susp" style="color:var(--red)">—</span><span class="stat-l">Suspensas</span></div>
+      <div class="stat"><span class="stat-n" id="pa-s-term" style="color:var(--red)">—</span><span class="stat-l">Terminadas</span></div>
     </div>
     <div style="display:flex;gap:0;border:0.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;min-height:520px;background:var(--bg2)">
 
@@ -13861,7 +13861,7 @@ function paRenderStats(){
   document.getElementById('pa-s-ativas').textContent = all.filter(x=>x.estado==='Ativa').length;
   document.getElementById('pa-s-neg').textContent = all.filter(x=>x.estado==='Em negociação').length;
   document.getElementById('pa-s-seg').textContent = all.filter(x=>x.estado==='Dar seguimento').length;
-  document.getElementById('pa-s-susp').textContent = all.filter(x=>x.estado==='Suspensa').length;
+  document.getElementById('pa-s-term').textContent = all.filter(x=>x.estado==='Terminada').length;
 }
 function paRenderLista(){
   paRenderStats();
