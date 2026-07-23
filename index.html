@@ -2460,10 +2460,11 @@ tr:hover td{background:var(--bg3)}
         <div style="font-size:13px;color:var(--text2)">Entidades parceiras da Fundação, contactos e protocolos assinados</div>
       </div>
     </div>
-    <div class="stats" style="margin-bottom:1.25rem">
+    <div class="stats" style="margin-bottom:1.25rem;grid-template-columns:repeat(5,1fr)">
       <div class="stat"><span class="stat-n" id="pa-s-total">—</span><span class="stat-l">Total</span></div>
       <div class="stat"><span class="stat-n" id="pa-s-ativas" style="color:var(--green-mid)">—</span><span class="stat-l">Ativas</span></div>
       <div class="stat"><span class="stat-n" id="pa-s-neg" style="color:var(--amber)">—</span><span class="stat-l">Em negociação</span></div>
+      <div class="stat"><span class="stat-n" id="pa-s-seg" style="color:var(--blue-d)">—</span><span class="stat-l">Dar seguimento</span></div>
       <div class="stat"><span class="stat-n" id="pa-s-susp" style="color:var(--red)">—</span><span class="stat-l">Suspensas</span></div>
     </div>
     <div style="display:flex;gap:0;border:0.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;min-height:520px;background:var(--bg2)">
@@ -2476,7 +2477,7 @@ tr:hover td{background:var(--bg3)}
           </div>
           <select class="flt" id="pa-ff-estado" onchange="paRenderLista()" style="width:100%">
             <option value="">Estado: todos</option>
-            <option>Em negociação</option><option>Ativa</option><option>Suspensa</option><option>Terminada</option>
+            <option>Em negociação</option><option>Ativa</option><option>Dar seguimento</option><option>Suspensa</option><option>Terminada</option>
           </select>
         </div>
         <div id="pa-lista" style="max-height:600px;overflow-y:auto"></div>
@@ -2572,7 +2573,7 @@ tr:hover td{background:var(--bg3)}
         <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Tipo *</label>
         <select id="pa-r-tipo" onchange="paToggleProtocoloFields()" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:#fff;color:var(--text)">
           <option value="">— Selecionar —</option>
-          <option>Contacto</option><option>Reunião</option><option>Protocolo assinado</option>
+          <option>Contacto</option><option>Reunião</option><option>Protocolo</option>
           <option>Renovação</option><option>Término</option><option>Registo histórico</option>
         </select>
       </div>
@@ -13796,11 +13797,17 @@ function paHistoricoDe(entidadeId){
 function paCalcEstado(p){
   if(p.estadoRelacaoRaw==='Suspensa') return 'Suspensa';
   const hist=paHistoricoDe(p.id);
-  const protocolos=hist.filter(h=>h.tipo==='Protocolo assinado'||h.tipo==='Renovação')
+  const protocolos=hist.filter(h=>h.tipo==='Protocolo'||h.tipo==='Renovação')
     .slice().sort((a,b)=>new Date(b.data)-new Date(a.data));
   if(!protocolos.length) return 'Em negociação';
   const ultimo=protocolos[0];
-  if(ultimo.estadoProtocolo==='Expirado') return 'Terminada';
+  if(ultimo.estadoProtocolo==='Expirado'){
+    const seguimento=hist.filter(h=>
+      (h.tipo==='Contacto'||h.tipo==='Reunião'||h.tipo==='Registo histórico') &&
+      new Date(h.data) > new Date(ultimo.data)
+    );
+    return seguimento.length ? 'Dar seguimento' : 'Terminada';
+  }
   return 'Ativa';
 }
 function paCalcDataInicio(p){
@@ -13810,13 +13817,13 @@ function paCalcDataInicio(p){
   return sorted[0];
 }
 function paBadgeClass(estado){
-  return {'Ativa':'b-aprov','Em negociação':'b-pend','Suspensa':'b-nap','Terminada':'b-na'}[estado]||'b-na';
+  return {'Ativa':'b-aprov','Em negociação':'b-pend','Suspensa':'b-nap','Terminada':'b-na','Dar seguimento':'b-info'}[estado]||'b-na';
 }
 function paTipoBadgeClass(tipo){
   return {
     'Contacto':'b-na',
     'Reunião':'b-info',
-    'Protocolo assinado':'b-aprov',
+    'Protocolo':'b-aprov',
     'Renovação':'b-aprov',
     'Término':'b-nap',
     'Registo histórico':'b-na'
@@ -13826,7 +13833,7 @@ function paTipoDotColor(tipo){
   return {
     'Contacto':'var(--gray)',
     'Reunião':'var(--blue-d)',
-    'Protocolo assinado':'var(--green-mid)',
+    'Protocolo':'var(--green-mid)',
     'Renovação':'var(--green-mid)',
     'Término':'var(--red)',
     'Registo histórico':'var(--gray)'
@@ -13839,6 +13846,7 @@ function paRenderStats(){
   document.getElementById('pa-s-total').textContent = all.length;
   document.getElementById('pa-s-ativas').textContent = all.filter(x=>x.estado==='Ativa').length;
   document.getElementById('pa-s-neg').textContent = all.filter(x=>x.estado==='Em negociação').length;
+  document.getElementById('pa-s-seg').textContent = all.filter(x=>x.estado==='Dar seguimento').length;
   document.getElementById('pa-s-susp').textContent = all.filter(x=>x.estado==='Suspensa').length;
 }
 function paRenderLista(){
@@ -13926,7 +13934,7 @@ function paRenderDetalhe(){
       <div style="display:flex;gap:8px">
         <select class="flt" id="pa-hist-filtro" onchange="paRenderDetalhe()">
           <option value="">Tipo: todos</option>
-          <option>Contacto</option><option>Reunião</option><option>Protocolo assinado</option>
+          <option>Contacto</option><option>Reunião</option><option>Protocolo</option>
           <option>Renovação</option><option>Término</option><option>Registo histórico</option>
         </select>
         <button class="btn btn-primary" onclick="paOpenNovoRegisto(${p.id})">+ Novo registo</button>
@@ -14090,7 +14098,7 @@ function paCloseRegistoModal(){
 }
 function paToggleProtocoloFields(){
   const tipo=document.getElementById('pa-r-tipo').value;
-  const isProtocolo=(tipo==='Protocolo assinado'||tipo==='Renovação');
+  const isProtocolo=(tipo==='Protocolo'||tipo==='Renovação');
   document.getElementById('pa-r-protocolo-fields').style.display=isProtocolo?'grid':'none';
 }
 async function paSaveRegisto(){
@@ -14104,7 +14112,7 @@ async function paSaveRegisto(){
     alert('Preenche os campos obrigatórios (Assunto, Tipo, Data, Descrição).');
     return;
   }
-  const isProtocolo=(tipo==='Protocolo assinado'||tipo==='Renovação');
+  const isProtocolo=(tipo==='Protocolo'||tipo==='Renovação');
   if(isProtocolo && !document.getElementById('pa-r-validade').value){
     alert('Indica a validade do protocolo.');
     return;
