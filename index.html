@@ -13811,18 +13811,17 @@ function paHistoricoDe(entidadeId){
 function paCalcEstado(p){
   if(p.estadoRelacaoRaw==='Suspensa') return 'Suspensa';
   const hist=paHistoricoDe(p.id);
-  const protocolos=hist.filter(h=>h.tipo==='Protocolo'||h.tipo==='Renovação')
-    .slice().sort((a,b)=>new Date(b.data)-new Date(a.data));
+  const protocolos=hist.filter(h=>h.tipo==='Protocolo'||h.tipo==='Renovação');
   if(!protocolos.length) return 'Em negociação';
-  const ultimo=protocolos[0];
-  if(ultimo.estadoProtocolo==='Expirado'){
-    const seguimento=hist.filter(h=>
-      (h.tipo==='Contacto'||h.tipo==='Reunião'||h.tipo==='Registo histórico') &&
-      new Date(h.data) > new Date(ultimo.data)
-    );
-    return seguimento.length ? 'Dar seguimento' : 'Terminada';
-  }
-  return 'Ativa';
+  const algumValido=protocolos.some(h=>h.estadoProtocolo==='Válido'||h.estadoProtocolo==='Em renovação');
+  if(algumValido) return 'Ativa';
+  // Todos os protocolos estão expirados — vê se há contacto mais recente que o último expirado
+  const maisRecenteExpirado=protocolos.slice().sort((a,b)=>new Date(b.data)-new Date(a.data))[0];
+  const seguimento=hist.filter(h=>
+    (h.tipo==='Contacto'||h.tipo==='Reunião'||h.tipo==='Registo histórico') &&
+    new Date(h.data) > new Date(maisRecenteExpirado.data)
+  );
+  return seguimento.length ? 'Dar seguimento' : 'Terminada';
 }
 function paCalcDataInicio(p){
   const hist=paHistoricoDe(p.id);
