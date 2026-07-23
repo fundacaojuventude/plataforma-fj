@@ -1631,7 +1631,7 @@ tr:hover td{background:var(--bg3)}
         </div>
         <div class="table-wrap">
           <table>
-            <colgroup><col style="width:3%"><col style="width:22%"><col style="width:10%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:8%"></colgroup>
+            <colgroup><col style="width:3%"><col style="width:19%"><col style="width:9%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:19%"></colgroup>
             <thead><tr><th></th><th>Ação / Projeto</th><th>Departamento</th><th>Tipo</th><th>Início</th><th>Fim</th><th>Tarefas</th><th>Concluídas</th><th>%</th></tr></thead>
             <tbody id="tbody-trim"></tbody>
           </table>
@@ -6489,7 +6489,7 @@ function renderHier(){
           content.innerHTML=`
             ${ts.length?`<div style="font-size:11px;font-weight:600;color:var(--tx2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;display:flex;align-items:center;gap:8px">Tarefas (${ts.length})</div>
             <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
-              <colgroup><col style="width:3%"><col style="width:35%"><col style="width:17%"><col style="width:18%"><col style="width:9%"><col style="width:10%"><col style="width:8%"></colgroup>
+              <colgroup><col style="width:3%"><col style="width:32%"><col style="width:15%"><col style="width:16%"><col style="width:8%"><col style="width:9%"><col style="width:17%"></colgroup>
               ${ts.map(t=>`<tr class="hier-task-row${t.estado==='Concluída'?' done-row':''}" style="border-bottom:1.5px dashed #fde68a">
                 <td style="padding:6px 6px"><input type="checkbox" ${t.estado==='Concluída'?'checked':''} onchange="toggleTar('${t.id}',this.checked)" style="cursor:pointer;accent-color:var(--g5);width:14px;height:14px"></td>
                 <td style="font-size:12px;padding:6px 4px;font-weight:500">${t.titulo}${t.attachments?.length?`<div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:4px">${t.attachments.map(a=>`<button onclick="downloadSPFile('${a.url}','${a.name.replace(/'/g,"\\'")}');event.stopPropagation()" style="background:#EEF1F6;border:0.5px solid var(--border);border-radius:4px;padding:2px 7px;font-size:10px;cursor:pointer;color:var(--blue-d);display:flex;align-items:center;gap:3px"><span>📎</span>${a.name}</button>`).join('')}</div>`:''}</td>
@@ -6679,7 +6679,7 @@ function toggleHierAcao(acaoId){
     content.innerHTML=`
       ${ts.length?`<div style="font-size:11px;font-weight:600;color:var(--tx2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;display:flex;align-items:center;gap:8px">Tarefas (${ts.length})</div>
       <table style="width:100%;border-collapse:collapse;margin-bottom:12px">
-        <colgroup><col style="width:3%"><col style="width:35%"><col style="width:17%"><col style="width:18%"><col style="width:9%"><col style="width:10%"><col style="width:8%"></colgroup>
+        <colgroup><col style="width:3%"><col style="width:32%"><col style="width:15%"><col style="width:16%"><col style="width:8%"><col style="width:9%"><col style="width:17%"></colgroup>
         ${ts.map(t=>`<tr class="hier-task-row${t.estado==='Concluída'?' done-row':''}" style="border-bottom:1.5px dashed #fde68a">
           <td style="padding:6px 6px"><input type="checkbox" ${t.estado==='Concluída'?'checked':''} onchange="toggleTar('${t.id}',this.checked)" style="cursor:pointer;accent-color:var(--g5);width:14px;height:14px"></td>
           <td style="font-size:12px;padding:6px 4px;font-weight:500">${t.titulo}${t.attachments?.length?`<div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:4px">${t.attachments.map(a=>`<button onclick="downloadSPFile('${a.url}','${a.name.replace(/'/g,"\\'")}');event.stopPropagation()" style="background:#EEF1F6;border:0.5px solid var(--border);border-radius:4px;padding:2px 7px;font-size:10px;cursor:pointer;color:var(--blue-d);display:flex;align-items:center;gap:3px"><span>📎</span>${a.name}</button>`).join('')}</div>`:''}${''}</td>
