@@ -2609,7 +2609,7 @@ tr:hover td{background:var(--bg3)}
     </div>
     <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
       <button class="btn" onclick="paCloseRegistoModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="paSaveRegisto()">Guardar</button>
+      <button class="btn btn-primary" id="pa-save-registo-btn" onclick="paSaveRegisto()">Guardar</button>
     </div>
   </div>
 </div>
@@ -13967,6 +13967,7 @@ function paRenderDetalhe(){
           ${h.estadoProtocolo?`<div style="font-size:11px;color:var(--text3);margin-top:2px">Estado do protocolo: ${h.estadoProtocolo}${h.validadeProtocolo?` · válido até ${fmtDate(h.validadeProtocolo)}`:''}</div>`:''}
           <div style="font-size:11px;color:var(--text3);margin-top:2px">Registado por ${h.autorNome||'—'}</div>
           <div style="display:flex;gap:6px;margin-top:6px">
+            <button class="btn btn-sm" onclick="paOpenVerRegisto(${h.id})">👁 Ver</button>
             <button class="btn btn-sm" onclick="paOpenEditarRegisto(${h.id})">✎ Editar</button>
             <button class="btn btn-sm btn-danger" onclick="paDeleteRegisto(${h.id})">Remover</button>
           </div>
@@ -14087,6 +14088,7 @@ function paOpenNovoRegisto(entidadeId){
   document.getElementById('pa-r-validade').value='';
   document.getElementById('pa-r-estadoprotocolo').value='';
   paToggleProtocoloFields();
+  paRegistoSetReadOnly(false);
   document.getElementById('pa-registo-modal').style.display='flex';
 }
 function paOpenEditarRegisto(id){
@@ -14104,7 +14106,20 @@ function paOpenEditarRegisto(id){
   document.getElementById('pa-r-validade').value=h.validadeProtocolo;
   document.getElementById('pa-r-estadoprotocolo').value=h.estadoProtocolo;
   paToggleProtocoloFields();
+  paRegistoSetReadOnly(false);
   document.getElementById('pa-registo-modal').style.display='flex';
+}
+function paOpenVerRegisto(id){
+  paOpenEditarRegisto(id);
+  document.getElementById('pa-registo-modal-title').textContent='Ver registo';
+  paRegistoSetReadOnly(true);
+}
+function paRegistoSetReadOnly(readOnly){
+  ['pa-r-titulo','pa-r-tipo','pa-r-data','pa-r-aprox','pa-r-descricao','pa-r-doc','pa-r-validade','pa-r-estadoprotocolo'].forEach(id=>{
+    const e=document.getElementById(id); if(e) e.disabled=readOnly;
+  });
+  const saveBtn=document.getElementById('pa-save-registo-btn');
+  if(saveBtn) saveBtn.style.display=readOnly?'none':'';
 }
 function paCloseRegistoModal(){
   document.getElementById('pa-registo-modal').style.display='none';
