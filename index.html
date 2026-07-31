@@ -9991,8 +9991,13 @@ function gfSolProjetoChange() {
     return;
   }
   
-  const rubs = GF_RUBRICAS.filter(r => r.projetoId === projId && r.estado === 'Ativo');
-  rubSel.innerHTML = '<option value="">Selecionar rúbrica...</option>' + 
+  // Ano de referência: se estamos a editar uma solicitação já submetida, usa o ano
+  // da DataSubmissao original (para não perder o acesso à rúbrica a que já está afeta);
+  // caso contrário (nova solicitação) usa o ano civil atual, que é o ano que vai ficar
+  // gravado em DataSubmissao no momento do Submeter.
+  const anoRef = sol?.dataSubmissao ? new Date(sol.dataSubmissao).getFullYear() : new Date().getFullYear();
+  const rubs = GF_RUBRICAS.filter(r => r.projetoId === projId && r.estado === 'Ativo' && r.ano === anoRef);
+  rubSel.innerHTML = '<option value="">Selecionar rúbrica...</option>' +
     rubs.map(r => `<option value="${r.id}" ${sol?.rubricaId === r.id ? 'selected' : ''}>${r.titulo}</option>`).join('');
   
   // Trigger rubrica change to show info
@@ -10670,8 +10675,12 @@ function gfOrigRubChange(idx) {
 }
 
 function gfOrigRubOptions(projId, selectedId) {
-  const rubs = GF_RUBRICAS.filter(r => r.projetoId === projId && r.tipo !== 'Receita');
-  return '<option value="">Selecionar...</option>' + 
+  // Ano de referência: se a Alteração já existe (edição), usa o ano da sua DataSubmissao
+  // original; senão (nova alteração) usa o ano civil atual.
+  const altEdit = GF.alteracao ? GF_ALTERACOES.find(a => a.id === GF.alteracao) : null;
+  const anoRef = altEdit?.dataSubmissao ? new Date(altEdit.dataSubmissao).getFullYear() : new Date().getFullYear();
+  const rubs = GF_RUBRICAS.filter(r => r.projetoId === projId && r.tipo !== 'Receita' && r.ano === anoRef);
+  return '<option value="">Selecionar...</option>' +
     rubs.map(r => {
       const disp = gfCalcDisponivelParaAlteracao(r.id);
       return `<option value="${r.id}" ${selectedId === r.id ? 'selected' : ''} ${disp <= 0 ? 'disabled' : ''}>${r.titulo} (Disp: ${gfFmt(disp)})</option>`;
@@ -10687,8 +10696,10 @@ function gfAltDestProjChange() {
     rubSel.innerHTML = '<option value="">Selecionar projeto primeiro...</option>';
     return;
   }
-  const rubs = GF_RUBRICAS.filter(r => r.projetoId === projId);
-  rubSel.innerHTML = '<option value="">Selecionar rúbrica...</option>' + 
+  const altEdit = GF.alteracao ? GF_ALTERACOES.find(a => a.id === GF.alteracao) : null;
+  const anoRef = altEdit?.dataSubmissao ? new Date(altEdit.dataSubmissao).getFullYear() : new Date().getFullYear();
+  const rubs = GF_RUBRICAS.filter(r => r.projetoId === projId && r.ano === anoRef);
+  rubSel.innerHTML = '<option value="">Selecionar rúbrica...</option>' +
     rubs.map(r => `<option value="${r.id}">${r.titulo}</option>`).join('');
 }
 
