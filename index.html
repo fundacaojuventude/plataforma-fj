@@ -3486,6 +3486,18 @@ async function spRead(url){
   const r=await fetch(url,{headers:{Accept:'application/json;odata=verbose',Authorization:`Bearer ${spToken}`}});
   if(!r.ok)throw new Error('Erro '+r.status);return r.json();
 }
+// Lê uma lista do SharePoint seguindo a paginação (d.__next) até ao fim,
+// para nunca cortar silenciosamente resultados quando a lista excede o $top pedido.
+async function spReadAll(url){
+  let results = [];
+  let next = url;
+  while (next) {
+    const page = await spRead(next);
+    results = results.concat(page.d?.results || []);
+    next = page.d?.__next || null;
+  }
+  return { d: { results } };
+}
 async function spWrite(url,body,method,etag){
   await getSPToken();
   const digest=await getDigest();
@@ -8030,7 +8042,7 @@ const GF_BADGES = {
 // Recarregamento leve — só Alterações + Origens, para usar depois de gravar/eliminar
 // uma alteração, em vez de gfLoadAll() (que recarrega orçamento, solicitações, faturas, etc.)
 async function gfLoadAlteracoes() {
-  const da = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items?$select=*,DestProjetoId/Title,DestRubricaId/Title,Solicitante/Title,Solicitante/EMail,AprovDir/Title,AprovDF/Title,AprovPE/Title,AprovPCA/Title&$expand=DestProjetoId,DestRubricaId,Solicitante,AprovDir,AprovDF,AprovPE,AprovPCA&$orderby=Created desc&$top=200`);
+  const da = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items?$select=*,DestProjetoId/Title,DestRubricaId/Title,Solicitante/Title,Solicitante/EMail,AprovDir/Title,AprovDF/Title,AprovPE/Title,AprovPCA/Title&$expand=DestProjetoId,DestRubricaId,Solicitante,AprovDir,AprovDF,AprovPE,AprovPCA&$orderby=Created desc&$top=200`);
   GF_ALTERACOES = (da.d?.results || []).map(r => ({
     id: r.Id,
     titulo: r.Title || '',
@@ -8054,7 +8066,7 @@ async function gfLoadAlteracoes() {
     motivoRejeicao: r.MotivoRejeicao || ''
   }));
 
-  const dao = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items?$select=*,AlteracaoId/Id,OrigProjetoId/Title,OrigRubricaId/Title&$expand=AlteracaoId,OrigProjetoId,OrigRubricaId&$top=1000`);
+  const dao = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items?$select=*,AlteracaoId/Id,OrigProjetoId/Title,OrigRubricaId/Title&$expand=AlteracaoId,OrigProjetoId,OrigRubricaId&$top=1000`);
   GF_ALTERACOES_ORIGENS = (dao.d?.results || []).map(r => ({
     id: r.Id,
     alteracaoId: r.AlteracaoId?.Id || r.AlteracaoIdId || null,
@@ -8082,7 +8094,7 @@ async function gfLoadAll() {
     }));
 
     // Rubricas com expand
-    const dr = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items?$select=Id,Title,ProjetoIdId,TipoRubrica,DespOrcamentada,RecOrcamentada,AnoOrcamental,Estado,HistoricoAlteracoes,RubricaMensal,DiaPagamento,ProjetoId/Title,ProjetoId/Id&$expand=ProjetoId&$top=2000`);
+    const dr = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items?$select=Id,Title,ProjetoIdId,TipoRubrica,DespOrcamentada,RecOrcamentada,AnoOrcamental,Estado,HistoricoAlteracoes,RubricaMensal,DiaPagamento,ProjetoId/Title,ProjetoId/Id&$expand=ProjetoId&$top=2000`);
     GF_RUBRICAS = (dr.d?.results || []).map(r => ({
       id: r.Id,
       titulo: r.Title || '',
@@ -8099,7 +8111,7 @@ async function gfLoadAll() {
     }));
 
     // Solicitações com expand
-    const ds = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items?$select=*,ProjetoId/Title,RubricaId/Title,Autor/Title,Autor/EMail,AprovDir/Title,AprovDF/Title&$expand=ProjetoId,RubricaId,Autor,AprovDir,AprovDF&$orderby=Created desc&$top=500`);
+    const ds = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items?$select=*,ProjetoId/Title,RubricaId/Title,Autor/Title,Autor/EMail,AprovDir/Title,AprovDF/Title&$expand=ProjetoId,RubricaId,Autor,AprovDir,AprovDF&$orderby=Created desc&$top=500`);
     GF_SOLICITACOES = (ds.d?.results || []).map(r => ({
       id: r.Id,
       codigo: r.Codigo || '',
@@ -8128,7 +8140,7 @@ async function gfLoadAll() {
     }));
 
     // Alterações Orçamentais
-    const da = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items?$select=*,DestProjetoId/Title,DestRubricaId/Title,Solicitante/Title,Solicitante/EMail,AprovDir/Title,AprovDF/Title,AprovPE/Title,AprovPCA/Title&$expand=DestProjetoId,DestRubricaId,Solicitante,AprovDir,AprovDF,AprovPE,AprovPCA&$orderby=Created desc&$top=200`);
+    const da = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items?$select=*,DestProjetoId/Title,DestRubricaId/Title,Solicitante/Title,Solicitante/EMail,AprovDir/Title,AprovDF/Title,AprovPE/Title,AprovPCA/Title&$expand=DestProjetoId,DestRubricaId,Solicitante,AprovDir,AprovDF,AprovPE,AprovPCA&$orderby=Created desc&$top=200`);
     GF_ALTERACOES = (da.d?.results || []).map(r => ({
       id: r.Id,
       titulo: r.Title || '',
@@ -8153,7 +8165,7 @@ async function gfLoadAll() {
     }));
 
     // Origens das Alterações
-    const dao = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items?$select=*,AlteracaoId/Id,OrigProjetoId/Title,OrigRubricaId/Title&$expand=AlteracaoId,OrigProjetoId,OrigRubricaId&$top=1000`);
+    const dao = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items?$select=*,AlteracaoId/Id,OrigProjetoId/Title,OrigRubricaId/Title&$expand=AlteracaoId,OrigProjetoId,OrigRubricaId&$top=1000`);
     GF_ALTERACOES_ORIGENS = (dao.d?.results || []).map(r => ({
       id: r.Id,
       alteracaoId: r.AlteracaoId?.Id || r.AlteracaoIdId || null,
@@ -8165,7 +8177,7 @@ async function gfLoadAll() {
     }));
 
     // Faturas
-    const df = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Faturas')/items?$select=*,SolicitacaoId/Title&$expand=SolicitacaoId&$orderby=Created desc&$top=500`);
+    const df = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Faturas')/items?$select=*,SolicitacaoId/Title&$expand=SolicitacaoId&$orderby=Created desc&$top=500`);
     GF_FATURAS = (df.d?.results || []).map(r => ({
       id: r.Id,
       titulo: r.Title || '',
