@@ -8285,6 +8285,13 @@ function gfCalcExecutadoRubrica(rubricaId, tipo) {
   return GF_MOV_EXECUTADOS.filter(m => m.rubricaId === rubricaId && m.tipo === tipo).reduce((a, m) => a + (m.valor || 0), 0);
 }
 
+// Soma dos Movimentos Executados desta rúbrica SEM Solicitação associada — afetados diretamente
+// a partir do banco (tabela de Pendentes). Já estão pagos, por isso contam como solicitados,
+// aprovados, processados e pagos (não passaram pelo fluxo de Solicitação, mas já aconteceram).
+function gfCalcAvulsoRubrica(rubricaId, tipo) {
+  return GF_MOV_EXECUTADOS.filter(m => m.rubricaId === rubricaId && m.tipo === tipo && !m.solicitacaoId).reduce((a, m) => a + (m.valor || 0), 0);
+}
+
 // Saldo por pagar de uma Solicitação (valor aprovado menos o que já foi ligado em Movimentos Executados)
 function gfSolicitacaoSaldoPorPagar(sol) {
   return Math.max(0, (sol.valor || 0) - gfCalcMovLigados(sol.id));
@@ -8303,17 +8310,19 @@ function gfCalcDespesa(rubricaId) {
   const compromissoRestante = sols.filter(s => s.estado !== 'Rejeitado')
     .reduce((a, s) => a + Math.max(0, (s.valor || 0) - gfCalcMovLigados(s.id)), 0);
   const executado = gfCalcExecutadoRubrica(rubricaId, 'Despesa'); // todos os movimentos, com ou sem solicitação
+  const avulso = gfCalcAvulsoRubrica(rubricaId, 'Despesa'); // já pago diretamente do banco, sem Solicitação
   const usadoReal = bloqueio + compromissoRestante + executado; // nunca conta o mesmo euro duas vezes
 
   return {
-    solicitada: solicitada + bloqueio, // Inclui bloqueio de alterações pendentes (usado pelas Alterações Orçamentais — não mexer)
-    solicitadaPura: solicitada, // Sem bloqueio (para exibição)
+    solicitada: solicitada + bloqueio + avulso, // Inclui bloqueio de alterações pendentes (usado pelas Alterações Orçamentais — não mexer) + avulsos já pagos
+    solicitadaPura: solicitada + avulso, // Sem bloqueio (para exibição)
     bloqueio: bloqueio, // Valor bloqueado por alterações
-    aprovada: sols.filter(s => ['Aprovado Dir.', 'Aprovado DF', 'Aprovado', 'Processado', 'Pago'].includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0),
-    processada: sols.filter(s => ['Processado','Pago'].includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0),
-    pago: sols.filter(s => s.estado === 'Pago').reduce((a, s) => a + (s.valor || 0), 0),
+    aprovada: sols.filter(s => ['Aprovado Dir.', 'Aprovado DF', 'Aprovado', 'Processado', 'Pago'].includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0) + avulso,
+    processada: sols.filter(s => ['Processado','Pago'].includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0) + avulso,
+    pago: sols.filter(s => s.estado === 'Pago').reduce((a, s) => a + (s.valor || 0), 0) + avulso,
     // ── Campos novos, baseados em FJ_MovimentosExecutados — usar estes para "quanto já gastei / quanto tenho disponível" ──
     executado,          // € realmente pago (banco), com ou sem solicitação
+    avulso,             // € pago diretamente do banco, sem Solicitação (já incluído em solicitada/aprovada/processada/pago acima)
     compromissoRestante,// € ainda comprometido em solicitações aprovadas mas por pagar
     usadoReal           // bloqueio + compromissoRestante + executado — para descontar ao orçamento
   };
@@ -8325,12 +8334,14 @@ function gfCalcReceita(rubricaId) {
   const compromissoRestante = sols.filter(s => s.estado !== 'Rejeitado')
     .reduce((a, s) => a + Math.max(0, (s.valor || 0) - gfCalcMovLigados(s.id)), 0);
   const executado = gfCalcExecutadoRubrica(rubricaId, 'Receita');
+  const avulso = gfCalcAvulsoRubrica(rubricaId, 'Receita'); // já recebido diretamente do banco, sem Solicitação
   return {
-    solicitada: sols.filter(s => s.estado !== 'Rejeitado').reduce((a, s) => a + (s.valor || 0), 0),
-    aprovada: sols.filter(s => ['Aprovado Dir.', 'Aprovado DF', 'Aprovado', 'Processado', 'Pago'].includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0),
-    processada: sols.filter(s => ['Processado','Pago'].includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0),
-    pago: sols.filter(s => s.estado === 'Pago').reduce((a, s) => a + (s.valor || 0), 0),
+    solicitada: sols.filter(s => s.estado !== 'Rejeitado').reduce((a, s) => a + (s.valor || 0), 0) + avulso,
+    aprovada: sols.filter(s => ['Aprovado Dir.', 'Aprovado DF', 'Aprovado', 'Processado', 'Pago'].includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0) + avulso,
+    processada: sols.filter(s => ['Processado','Pago'].includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0) + avulso,
+    pago: sols.filter(s => s.estado === 'Pago').reduce((a, s) => a + (s.valor || 0), 0) + avulso,
     executado,
+    avulso,
     compromissoRestante,
     usadoReal: compromissoRestante + executado
   };
@@ -13915,9 +13926,13 @@ function gfAfetarPctChange(idx) {
   gfRenderAfetarModal(); // só para recalcular o total apresentado
 }
 
-// Rúbricas ativas de um projeto, do tipo e ano do movimento
+// Rúbricas ativas de um projeto, do tipo e ano do movimento.
+// Uma rúbrica é "de Despesa" se tiver Despesa Orçamentada > 0, e "de Receita" se tiver
+// Receita Orçamentada > 0 — não depende do campo TipoRubrica, que nem sempre reflete isto
+// (uma rúbrica pode ter as duas componentes orçamentadas ao mesmo tempo).
 function gfAfetarRubOptions(projId, tipo, ano, selectedId) {
-  const rubs = GF_RUBRICAS.filter(r => r.projetoId === projId && r.ano === ano && r.tipo === tipo && r.estado === 'Ativo');
+  const rubs = GF_RUBRICAS.filter(r => r.projetoId === projId && r.ano === ano && r.estado === 'Ativo' &&
+    (tipo === 'Receita' ? (r.recOrc || 0) > 0 : (r.despOrc || 0) > 0));
   if (!rubs.length) return `<option value="">Sem rúbricas de ${tipo.toLowerCase()} ativas em ${ano}</option>`;
   return '<option value="">Selecionar...</option>' +
     rubs.map(r => `<option value="${r.id}" ${selectedId === r.id ? 'selected' : ''}>${r.titulo}</option>`).join('');
