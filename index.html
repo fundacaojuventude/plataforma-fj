@@ -8007,6 +8007,7 @@ let GF_MOV_PENDENTES = [];   // FJ_MovimentosBancarios — importação do Excel
 let GF_MOV_EXECUTADOS = [];  // FJ_MovimentosExecutados — ledger final, um registo por rúbrica afetada
 let GF_AFETAR = { movimento: null, repartida: false, linhas: [] }; // estado do modal "Afetar movimento" (repartição por várias rúbricas)
 let GF_PEND_EDIT = {}; // estado da tabela editável de Pendentes: { [movId]: { checked, projetoId, rubricaId, solicitacaoId } }
+let GF_TABLE_STATE = {}; // estado de ordenação/filtro por tabela (estilo Excel): { [tableId]: { sortCol, sortDir, filters:{col:val} } }
 
 // ── UTILS ──
 const gfFmt = v => v == null ? '—' : new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + ' €';
@@ -8338,6 +8339,12 @@ function gfCalcReceita(rubricaId) {
 // Obtém solicitações de uma rúbrica (para lista de faturas)
 function gfGetSolicitacoes(rubricaId, tipo = null) {
   return GF_SOLICITACOES.filter(s => s.rubricaId === rubricaId && (tipo === null || s.tipoSolicitacao === tipo));
+}
+
+// Movimentos Executados desta rúbrica sem Solicitação associada — afetados diretamente
+// a partir do banco (tabela de Pendentes), sem passar por uma Solicitação formal.
+function gfGetMovAvulsos(rubricaId) {
+  return GF_MOV_EXECUTADOS.filter(m => m.rubricaId === rubricaId && !m.solicitacaoId);
 }
 
 // Calcula disponível real para alteração orçamental (descontando bloqueios)
@@ -9420,6 +9427,23 @@ function gfRenderRubricas() {
         const despDisp = despOrc - desp.usadoReal; // disponível real (comprometido por pagar + executado no banco)
         const despPct = despOrc > 0 ? Math.round((desp.processada / despOrc) * 100) : 0;
         const solicitacoes = gfGetSolicitacoes(r.id);
+        const movAvulsos = gfGetMovAvulsos(r.id);
+        // Lista combinada para "Faturas/Solicitações": inclui também movimentos afetos
+        // diretamente a partir do banco (sem Solicitação), para mostrar tudo o que foi considerado.
+        const linhasFaturas = [
+          ...solicitacoes.map(s => ({
+            codigo: s.codigo, titulo: s.titulo, fornecedor: s.fornecedor,
+            data: s.dataSubmissao, valor: s.valor,
+            estadoHtml: GF_BADGES[s.estado] || s.estado,
+            _ord: s.dataSubmissao ? new Date(s.dataSubmissao).getTime() : 0
+          })),
+          ...movAvulsos.map(m => ({
+            codigo: null, titulo: m.descricao || '(movimento bancário)', fornecedor: null,
+            data: m.dataMovimento, valor: m.valor,
+            estadoHtml: `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:#DCFCE7;color:#166534">Pago (banco)</span>`,
+            _ord: m.dataMovimento ? new Date(m.dataMovimento).getTime() : 0
+          }))
+        ].sort((a, b) => b._ord - a._ord);
         const canClose = despDisp <= 0 || r.estado === 'Suspenso';
         const hasWarning = desp.processada > desp.solicitada;
         
@@ -9551,10 +9575,10 @@ function gfRenderRubricas() {
                 ` : ''}
               </div>
               
-              <!-- Lista de solicitações/faturas -->
-              ${solicitacoes.length > 0 ? `
+              <!-- Lista de solicitações/faturas (inclui movimentos afetos diretamente a partir do banco) -->
+              ${linhasFaturas.length > 0 ? `
                 <div style="margin-bottom:16px">
-                  <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px">FATURAS / SOLICITAÇÕES</div>
+                  <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px">FATURAS / SOLICITAÇÕES (${linhasFaturas.length})</div>
                   <table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:6px;overflow:hidden">
                     <thead>
                       <tr style="background:var(--bg)">
@@ -9567,14 +9591,14 @@ function gfRenderRubricas() {
                       </tr>
                     </thead>
                     <tbody>
-                      ${solicitacoes.slice(0, 5).map(s => `
+                      ${linhasFaturas.map(s => `
                         <tr style="border-top:1px solid var(--border)">
                           <td style="padding:8px 12px;color:#2563EB">${s.codigo || '—'}</td>
                           <td style="padding:8px 12px;font-weight:500">${s.titulo || '—'}</td>
                           <td style="padding:8px 12px">${s.fornecedor || '—'}</td>
-                          <td style="padding:8px 12px">${s.dataSubmissao ? new Date(s.dataSubmissao).toLocaleDateString('pt-PT') : '—'}</td>
+                          <td style="padding:8px 12px">${s.data ? new Date(s.data).toLocaleDateString('pt-PT') : '—'}</td>
                           <td style="padding:8px 12px;text-align:right;font-weight:500">${gfFmt(s.valor)}</td>
-                          <td style="padding:8px 12px">${GF_BADGES[s.estado] || s.estado}</td>
+                          <td style="padding:8px 12px">${s.estadoHtml}</td>
                         </tr>
                       `).join('')}
                     </tbody>
@@ -9861,6 +9885,92 @@ function gfMovNome(m) {
   return m.observacao ? `${m.descricao} — ${m.observacao}` : (m.descricao || '(sem descrição)');
 }
 
+// ═══ ORDENAÇÃO / FILTRO DE TABELAS (estilo Excel) ═══════════════════════════
+// Estado por tabela (tableId à escolha, ex: 'sol', 'pend'), independente do resto da UI.
+function gfTableState(tableId) {
+  if (!GF_TABLE_STATE[tableId]) GF_TABLE_STATE[tableId] = { sortCol: null, sortDir: 1, filters: {} };
+  return GF_TABLE_STATE[tableId];
+}
+
+function gfTableSort(tableId, col) {
+  const st = gfTableState(tableId);
+  if (st.sortCol === col) st.sortDir = -st.sortDir; else { st.sortCol = col; st.sortDir = 1; }
+  gfRender();
+}
+
+function gfTableFilterChange(tableId, col, val) {
+  const st = gfTableState(tableId);
+  if (val === '' || val == null) delete st.filters[col]; else st.filters[col] = val;
+  gfRender();
+}
+
+function gfTableFilterClear(tableId) {
+  const st = gfTableState(tableId);
+  st.sortCol = null; st.sortDir = 1; st.filters = {};
+  gfRender();
+}
+
+// Aplica a ordenação ativa a um array (getters: { col: item => valor_comparável })
+function gfApplySort(tableId, arr, getters) {
+  const st = gfTableState(tableId);
+  if (!st.sortCol || !getters[st.sortCol]) return arr;
+  const get = getters[st.sortCol];
+  return [...arr].sort((a, b) => {
+    let va = get(a), vb = get(b);
+    if (va == null) va = '';
+    if (vb == null) vb = '';
+    if (typeof va === 'string') va = va.toLowerCase();
+    if (typeof vb === 'string') vb = vb.toLowerCase();
+    if (va < vb) return -st.sortDir;
+    if (va > vb) return st.sortDir;
+    return 0;
+  });
+}
+
+// Aplica os filtros ativos a um array (matchers: { col: (item, valorFiltro) => bool })
+function gfApplyFilters(tableId, arr, matchers) {
+  const st = gfTableState(tableId);
+  const cols = Object.keys(st.filters);
+  if (!cols.length) return arr;
+  return arr.filter(item => cols.every(col => {
+    const val = st.filters[col];
+    const m = matchers[col];
+    if (!val || !m) return true;
+    return m(item, val);
+  }));
+}
+
+// Cabeçalho <th> clicável para ordenar, com seta a indicar direção ativa
+function gfTh(tableId, col, label, opts = {}) {
+  const st = gfTableState(tableId);
+  const active = st.sortCol === col;
+  const arrow = active ? (st.sortDir === 1 ? ' ▲' : ' ▼') : '';
+  const align = opts.align || 'left';
+  const extra = opts.style || '';
+  return `<th style="padding:${opts.pad || '12px 16px'};text-align:${align};font-weight:500;color:var(--mod-financeiro);cursor:pointer;user-select:none;white-space:nowrap;${active ? 'background:rgba(0,0,0,.04)' : ''}${extra}" onclick="gfTableSort('${tableId}','${col}')" title="Clicar para ordenar">${label}${arrow}</th>`;
+}
+
+// Linha de filtros por baixo do cabeçalho — input de texto
+function gfThFilterText(tableId, col, placeholder) {
+  const st = gfTableState(tableId);
+  const val = (st.filters[col] || '').toString().replace(/"/g, '&quot;');
+  return `<th style="padding:4px 8px;background:var(--mod-financeiro-bg);font-weight:400"><input type="text" value="${val}" placeholder="${placeholder || 'Filtrar...'}" oninput="gfTableFilterChange('${tableId}','${col}',this.value)" style="width:100%;box-sizing:border-box;padding:5px 7px;border:1px solid var(--border);border-radius:4px;font-size:11px"></th>`;
+}
+
+// Linha de filtros por baixo do cabeçalho — select com valores distintos
+function gfThFilterSelect(tableId, col, options) {
+  const st = gfTableState(tableId);
+  const val = st.filters[col] || '';
+  return `<th style="padding:4px 8px;background:var(--mod-financeiro-bg);font-weight:400"><select onchange="gfTableFilterChange('${tableId}','${col}',this.value)" style="width:100%;box-sizing:border-box;padding:5px 4px;border:1px solid var(--border);border-radius:4px;font-size:11px">
+    <option value="">Todos</option>
+    ${options.map(o => `<option value="${String(o).replace(/"/g, '&quot;')}" ${val === o ? 'selected' : ''}>${o}</option>`).join('')}
+  </select></th>`;
+}
+
+function gfThFilterEmpty() {
+  return `<th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>`;
+}
+
 function gfRenderSolicitacoes() {
   const myEmail = plMyEmailLower();
   const restrito = gfIsMembroRestrito();
@@ -9878,6 +9988,27 @@ function gfRenderSolicitacoes() {
   if (restrito) lista = lista.filter(s => s.autorEmail === myEmail);
 
   const movPendentes = GF_MOV_PENDENTES.filter(m => m.estado !== 'Afeto');
+
+  // Ordenação/filtro (estilo Excel) da lista principal de Solicitações — tableId 'sol'
+  const solGetters = {
+    codigo: s => s.codigo || '',
+    titulo: s => s.titulo || '',
+    tipo: s => s.tipoSolicitacao || 'Despesa',
+    projeto: s => s.projetoNome || '',
+    valor: s => s.valor || 0,
+    estado: s => s.estado || '',
+    dataSubmissao: s => s.dataSubmissao ? new Date(s.dataSubmissao).getTime() : 0,
+    dataLimite: s => s.dataLimitePagamento ? new Date(s.dataLimitePagamento).getTime() : 0
+  };
+  const solMatchers = {
+    titulo: (s, val) => (s.titulo || '').toLowerCase().includes(val.toLowerCase()) || (s.codigo || '').toLowerCase().includes(val.toLowerCase()),
+    tipo: (s, val) => (s.tipoSolicitacao || 'Despesa') === val,
+    projeto: (s, val) => (s.projetoNome || '') === val,
+    estado: (s, val) => (s.estado || '') === val
+  };
+  const solProjetosDistintos = [...new Set(lista.map(s => s.projetoNome).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const solEstadosDistintos = [...new Set(lista.map(s => s.estado).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  lista = gfApplySort('sol', gfApplyFilters('sol', lista, solMatchers), solGetters);
 
   const tabsBar = `
     <div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
@@ -9905,22 +10036,12 @@ function gfRenderSolicitacoes() {
         ${gfPendBarHtml(movPendentes)}
       </div>
       <div class="card" style="padding:0;overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1100px">
-          <thead>
-            <tr style="background:var(--mod-financeiro-bg)">
-              <th style="padding:10px 8px;text-align:center;font-weight:500;color:var(--mod-financeiro);width:32px"></th>
-              <th style="padding:10px 8px;text-align:center;font-weight:500;color:var(--mod-financeiro)">Data Mov.</th>
-              <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Descrição</th>
-              <th style="padding:10px 8px;text-align:center;font-weight:500;color:var(--mod-financeiro)">Tipo</th>
-              <th style="padding:10px 8px;text-align:right;font-weight:500;color:var(--mod-financeiro)">Valor</th>
-              <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Projeto</th>
-              <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Rúbrica</th>
-              <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Solicitação (opcional)</th>
-              <th style="padding:10px 8px;text-align:center;font-weight:500;color:var(--mod-financeiro)"></th>
-            </tr>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1300px">
+          <thead id="gf-pend-thead">
+            ${gfPendTheadHtml()}
           </thead>
           <tbody id="gf-pend-tbody">
-            ${gfPendTbodyHtml(movPendentes)}
+            ${gfPendTbodyHtml(gfPendViewList(movPendentes))}
           </tbody>
         </table>
       </div>
@@ -9947,15 +10068,26 @@ function gfRenderSolicitacoes() {
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
           <tr style="background:var(--mod-financeiro-bg)">
-            <th style="padding:12px 16px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Código</th>
-            <th style="padding:12px 16px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Título</th>
-            <th style="padding:12px 16px;text-align:center;font-weight:500;color:var(--mod-financeiro)">Tipo</th>
-            <th style="padding:12px 16px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Projeto</th>
-            <th style="padding:12px 16px;text-align:right;font-weight:500;color:var(--mod-financeiro)">Valor</th>
-            <th style="padding:12px 16px;text-align:center;font-weight:500;color:var(--mod-financeiro)">Estado</th>
-            <th style="padding:12px 16px;text-align:center;font-weight:500;color:var(--mod-financeiro)">Data Submissão</th>
-            ${gfCanViewTesouraria() ? `<th style="padding:12px 16px;text-align:center;font-weight:500;color:var(--mod-financeiro)">Data Limite Pag.</th>` : ''}
-            <th style="padding:12px 16px;text-align:center;font-weight:500;color:var(--mod-financeiro)">Ações</th>
+            ${gfTh('sol', 'codigo', 'Código')}
+            ${gfTh('sol', 'titulo', 'Título')}
+            ${gfTh('sol', 'tipo', 'Tipo', { align: 'center' })}
+            ${gfTh('sol', 'projeto', 'Projeto')}
+            ${gfTh('sol', 'valor', 'Valor', { align: 'right' })}
+            ${gfTh('sol', 'estado', 'Estado', { align: 'center' })}
+            ${gfTh('sol', 'dataSubmissao', 'Data Submissão', { align: 'center' })}
+            ${gfCanViewTesouraria() ? gfTh('sol', 'dataLimite', 'Data Limite Pag.', { align: 'center' }) : ''}
+            <th style="padding:12px 16px;text-align:center;font-weight:500;color:var(--mod-financeiro)">${(gfTableState('sol').sortCol || Object.keys(gfTableState('sol').filters).length) ? `<a onclick="gfTableFilterClear('sol')" style="font-size:10px;font-weight:400;color:var(--mod-financeiro);cursor:pointer" title="Limpar ordenação/filtros">✕ limpar</a>` : 'Ações'}</th>
+          </tr>
+          <tr>
+            <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
+            ${gfThFilterText('sol', 'titulo', 'Filtrar título/código...')}
+            ${gfThFilterSelect('sol', 'tipo', ['Despesa', 'Receita'])}
+            ${gfThFilterSelect('sol', 'projeto', solProjetosDistintos)}
+            <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
+            ${gfThFilterSelect('sol', 'estado', solEstadosDistintos)}
+            <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
+            ${gfCanViewTesouraria() ? gfThFilterEmpty() : ''}
+            <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
           </tr>
         </thead>
         <tbody>
@@ -13947,6 +14079,53 @@ function gfPendGetEdit(movId) {
   return GF_PEND_EDIT[movId];
 }
 
+// Ordenação/filtro (estilo Excel) da tabela de Pendentes — tableId 'pend'
+const gfPendGetters = {
+  data: m => m.dataMovimento ? new Date(m.dataMovimento).getTime() : 0,
+  desc: m => gfMovNome(m) || '',
+  tipo: m => (m.importancia || 0) < 0 ? 'Despesa' : 'Receita',
+  valor: m => Math.abs(m.importancia || 0)
+};
+const gfPendMatchers = {
+  desc: (m, val) => (gfMovNome(m) || '').toLowerCase().includes(val.toLowerCase()),
+  tipo: (m, val) => ((m.importancia || 0) < 0 ? 'Despesa' : 'Receita') === val
+};
+
+// Lista a mostrar na tabela (ordenada/filtrada) — a contagem da barra e o "Marcar todos prontos"
+// continuam a usar a lista completa (movPendentes), independentemente do filtro visível.
+function gfPendViewList(movPendentesAll) {
+  return gfApplySort('pend', gfApplyFilters('pend', movPendentesAll, gfPendMatchers), gfPendGetters);
+}
+
+function gfPendTheadHtml() {
+  const st = gfTableState('pend');
+  const temFiltro = st.sortCol || Object.keys(st.filters).length;
+  return `
+    <tr style="background:var(--mod-financeiro-bg)">
+      <th style="padding:10px 8px;text-align:center;font-weight:500;color:var(--mod-financeiro);width:32px"></th>
+      ${gfTh('pend', 'data', 'Data Mov.', { align: 'center', pad: '10px 8px' })}
+      ${gfTh('pend', 'desc', 'Descrição', { align: 'left', pad: '10px 8px' })}
+      ${gfTh('pend', 'tipo', 'Tipo', { align: 'center', pad: '10px 8px' })}
+      ${gfTh('pend', 'valor', 'Valor', { align: 'right', pad: '10px 8px' })}
+      <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Projeto</th>
+      <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Rúbrica</th>
+      <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Solicitação (opcional)</th>
+      <th style="padding:10px 8px;text-align:center;font-weight:500;color:var(--mod-financeiro)">${temFiltro ? `<a onclick="gfTableFilterClear('pend')" style="font-size:10px;font-weight:400;color:var(--mod-financeiro);cursor:pointer" title="Limpar ordenação/filtros">✕ limpar</a>` : ''}</th>
+    </tr>
+    <tr>
+      <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
+      <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
+      ${gfThFilterText('pend', 'desc', 'Filtrar descrição...')}
+      ${gfThFilterSelect('pend', 'tipo', ['Despesa', 'Receita'])}
+      <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
+      <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
+      <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
+      <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
+      <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
+    </tr>
+  `;
+}
+
 function gfPendBarHtml(movPendentes) {
   const prontos = movPendentes.filter(m => GF_PEND_EDIT[m.id]?.checked && GF_PEND_EDIT[m.id]?.rubricaId).length;
   return `
@@ -13975,7 +14154,7 @@ function gfPendRowHtml(m) {
         <input type="checkbox" id="gf-pend-chk-${m.id}" ${o.checked ? 'checked' : ''} ${!o.rubricaId ? 'disabled' : ''} onchange="gfPendCheckChange(${m.id})">
       </td>
       <td style="padding:8px;text-align:center;white-space:nowrap">${gfDate(m.dataMovimento)}</td>
-      <td style="padding:8px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${gfMovNome(m).replace(/"/g, '&quot;')}">${gfMovNome(m)}</td>
+      <td style="padding:8px;min-width:260px;white-space:normal;word-break:break-word">${gfMovNome(m)}</td>
       <td style="padding:8px;text-align:center">
         <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:${tipo === 'Receita' ? '#FFF7ED' : '#EFF6FF'};color:${tipo === 'Receita' ? '#F97316' : '#2563EB'}">${tipo}</span>
       </td>
@@ -14045,7 +14224,7 @@ function gfPendSelecionarTodosProntos() {
   const movPendentes = GF_MOV_PENDENTES.filter(m => m.estado !== 'Afeto');
   movPendentes.forEach(m => { const o = gfPendGetEdit(m.id); if (o.rubricaId) o.checked = true; });
   const tbody = gfEl('gf-pend-tbody');
-  if (tbody) tbody.innerHTML = gfPendTbodyHtml(movPendentes);
+  if (tbody) tbody.innerHTML = gfPendTbodyHtml(gfPendViewList(movPendentes));
   gfPendRefreshBar();
 }
 
