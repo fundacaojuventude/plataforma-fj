@@ -778,9 +778,9 @@ tr:hover td{background:var(--bg3)}
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><polyline points="5,8 7,10 11,6"/></svg>
         + Processado
       </div>
-      <div class="nav-item" id="gf-nav-sol-pago" onclick="gfOpenPagoModal()" style="color:rgba(255,255,255,.75);padding-left:1.25rem;display:none">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
-        + Pago
+      <div class="nav-item" id="gf-nav-sol-pendentes" onclick="GF.tab.sol='pendentes';gfNav('solicitacoes')" style="color:rgba(255,255,255,.75);padding-left:1.25rem;display:none">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M2 6h12"/></svg>
+        🏦 Pendentes
       </div>
       <div class="nav-item" id="gf-nav-sol-lista" onclick="gfNav('solicitacoes')" style="color:rgba(255,255,255,.75);padding-left:1.25rem">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="10" x2="9" y2="10"/></svg>
@@ -8003,6 +8003,9 @@ let GF_SOLICITACOES = [];
 let GF_ALTERACOES = [];
 let GF_ALTERACOES_ORIGENS = [];
 let GF_FATURAS = [];
+let GF_MOV_PENDENTES = [];   // FJ_MovimentosBancarios — importação do Excel do banco, ainda por afetar
+let GF_MOV_EXECUTADOS = [];  // FJ_MovimentosExecutados — ledger final, um registo por rúbrica afetada
+let GF_AFETAR = { movimento: null, repartida: false, linhas: [] }; // estado do modal "Afetar movimento"
 
 // ── UTILS ──
 const gfFmt = v => v == null ? '—' : new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + ' €';
@@ -8189,7 +8192,54 @@ async function gfLoadAll() {
       estado: r.Estado || 'Pendente'
     }));
 
-    console.log('GF Data loaded:', { projetos: GF_PROJETOS.length, rubricas: GF_RUBRICAS.length, solicitacoes: GF_SOLICITACOES.length });
+    // Movimentos Bancários (importados do Excel via Power Automate) — ainda por afetar ou já afetos
+    try {
+      const dmp = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosBancarios')/items?$select=Id,Title,DataMovimento,DataValor,Descricao,Observacao,RecPag,Importancia,SaldoContabilistico,CentroCusto,ChaveUnica,Estado,DataAfetacao&$orderby=DataMovimento desc&$top=2000`);
+      GF_MOV_PENDENTES = (dmp.d?.results || []).map(r => ({
+        id: r.Id,
+        dataMovimento: r.DataMovimento || null,
+        dataValor: r.DataValor || null,
+        descricao: r.Descricao || r.Title || '',
+        observacao: r.Observacao || '',
+        recPag: r.RecPag || '',
+        importancia: r.Importancia || 0,
+        saldoContabilistico: r.SaldoContabilistico || 0,
+        centroCusto: r.CentroCusto || '',
+        chaveUnica: r.ChaveUnica || '',
+        estado: r.Estado || 'Pendente',
+        dataAfetacao: r.DataAfetacao || null
+      }));
+    } catch (e) {
+      console.warn('Lista FJ_MovimentosBancarios indisponível:', e.message);
+      GF_MOV_PENDENTES = [];
+    }
+
+    // Movimentos Executados (ledger final por rúbrica, gerado ao afetar um movimento pendente)
+    try {
+      const dme = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosExecutados')/items?$select=*,ProjetoId/Title,RubricaId/Title,SolicitacaoId/Title,MovimentoPendenteId/Id&$expand=ProjetoId,RubricaId,SolicitacaoId,MovimentoPendenteId&$orderby=DataMovimento desc&$top=5000`);
+      GF_MOV_EXECUTADOS = (dme.d?.results || []).map(r => ({
+        id: r.Id,
+        movimentoPendenteId: r.MovimentoPendenteId?.Id || r.MovimentoPendenteIdId || null,
+        tipo: r.TipoMovimento || 'Despesa',
+        valor: r.Valor || 0,
+        percentagem: r.Percentagem || 100,
+        projetoId: r.ProjetoId?.Id || r.ProjetoIdId || null,
+        projetoNome: r.ProjetoId?.Title || '',
+        rubricaId: r.RubricaId?.Id || r.RubricaIdId || null,
+        rubricaNome: r.RubricaId?.Title || '',
+        solicitacaoId: r.SolicitacaoId?.Id || r.SolicitacaoIdId || null,
+        solicitacaoNome: r.SolicitacaoId?.Title || '',
+        dataMovimento: r.DataMovimento || null,
+        ano: r.Ano || (r.DataMovimento ? new Date(r.DataMovimento).getFullYear() : GF.year),
+        descricao: r.Descricao || r.Title || '',
+        observacao: r.Observacao || ''
+      }));
+    } catch (e) {
+      console.warn('Lista FJ_MovimentosExecutados indisponível:', e.message);
+      GF_MOV_EXECUTADOS = [];
+    }
+
+    console.log('GF Data loaded:', { projetos: GF_PROJETOS.length, rubricas: GF_RUBRICAS.length, solicitacoes: GF_SOLICITACOES.length, movPendentes: GF_MOV_PENDENTES.length, movExecutados: GF_MOV_EXECUTADOS.length });
 
     // Carregar estado do bloqueio do orçamento (persiste em FJ_Configuracoes)
     try {
@@ -8222,30 +8272,65 @@ function gfCalcBloqueioAlteracao(rubricaId) {
   return origensPend.reduce((a, o) => a + (o.valor || 0), 0);
 }
 
+// Soma dos Movimentos Executados ligados a uma Solicitação (pode ter vários pagamentos parciais)
+function gfCalcMovLigados(solicitacaoId) {
+  if (!solicitacaoId) return 0;
+  return GF_MOV_EXECUTADOS.filter(m => m.solicitacaoId === solicitacaoId).reduce((a, m) => a + (m.valor || 0), 0);
+}
+
+// Soma de todos os Movimentos Executados de uma rúbrica (tenham ou não Solicitação associada)
+function gfCalcExecutadoRubrica(rubricaId, tipo) {
+  return GF_MOV_EXECUTADOS.filter(m => m.rubricaId === rubricaId && m.tipo === tipo).reduce((a, m) => a + (m.valor || 0), 0);
+}
+
+// Saldo por pagar de uma Solicitação (valor aprovado menos o que já foi ligado em Movimentos Executados)
+function gfSolicitacaoSaldoPorPagar(sol) {
+  return Math.max(0, (sol.valor || 0) - gfCalcMovLigados(sol.id));
+}
+
 // Calcula valores de despesa para uma rúbrica
 function gfCalcDespesa(rubricaId) {
   const sols = GF_SOLICITACOES.filter(s => s.rubricaId === rubricaId && s.tipoSolicitacao === 'Despesa');
   const bloqueio = gfCalcBloqueioAlteracao(rubricaId);
   const solicitada = sols.filter(s => s.estado !== 'Rejeitado').reduce((a, s) => a + (s.valor || 0), 0);
-  
+
+  // ── Execução real (Movimentos Executados) ──
+  // Para cada solicitação não rejeitada, o que ainda falta pagar dela (nunca negativo);
+  // uma solicitação com pagamentos parciais só entra aqui pelo saldo em falta — o que já
+  // foi pago está contado abaixo, em "executado", através do próprio Movimento Executado.
+  const compromissoRestante = sols.filter(s => s.estado !== 'Rejeitado')
+    .reduce((a, s) => a + Math.max(0, (s.valor || 0) - gfCalcMovLigados(s.id)), 0);
+  const executado = gfCalcExecutadoRubrica(rubricaId, 'Despesa'); // todos os movimentos, com ou sem solicitação
+  const usadoReal = bloqueio + compromissoRestante + executado; // nunca conta o mesmo euro duas vezes
+
   return {
-    solicitada: solicitada + bloqueio, // Inclui bloqueio de alterações pendentes
+    solicitada: solicitada + bloqueio, // Inclui bloqueio de alterações pendentes (usado pelas Alterações Orçamentais — não mexer)
     solicitadaPura: solicitada, // Sem bloqueio (para exibição)
     bloqueio: bloqueio, // Valor bloqueado por alterações
     aprovada: sols.filter(s => ['Aprovado Dir.', 'Aprovado DF', 'Aprovado', 'Processado', 'Pago'].includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0),
     processada: sols.filter(s => ['Processado','Pago'].includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0),
-    pago: sols.filter(s => s.estado === 'Pago').reduce((a, s) => a + (s.valor || 0), 0)
+    pago: sols.filter(s => s.estado === 'Pago').reduce((a, s) => a + (s.valor || 0), 0),
+    // ── Campos novos, baseados em FJ_MovimentosExecutados — usar estes para "quanto já gastei / quanto tenho disponível" ──
+    executado,          // € realmente pago (banco), com ou sem solicitação
+    compromissoRestante,// € ainda comprometido em solicitações aprovadas mas por pagar
+    usadoReal           // bloqueio + compromissoRestante + executado — para descontar ao orçamento
   };
 }
 
 // Calcula valores de receita para uma rúbrica
 function gfCalcReceita(rubricaId) {
   const sols = GF_SOLICITACOES.filter(s => s.rubricaId === rubricaId && s.tipoSolicitacao === 'Receita');
+  const compromissoRestante = sols.filter(s => s.estado !== 'Rejeitado')
+    .reduce((a, s) => a + Math.max(0, (s.valor || 0) - gfCalcMovLigados(s.id)), 0);
+  const executado = gfCalcExecutadoRubrica(rubricaId, 'Receita');
   return {
     solicitada: sols.filter(s => s.estado !== 'Rejeitado').reduce((a, s) => a + (s.valor || 0), 0),
     aprovada: sols.filter(s => ['Aprovado Dir.', 'Aprovado DF', 'Aprovado', 'Processado', 'Pago'].includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0),
     processada: sols.filter(s => ['Processado','Pago'].includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0),
-    pago: sols.filter(s => s.estado === 'Pago').reduce((a, s) => a + (s.valor || 0), 0)
+    pago: sols.filter(s => s.estado === 'Pago').reduce((a, s) => a + (s.valor || 0), 0),
+    executado,
+    compromissoRestante,
+    usadoReal: compromissoRestante + executado
   };
 }
 
@@ -8301,7 +8386,7 @@ function gfInit() {
 
 function gfUpdateSidebarNav() {
   const show = gfCanProcessar();
-  const ids = ['gf-nav-sol-processado', 'gf-nav-sol-pago'];
+  const ids = ['gf-nav-sol-processado', 'gf-nav-sol-pendentes'];
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = show ? 'flex' : 'none';
@@ -9162,9 +9247,9 @@ function gfRenderRubricas() {
   const rubs = GF_RUBRICAS.filter(r => r.projetoId === proj.id && r.ano === GF.year);
   
   // Calcular totais dinamicamente
-  let totDespOrc = 0, totDespSol = 0, totDespAprov = 0, totDespProc = 0, totDespPago = 0;
+  let totDespOrc = 0, totDespSol = 0, totDespAprov = 0, totDespProc = 0, totDespPago = 0, totDespUsadoReal = 0;
   let totRecOrc = 0, totRecSol = 0, totRecAprov = 0, totRecProc = 0, totRecPago = 0;
-  
+
   rubs.forEach(r => {
     const desp = gfCalcDespesa(r.id);
     const rec = gfCalcReceita(r.id);
@@ -9172,15 +9257,16 @@ function gfRenderRubricas() {
     totDespSol += desp.solicitada;
     totDespAprov += desp.aprovada;
     totDespProc += desp.processada;
-    totDespPago += desp.pago;
+    totDespPago += desp.executado;  // "Pago" agora reflete os Movimentos Executados (dados do banco), não o estado da solicitação
+    totDespUsadoReal += desp.usadoReal;
     totRecOrc += r.recOrc || 0;
     totRecSol += rec.solicitada;
     totRecAprov += rec.aprovada;
     totRecProc += rec.processada;
-    totRecPago += rec.pago;
+    totRecPago += rec.executado;
   });
-  
-  const totDisp = totDespOrc - totDespSol;
+
+  const totDisp = totDespOrc - totDespUsadoReal; // disponível real: comprometido por pagar + já executado (banco)
   
   // Badge de departamento
   const depColors = {
@@ -9330,7 +9416,7 @@ function gfRenderRubricas() {
         const rec = gfCalcReceita(r.id);
         const despOrc = r.despOrc || 0;
         const recOrc = r.recOrc || 0;
-        const despDisp = despOrc - desp.solicitada;
+        const despDisp = despOrc - desp.usadoReal; // disponível real (comprometido por pagar + executado no banco)
         const despPct = despOrc > 0 ? Math.round((desp.processada / despOrc) * 100) : 0;
         const solicitacoes = gfGetSolicitacoes(r.id);
         const canClose = despDisp <= 0 || r.estado === 'Suspenso';
@@ -9367,7 +9453,7 @@ function gfRenderRubricas() {
                   </div>
                   <div>
                     <div style="font-size:9px;color:#1E40AF;font-weight:500">Pago</div>
-                    <div style="font-weight:600;font-size:12px;color:#60A5FA">${gfFmt(desp.pago)}</div>
+                    <div style="font-weight:600;font-size:12px;color:#60A5FA">${gfFmt(desp.executado)}</div>
                   </div>
                   <div>
                     <div style="font-size:9px;color:#1E40AF;font-weight:500">Disp.</div>
@@ -9396,7 +9482,7 @@ function gfRenderRubricas() {
                   </div>
                   <div>
                     <div style="font-size:9px;color:#C2410C;font-weight:500">Pago</div>
-                    <div style="font-weight:600;font-size:12px;color:#FB923C">${gfFmt(rec.pago)}</div>
+                    <div style="font-weight:600;font-size:12px;color:#FB923C">${gfFmt(rec.executado)}</div>
                   </div>
                 </div>
               </div>
@@ -9428,7 +9514,7 @@ function gfRenderRubricas() {
                     </div>
                     <div>
                       <div style="font-size:10px;color:#1E40AF">Pago</div>
-                      <div style="font-weight:600;color:#60A5FA">${gfFmt(desp.pago)}</div>
+                      <div style="font-weight:600;color:#60A5FA">${gfFmt(desp.executado)}</div>
                     </div>
                     <div>
                       <div style="font-size:10px;color:#1E40AF">Disponível</div>
@@ -9457,7 +9543,7 @@ function gfRenderRubricas() {
                     </div>
                     <div>
                       <div style="font-size:10px;color:#C2410C">Pago</div>
-                      <div style="font-weight:600;color:#FB923C">${gfFmt(rec.pago)}</div>
+                      <div style="font-weight:600;color:#FB923C">${gfFmt(rec.executado)}</div>
                     </div>
                   </div>
                 </div>
@@ -9769,41 +9855,102 @@ async function gfDeleteSolicitacao(id){
     await gfLoadAll();gfRender();showNotif('Solicitação eliminada.','success');
   }catch(e){showNotif('Erro ao eliminar: '+e.message,'error');}
 }
+// Nome de exibição de um Movimento Bancário pendente: Descrição + Observação
+function gfMovNome(m) {
+  return m.observacao ? `${m.descricao} — ${m.observacao}` : (m.descricao || '(sem descrição)');
+}
+
 function gfRenderSolicitacoes() {
   const myEmail = plMyEmailLower();
   const restrito = gfIsMembroRestrito();
   let tab = GF.tab.sol;
   if (restrito && tab === 'lista') tab = 'minhas'; // Membro sem separador "Todas"
+  if (restrito && tab === 'pendentes') tab = 'minhas'; // Pendentes é só para quem processa
   let lista = tab === 'minhas' ? GF_SOLICITACOES.filter(s => s.autorEmail === myEmail) : GF_SOLICITACOES;
   if (tab === 'realizadas') lista = GF_SOLICITACOES.filter(s => s.estado === 'Processado' || s.estado === 'Pago');
-  
+
   // FILTRAR solicitações de projetos que o utilizador pode ver
   // canViewFinanceProject já trata todos os roles (PE, Diretores, Membros)
   lista = lista.filter(s => canViewFinanceProject(s.projetoId));
 
   // Membro fora do Financeiro: só as suas, mesmo dentro de "Realizadas"
   if (restrito) lista = lista.filter(s => s.autorEmail === myEmail);
-  
+
+  const movPendentes = GF_MOV_PENDENTES.filter(m => m.estado !== 'Afeto');
+
+  const tabsBar = `
+    <div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+      ${!restrito ? `<button onclick="GF.tab.sol='lista';gfRender()" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:${tab === 'lista' ? 'var(--mod-financeiro)' : 'var(--text3)'};border-bottom:2px solid ${tab === 'lista' ? 'var(--mod-financeiro)' : 'transparent'}">Todas</button>` : ''}
+      <button onclick="GF.tab.sol='minhas';gfRender()" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:${tab === 'minhas' ? 'var(--mod-financeiro)' : 'var(--text3)'};border-bottom:2px solid ${tab === 'minhas' ? 'var(--mod-financeiro)' : 'transparent'}">Minhas</button>
+      <button onclick="GF.tab.sol='realizadas';gfRender()" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:${tab === 'realizadas' ? 'var(--mod-financeiro)' : 'var(--text3)'};border-bottom:2px solid ${tab === 'realizadas' ? 'var(--mod-financeiro)' : 'transparent'}">Realizadas ✓</button>
+      ${gfCanProcessar() ? `<button onclick="GF.tab.sol='pendentes';gfRender()" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:${tab === 'pendentes' ? 'var(--mod-financeiro)' : 'var(--text3)'};border-bottom:2px solid ${tab === 'pendentes' ? 'var(--mod-financeiro)' : 'transparent'}">Pendentes 🏦${movPendentes.length ? ` (${movPendentes.length})` : ''}</button>` : ''}
+    </div>
+  `;
+
+  if (tab === 'pendentes' && gfCanProcessar()) {
+    return `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text3)">
+        <a onclick="gfNav('home')" style="color:var(--mod-financeiro);cursor:pointer">Início</a>
+        <span>›</span><span>Solicitações</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:20px;font-weight:600">Movimentos Pendentes</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">Pagamentos e recebimentos já executados no banco, importados do Excel, ainda por afetar a uma rúbrica</div>
+        </div>
+      </div>
+      ${tabsBar}
+      <div class="card" style="padding:0;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:var(--mod-financeiro-bg)">
+              <th style="padding:12px 16px;text-align:center;font-weight:500;color:var(--mod-financeiro)">Data Mov.</th>
+              <th style="padding:12px 16px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Descrição</th>
+              <th style="padding:12px 16px;text-align:center;font-weight:500;color:var(--mod-financeiro)">Tipo</th>
+              <th style="padding:12px 16px;text-align:right;font-weight:500;color:var(--mod-financeiro)">Valor</th>
+              <th style="padding:12px 16px;text-align:center;font-weight:500;color:var(--mod-financeiro)">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${movPendentes.length === 0 ? `<tr><td colspan="5" style="padding:40px;text-align:center;color:var(--text3)">Sem movimentos pendentes 🎉</td></tr>` :
+              movPendentes.map(m => {
+                const tipo = (m.importancia || 0) < 0 ? 'Despesa' : 'Receita';
+                return `
+                <tr style="border-bottom:1px solid var(--border)">
+                  <td style="padding:14px 16px;text-align:center;font-size:12px">${gfDate(m.dataMovimento)}</td>
+                  <td style="padding:14px 16px">${gfMovNome(m)}</td>
+                  <td style="padding:14px 16px;text-align:center">
+                    <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:${tipo === 'Receita' ? '#FFF7ED' : '#EFF6FF'};color:${tipo === 'Receita' ? '#F97316' : '#2563EB'}">${tipo}</span>
+                  </td>
+                  <td style="padding:14px 16px;text-align:right;font-weight:500">${gfFmt(Math.abs(m.importancia || 0))}</td>
+                  <td style="padding:14px 16px;text-align:center">
+                    <button class="btn btn-sm btn-primary" style="background:var(--mod-financeiro);border-color:var(--mod-financeiro)" onclick="gfOpenAfetarModal(${m.id})">Afetar</button>
+                  </td>
+                </tr>`;
+              }).join('')
+            }
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
   return `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text3)">
       <a onclick="gfNav('home')" style="color:var(--mod-financeiro);cursor:pointer">Início</a>
       <span>›</span><span>Solicitações</span>
     </div>
-    
+
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
       <div style="font-size:20px;font-weight:600">Solicitações</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary" style="background:var(--mod-financeiro);border-color:var(--mod-financeiro)" onclick="GF.solicitacao=null;gfNav('solicitacao-form')">+ Nova Solicitação</button>
-        ${gfCanProcessar() ? '<button class="btn" style="background:#10B981;color:#fff;border-color:#10B981" onclick="gfOpenProcessadoModal()">+ Processado</button><button class="btn" style="background:#6366F1;color:#fff;border-color:#6366F1" onclick="gfOpenPagoModal()">+ Pago</button>' : ''}
+        ${gfCanProcessar() ? '<button class="btn" style="background:#10B981;color:#fff;border-color:#10B981" onclick="gfOpenProcessadoModal()">+ Processado</button>' : ''}
       </div>
     </div>
-    
-    <div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border)">
-      ${!restrito ? `<button onclick="GF.tab.sol='lista';gfRender()" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:${tab === 'lista' ? 'var(--mod-financeiro)' : 'var(--text3)'};border-bottom:2px solid ${tab === 'lista' ? 'var(--mod-financeiro)' : 'transparent'}">Todas</button>` : ''}
-      <button onclick="GF.tab.sol='minhas';gfRender()" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:${tab === 'minhas' ? 'var(--mod-financeiro)' : 'var(--text3)'};border-bottom:2px solid ${tab === 'minhas' ? 'var(--mod-financeiro)' : 'transparent'}">Minhas</button>
-      <button onclick="GF.tab.sol='realizadas';gfRender()" style="padding:10px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:${tab === 'realizadas' ? 'var(--mod-financeiro)' : 'var(--text3)'};border-bottom:2px solid ${tab === 'realizadas' ? 'var(--mod-financeiro)' : 'transparent'}">Realizadas ✓</button>
-    </div>
-    
+
+    ${tabsBar}
+
     <div class="card" style="padding:0;overflow:hidden">
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
@@ -10024,15 +10171,16 @@ function gfSolRubricaInfo(rubId) {
   
   const desp = gfCalcDespesa(rubId);
   const rec = gfCalcReceita(rubId);
-  const despDisp = (rub.despOrc || 0) - desp.solicitada;
+  const despDisp = (rub.despOrc || 0) - desp.usadoReal; // disponível real (comprometido por pagar + executado no banco)
   const valorInput = gfEl('gf-sol-valor');
-  
+
   info.innerHTML = `
     <div style="margin-bottom:8px"><strong>${rub.titulo}</strong></div>
     <div style="font-size:12px;font-weight:600;color:#2563EB;margin:8px 0 4px">DESPESA</div>
     <div>Orçamentado: ${gfFmt(rub.despOrc)}</div>
     <div>Solicitado: ${gfFmt(desp.solicitada)}</div>
     <div>Processado: ${gfFmt(desp.processada)}</div>
+    <div>Já pago (banco): ${gfFmt(desp.executado)}</div>
     <div style="font-weight:600;color:${despDisp <= 0 ? '#EF4444' : '#10B981'}">Disponível: ${gfFmt(despDisp)}</div>
     ${despDisp <= 0 ? '<div style="margin-top:8px;padding:8px;background:#FEE2E2;color:#991B1B;border-radius:6px;font-size:12px">⚠️ Rúbrica sem saldo disponível</div>' : ''}
     <div style="font-size:12px;font-weight:600;color:#F97316;margin:12px 0 4px">RECEITA</div>
@@ -13583,88 +13731,219 @@ async function gfSubmitProcessado() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// MODAL + PAGO
+// MOVIMENTOS PENDENTES → AFETAR A RÚBRICA (substitui o antigo "+ Pago")
 // ══════════════════════════════════════════════════════════════
-let _pagoSelectedFiles = [];
+// "Pago" deixou de ser um clique manual: nasce de um movimento bancário real
+// (importado do Excel via Power Automate para FJ_MovimentosBancarios) que a
+// equipa financeira afeta a uma ou várias rúbricas — com ou sem Solicitação.
 
-function gfOpenPagoModal() {
-  _pagoSelectedFiles = [];
-  gfRenderPagoFileList();
-  // Preencher select com solicitações "Processado"
-  const processadas = GF_SOLICITACOES.filter(s =>
-    canViewFinanceProject(s.projetoId) && s.estado === 'Processado'
-  );
-  const sel = document.getElementById('gf-pago-sol-select');
-  sel.innerHTML = '<option value="">— Selecionar solicitação —</option>' +
-    processadas.map(s => `<option value="${s.id}">[${s.codigo}] ${s.titulo} — ${gfFmt(s.valor)}</option>`).join('');
-  document.getElementById('gf-pago-modal').style.display = 'flex';
+function gfOpenAfetarModal(movId) {
+  const m = GF_MOV_PENDENTES.find(x => x.id === movId);
+  if (!m) return;
+  GF_AFETAR = { movimento: movId, repartida: false, linhas: [{ projetoId: null, rubricaId: null, solicitacaoId: null, pct: 100 }] };
+  document.getElementById('gf-afetar-modal').style.display = 'flex';
+  gfRenderAfetarModal();
 }
 
-function gfClosePagoModal() {
-  document.getElementById('gf-pago-modal').style.display = 'none';
-  _pagoSelectedFiles = [];
+function gfCloseAfetarModal() {
+  document.getElementById('gf-afetar-modal').style.display = 'none';
 }
 
-function gfPagoAddFiles(input) {
-  for (const f of input.files) {
-    if (!_pagoSelectedFiles.find(x => x.name === f.name && x.size === f.size)) {
-      _pagoSelectedFiles.push(f);
-    }
+function gfAfetarToggleRepartida(checked) {
+  GF_AFETAR.repartida = checked;
+  if (!checked) {
+    // Volta a uma única linha, sempre 100%
+    GF_AFETAR.linhas = [GF_AFETAR.linhas[0] || { projetoId: null, rubricaId: null, solicitacaoId: null, pct: 100 }];
+    GF_AFETAR.linhas[0].pct = 100;
   }
-  input.value = '';
-  gfRenderPagoFileList();
+  gfRenderAfetarModal();
 }
 
-function gfPagoRemoveFile(idx) {
-  _pagoSelectedFiles.splice(idx, 1);
-  gfRenderPagoFileList();
+function gfAfetarAddLinha() {
+  GF_AFETAR.linhas.push({ projetoId: null, rubricaId: null, solicitacaoId: null, pct: 0 });
+  gfRenderAfetarModal();
 }
 
-function gfRenderPagoFileList() {
-  const wrap = document.getElementById('gf-pago-file-list');
-  if (!wrap) return;
-  if (!_pagoSelectedFiles.length) {
-    wrap.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">Nenhum ficheiro selecionado</div>';
-    return;
-  }
-  wrap.innerHTML = _pagoSelectedFiles.map((f, i) => `
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border:0.5px solid var(--border);border-radius:6px;margin-bottom:4px">
-      <span style="font-size:14px">🧾</span>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div>
-        <div style="font-size:11px;color:var(--text3)">${(f.size/1024).toFixed(1)} KB</div>
+function gfAfetarRemoveLinha(idx) {
+  GF_AFETAR.linhas.splice(idx, 1);
+  gfRenderAfetarModal();
+}
+
+function gfAfetarProjChange(idx) {
+  GF_AFETAR.linhas[idx].projetoId = parseInt(gfVal(`gf-afetar-proj-${idx}`)) || null;
+  GF_AFETAR.linhas[idx].rubricaId = null;
+  GF_AFETAR.linhas[idx].solicitacaoId = null;
+  gfRenderAfetarModal();
+}
+
+function gfAfetarRubChange(idx) {
+  GF_AFETAR.linhas[idx].rubricaId = parseInt(gfVal(`gf-afetar-rub-${idx}`)) || null;
+  GF_AFETAR.linhas[idx].solicitacaoId = null;
+  gfRenderAfetarModal();
+}
+
+function gfAfetarSolChange(idx) {
+  GF_AFETAR.linhas[idx].solicitacaoId = parseInt(gfVal(`gf-afetar-sol-${idx}`)) || null;
+}
+
+function gfAfetarPctChange(idx) {
+  GF_AFETAR.linhas[idx].pct = parseFloat(gfVal(`gf-afetar-pct-${idx}`)) || 0;
+  gfRenderAfetarModal(); // só para recalcular o total apresentado
+}
+
+// Rúbricas ativas de um projeto, do tipo e ano do movimento
+function gfAfetarRubOptions(projId, tipo, ano, selectedId) {
+  const rubs = GF_RUBRICAS.filter(r => r.projetoId === projId && r.ano === ano && r.tipo === tipo && r.estado === 'Ativo');
+  if (!rubs.length) return `<option value="">Sem rúbricas de ${tipo.toLowerCase()} ativas em ${ano}</option>`;
+  return '<option value="">Selecionar...</option>' +
+    rubs.map(r => `<option value="${r.id}" ${selectedId === r.id ? 'selected' : ''}>${r.titulo}</option>`).join('');
+}
+
+// Solicitações aprovadas dessa rúbrica que ainda têm saldo por pagar (associação é sempre opcional)
+function gfAfetarSolOptions(rubricaId, selectedId) {
+  const APROVADAS = ['Aprovado Dir.', 'Aprovado DF', 'Aprovado'];
+  const sols = GF_SOLICITACOES.filter(s => s.rubricaId === rubricaId && APROVADAS.includes(s.estado) &&
+    (s.id === selectedId || gfSolicitacaoSaldoPorPagar(s) > 0.005));
+  return '<option value="">— Sem solicitação —</option>' +
+    sols.map(s => `<option value="${s.id}" ${selectedId === s.id ? 'selected' : ''}>[${s.codigo}] ${s.titulo} — falta ${gfFmt(gfSolicitacaoSaldoPorPagar(s))}</option>`).join('');
+}
+
+function gfAfetarLinhaRow(o, idx, movTipo, movAno) {
+  const repartida = GF_AFETAR.repartida;
+  return `
+    <div style="display:grid;grid-template-columns:${repartida ? '1fr 1fr 1fr 90px 40px' : '1fr 1fr 1fr'};gap:10px;margin-bottom:10px;padding:14px;background:#F8FAFC;border-radius:8px;border:1px solid var(--border)">
+      <div>
+        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Projeto</label>
+        <select id="gf-afetar-proj-${idx}" onchange="gfAfetarProjChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px">
+          <option value="">Selecionar...</option>
+          ${gfProjetosOptions(o.projetoId)}
+        </select>
       </div>
-      <button onclick="gfPagoRemoveFile(${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0 4px" title="Remover">×</button>
-    </div>`).join('');
+      <div>
+        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Rúbrica</label>
+        <select id="gf-afetar-rub-${idx}" onchange="gfAfetarRubChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px" ${!o.projetoId ? 'disabled' : ''}>
+          ${o.projetoId ? gfAfetarRubOptions(o.projetoId, movTipo, movAno, o.rubricaId) : '<option value="">Selecionar projeto...</option>'}
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Solicitação (opcional)</label>
+        <select id="gf-afetar-sol-${idx}" onchange="gfAfetarSolChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px" ${!o.rubricaId ? 'disabled' : ''}>
+          ${o.rubricaId ? gfAfetarSolOptions(o.rubricaId, o.solicitacaoId) : '<option value="">—</option>'}
+        </select>
+      </div>
+      ${repartida ? `
+        <div>
+          <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">%</label>
+          <input type="number" id="gf-afetar-pct-${idx}" value="${o.pct || ''}" min="0" max="100" step="0.01" onchange="gfAfetarPctChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px">
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          ${GF_AFETAR.linhas.length > 1 ? `<button onclick="gfAfetarRemoveLinha(${idx})" style="width:36px;height:36px;border:none;background:#FEE2E2;color:#991B1B;border-radius:4px;cursor:pointer;font-size:18px;font-weight:bold" title="Remover">×</button>` : ''}
+        </div>
+      ` : ''}
+    </div>
+  `;
 }
 
-async function gfSubmitPago() {
-  const solId = parseInt(document.getElementById('gf-pago-sol-select').value);
-  if (!solId) { showNotif('Seleciona uma solicitação', 'error'); return; }
-  if (!_pagoSelectedFiles.length) { showNotif('Anexa pelo menos um ficheiro (fatura)', 'error'); return; }
+function gfRenderAfetarModal() {
+  const m = GF_MOV_PENDENTES.find(x => x.id === GF_AFETAR.movimento);
+  const body = document.getElementById('gf-afetar-body');
+  if (!m || !body) return;
+  const tipo = (m.importancia || 0) < 0 ? 'Despesa' : 'Receita';
+  const ano = m.dataMovimento ? new Date(m.dataMovimento).getFullYear() : GF.year;
+  const totalPct = GF_AFETAR.linhas.reduce((a, l) => a + (l.pct || 0), 0);
+  const pctOk = Math.abs(totalPct - 100) < 0.01;
+  const linhasValidas = GF_AFETAR.linhas.length > 0 && GF_AFETAR.linhas.every(l => l.rubricaId);
 
-  const btn = document.getElementById('gf-pago-submit-btn');
+  body.innerHTML = `
+    <div style="padding:14px;background:var(--mod-financeiro-bg);border-radius:8px;margin-bottom:16px">
+      <div style="font-weight:600;font-size:14px;margin-bottom:4px">${gfMovNome(m)}</div>
+      <div style="font-size:12px;color:var(--text3)">${gfDate(m.dataMovimento)} · <span style="font-weight:600;color:${tipo === 'Receita' ? '#F97316' : '#2563EB'}">${tipo}</span> · <span style="font-weight:700;color:var(--text)">${gfFmt(Math.abs(m.importancia || 0))}</span></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;cursor:pointer">
+      <input type="checkbox" id="gf-afetar-repartida" ${GF_AFETAR.repartida ? 'checked' : ''} onchange="gfAfetarToggleRepartida(this.checked)">
+      Repartir este valor por várias rúbricas (podem ser de projetos diferentes)
+    </label>
+    <div id="gf-afetar-linhas">
+      ${GF_AFETAR.linhas.map((l, idx) => gfAfetarLinhaRow(l, idx, tipo, ano)).join('')}
+    </div>
+    ${GF_AFETAR.repartida ? `
+      <button class="btn btn-sm" onclick="gfAfetarAddLinha()" style="margin-bottom:12px">+ Adicionar rúbrica</button>
+      <div style="font-size:13px;font-weight:600;color:${pctOk ? '#10B981' : '#EF4444'};margin-bottom:8px">Total: ${totalPct.toFixed(2)}% ${pctOk ? '✓' : '— tem de somar 100%'}</div>
+    ` : ''}
+  `;
+
+  const btn = document.getElementById('gf-afetar-submit-btn');
+  if (btn) btn.disabled = !linhasValidas || !pctOk;
+}
+
+async function gfSubmitAfetar() {
+  const m = GF_MOV_PENDENTES.find(x => x.id === GF_AFETAR.movimento);
+  if (!m) return;
+  const totalPct = GF_AFETAR.linhas.reduce((a, l) => a + (l.pct || 0), 0);
+  if (Math.abs(totalPct - 100) > 0.01) { showNotif('As percentagens têm de somar 100%', 'error'); return; }
+  if (GF_AFETAR.linhas.some(l => !l.rubricaId)) { showNotif('Seleciona uma rúbrica em todas as linhas', 'error'); return; }
+
+  const tipo = (m.importancia || 0) < 0 ? 'Despesa' : 'Receita';
+  const valorAbs = Math.abs(m.importancia || 0);
+  const ano = m.dataMovimento ? new Date(m.dataMovimento).getFullYear() : GF.year;
+
+  const btn = document.getElementById('gf-afetar-submit-btn');
   btn.disabled = true; btn.textContent = 'A guardar...';
   try {
-    // Upload dos ficheiros com prefixo FAT_
-    for (const f of _pagoSelectedFiles) {
-      const renamed = new File([f], 'FAT_' + f.name, { type: f.type });
-      await uploadAttachment('FJ_Solicitacoes', solId, renamed);
+    const solicitacoesTocadas = new Set();
+    for (const l of GF_AFETAR.linhas) {
+      const valorLinha = Math.round(valorAbs * (l.pct || 0) / 100 * 100) / 100;
+      const body = {
+        __metadata: { type: 'SP.Data.FJ_x005f_MovimentosExecutadosListItem' },
+        Title: gfMovNome(m).slice(0, 255),
+        MovimentoPendenteIdId: m.id,
+        TipoMovimento: tipo,
+        Valor: valorLinha,
+        Percentagem: l.pct || 0,
+        ProjetoIdId: l.projetoId,
+        RubricaIdId: l.rubricaId,
+        DataMovimento: m.dataMovimento,
+        Ano: ano,
+        Descricao: m.descricao,
+        Observacao: m.observacao
+      };
+      if (l.solicitacaoId) {
+        body.SolicitacaoIdId = l.solicitacaoId;
+        solicitacoesTocadas.add(l.solicitacaoId);
+      }
+      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosExecutados')/items`, body, 'POST');
     }
-    // Mudar estado para Pago
+
+    // O movimento pendente NUNCA é apagado — só marcado como Afeto, para sair do ecrã Pendentes
     await spWrite(
-      `${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${solId})`,
-      { __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' }, Estado: 'Pago', DataPago: new Date().toISOString() },
+      `${SP}/_api/web/lists/getbytitle('FJ_MovimentosBancarios')/items(${m.id})`,
+      { __metadata: { type: 'SP.Data.FJ_x005f_MovimentosBancariosListItem' }, Estado: 'Afeto', DataAfetacao: new Date().toISOString() },
       'MERGE'
     );
-    showNotif('Solicitação marcada como Paga e fatura anexada! ✓', 'success');
-    gfClosePagoModal();
+
+    // Recarregar para ter os Movimentos Executados atualizados antes de verificar saldos
+    await gfLoadAll();
+
+    // Solicitações cujo saldo por pagar chegou a 0 → passam a "Pago"
+    for (const solId of solicitacoesTocadas) {
+      const sol = GF_SOLICITACOES.find(s => s.id === solId);
+      if (sol && sol.estado !== 'Pago' && gfSolicitacaoSaldoPorPagar(sol) <= 0.005) {
+        await spWrite(
+          `${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${sol.id})`,
+          { __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' }, Estado: 'Pago', DataPago: new Date().toISOString() },
+          'MERGE'
+        );
+      }
+    }
+
+    showNotif('Movimento afeto com sucesso! ✓', 'success');
+    gfCloseAfetarModal();
     await gfLoadAll();
     gfRender();
-  } catch(e) {
-    showNotif('Erro: ' + e.message, 'error');
+  } catch (e) {
+    showNotif('Erro ao afetar movimento: ' + e.message, 'error');
   } finally {
-    btn.disabled = false; btn.textContent = 'Guardar';
+    btn.disabled = false; btn.textContent = 'Confirmar';
   }
 }
 
@@ -14248,38 +14527,20 @@ init();
   </div>
 </div>
 
-<!-- ══ MODAL + PAGO ════════════════════════════════════════════ -->
-<div id="gf-pago-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:14px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);margin:1rem">
+<!-- ══ MODAL AFETAR MOVIMENTO PENDENTE ════════════════════════════ -->
+<div id="gf-afetar-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:720px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);margin:1rem">
     <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <div>
-        <div style="font-size:16px;font-weight:600">🧾 Marcar como Pago</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px">Anexar fatura e registar pagamento</div>
+        <div style="font-size:16px;font-weight:600">🏦 Afetar Movimento</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">Associar este pagamento/recebimento já executado a uma ou várias rúbricas</div>
       </div>
-      <button onclick="gfClosePagoModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">×</button>
+      <button onclick="gfCloseAfetarModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">×</button>
     </div>
-    <div style="padding:20px 24px">
-      <div style="margin-bottom:16px">
-        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Solicitação processada *</label>
-        <select id="gf-pago-sol-select" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;color:var(--text);background:#fff">
-          <option value="">— Selecionar —</option>
-        </select>
-      </div>
-      <div style="margin-bottom:16px">
-        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Fatura *</label>
-        <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px dashed var(--border2);border-radius:8px;cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.borderColor='#6366F1'" onmouseout="this.style.borderColor='var(--border2)'">
-          <span style="font-size:18px">📎</span>
-          <span>Clica para adicionar ficheiros</span>
-          <input type="file" multiple style="display:none" onchange="gfPagoAddFiles(this)">
-        </label>
-        <div id="gf-pago-file-list" style="margin-top:8px">
-          <div style="color:var(--text3);font-size:12px;padding:8px 0">Nenhum ficheiro selecionado</div>
-        </div>
-      </div>
-    </div>
+    <div id="gf-afetar-body" style="padding:20px 24px"></div>
     <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
-      <button class="btn" onclick="gfClosePagoModal()">Cancelar</button>
-      <button id="gf-pago-submit-btn" class="btn" style="background:#6366F1;color:#fff;border-color:#6366F1" onclick="gfSubmitPago()">Guardar</button>
+      <button class="btn" onclick="gfCloseAfetarModal()">Cancelar</button>
+      <button id="gf-afetar-submit-btn" class="btn" style="background:var(--mod-financeiro);color:#fff;border-color:var(--mod-financeiro)" onclick="gfSubmitAfetar()">Confirmar</button>
     </div>
   </div>
 </div>
