@@ -8005,7 +8005,8 @@ let GF_ALTERACOES_ORIGENS = [];
 let GF_FATURAS = [];
 let GF_MOV_PENDENTES = [];   // FJ_MovimentosBancarios — importação do Excel do banco, ainda por afetar
 let GF_MOV_EXECUTADOS = [];  // FJ_MovimentosExecutados — ledger final, um registo por rúbrica afetada
-let GF_AFETAR = { movimento: null, repartida: false, linhas: [] }; // estado do modal "Afetar movimento"
+let GF_AFETAR = { movimento: null, repartida: false, linhas: [] }; // estado do modal "Afetar movimento" (repartição por várias rúbricas)
+let GF_PEND_EDIT = {}; // estado da tabela editável de Pendentes: { [movId]: { checked, projetoId, rubricaId, solicitacaoId } }
 
 // ── UTILS ──
 const gfFmt = v => v == null ? '—' : new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + ' €';
@@ -9900,35 +9901,26 @@ function gfRenderSolicitacoes() {
         </div>
       </div>
       ${tabsBar}
-      <div class="card" style="padding:0;overflow:hidden">
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <div id="gf-pend-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+        ${gfPendBarHtml(movPendentes)}
+      </div>
+      <div class="card" style="padding:0;overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1100px">
           <thead>
             <tr style="background:var(--mod-financeiro-bg)">
-              <th style="padding:12px 16px;text-align:center;font-weight:500;color:var(--mod-financeiro)">Data Mov.</th>
-              <th style="padding:12px 16px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Descrição</th>
-              <th style="padding:12px 16px;text-align:center;font-weight:500;color:var(--mod-financeiro)">Tipo</th>
-              <th style="padding:12px 16px;text-align:right;font-weight:500;color:var(--mod-financeiro)">Valor</th>
-              <th style="padding:12px 16px;text-align:center;font-weight:500;color:var(--mod-financeiro)">Ações</th>
+              <th style="padding:10px 8px;text-align:center;font-weight:500;color:var(--mod-financeiro);width:32px"></th>
+              <th style="padding:10px 8px;text-align:center;font-weight:500;color:var(--mod-financeiro)">Data Mov.</th>
+              <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Descrição</th>
+              <th style="padding:10px 8px;text-align:center;font-weight:500;color:var(--mod-financeiro)">Tipo</th>
+              <th style="padding:10px 8px;text-align:right;font-weight:500;color:var(--mod-financeiro)">Valor</th>
+              <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Projeto</th>
+              <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Rúbrica</th>
+              <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Solicitação (opcional)</th>
+              <th style="padding:10px 8px;text-align:center;font-weight:500;color:var(--mod-financeiro)"></th>
             </tr>
           </thead>
-          <tbody>
-            ${movPendentes.length === 0 ? `<tr><td colspan="5" style="padding:40px;text-align:center;color:var(--text3)">Sem movimentos pendentes 🎉</td></tr>` :
-              movPendentes.map(m => {
-                const tipo = (m.importancia || 0) < 0 ? 'Despesa' : 'Receita';
-                return `
-                <tr style="border-bottom:1px solid var(--border)">
-                  <td style="padding:14px 16px;text-align:center;font-size:12px">${gfDate(m.dataMovimento)}</td>
-                  <td style="padding:14px 16px">${gfMovNome(m)}</td>
-                  <td style="padding:14px 16px;text-align:center">
-                    <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:${tipo === 'Receita' ? '#FFF7ED' : '#EFF6FF'};color:${tipo === 'Receita' ? '#F97316' : '#2563EB'}">${tipo}</span>
-                  </td>
-                  <td style="padding:14px 16px;text-align:right;font-weight:500">${gfFmt(Math.abs(m.importancia || 0))}</td>
-                  <td style="padding:14px 16px;text-align:center">
-                    <button class="btn btn-sm btn-primary" style="background:var(--mod-financeiro);border-color:var(--mod-financeiro)" onclick="gfOpenAfetarModal(${m.id})">Afetar</button>
-                  </td>
-                </tr>`;
-              }).join('')
-            }
+          <tbody id="gf-pend-tbody">
+            ${gfPendTbodyHtml(movPendentes)}
           </tbody>
         </table>
       </div>
@@ -13947,6 +13939,191 @@ async function gfSubmitAfetar() {
   }
 }
 
+// ═══ TABELA EDITÁVEL DE PENDENTES (afetação direta em linha, em massa) ══════
+// Fluxo simples (1 rúbrica, 100%): preencher Projeto+Rúbrica na própria linha da tabela.
+// Para repartir por várias rúbricas continua a usar-se o modal "Afetar Movimento" (link "Repartir").
+function gfPendGetEdit(movId) {
+  if (!GF_PEND_EDIT[movId]) GF_PEND_EDIT[movId] = { checked: false, projetoId: null, rubricaId: null, solicitacaoId: null };
+  return GF_PEND_EDIT[movId];
+}
+
+function gfPendBarHtml(movPendentes) {
+  const prontos = movPendentes.filter(m => GF_PEND_EDIT[m.id]?.checked && GF_PEND_EDIT[m.id]?.rubricaId).length;
+  return `
+    <div style="font-size:12px;color:var(--text3);max-width:520px">Preenche Projeto + Rúbrica em cada linha — fica marcada como pronta automaticamente. Para repartir um movimento por várias rúbricas (ou de projetos diferentes), usa "Repartir".</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+      <button class="btn btn-sm" onclick="gfPendSelecionarTodosProntos()">Marcar todos prontos</button>
+      <button id="gf-pend-confirmar-btn" class="btn btn-primary" style="background:var(--mod-financeiro);border-color:var(--mod-financeiro)" ${prontos === 0 ? 'disabled' : ''} onclick="gfPendConfirmarSelecionados()">Confirmar selecionados (${prontos})</button>
+    </div>
+  `;
+}
+
+function gfPendRefreshBar() {
+  const movPendentes = GF_MOV_PENDENTES.filter(m => m.estado !== 'Afeto');
+  const bar = gfEl('gf-pend-bar');
+  if (bar) bar.innerHTML = gfPendBarHtml(movPendentes);
+}
+
+function gfPendRowHtml(m) {
+  const o = gfPendGetEdit(m.id);
+  const tipo = (m.importancia || 0) < 0 ? 'Despesa' : 'Receita';
+  const ano = m.dataMovimento ? new Date(m.dataMovimento).getFullYear() : GF.year;
+  const pronto = !!(o.checked && o.rubricaId);
+  return `
+    <tr style="border-bottom:1px solid var(--border);${pronto ? 'background:#F0FDF4' : ''}" id="gf-pend-row-${m.id}">
+      <td style="padding:8px;text-align:center">
+        <input type="checkbox" id="gf-pend-chk-${m.id}" ${o.checked ? 'checked' : ''} ${!o.rubricaId ? 'disabled' : ''} onchange="gfPendCheckChange(${m.id})">
+      </td>
+      <td style="padding:8px;text-align:center;white-space:nowrap">${gfDate(m.dataMovimento)}</td>
+      <td style="padding:8px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${gfMovNome(m).replace(/"/g, '&quot;')}">${gfMovNome(m)}</td>
+      <td style="padding:8px;text-align:center">
+        <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:${tipo === 'Receita' ? '#FFF7ED' : '#EFF6FF'};color:${tipo === 'Receita' ? '#F97316' : '#2563EB'}">${tipo}</span>
+      </td>
+      <td style="padding:8px;text-align:right;font-weight:500;white-space:nowrap">${gfFmt(Math.abs(m.importancia || 0))}</td>
+      <td style="padding:8px">
+        <select id="gf-pend-proj-${m.id}" onchange="gfPendProjChange(${m.id})" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;font-size:12px">
+          <option value="">Selecionar...</option>
+          ${gfProjetosOptions(o.projetoId)}
+        </select>
+      </td>
+      <td style="padding:8px">
+        <select id="gf-pend-rub-${m.id}" onchange="gfPendRubChange(${m.id})" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;font-size:12px" ${!o.projetoId ? 'disabled' : ''}>
+          ${o.projetoId ? gfAfetarRubOptions(o.projetoId, tipo, ano, o.rubricaId) : '<option value="">Selecionar projeto...</option>'}
+        </select>
+      </td>
+      <td style="padding:8px">
+        <select id="gf-pend-sol-${m.id}" onchange="gfPendSolChange(${m.id})" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;font-size:12px" ${!o.rubricaId ? 'disabled' : ''}>
+          ${o.rubricaId ? gfAfetarSolOptions(o.rubricaId, o.solicitacaoId) : '<option value="">—</option>'}
+        </select>
+      </td>
+      <td style="padding:8px;text-align:center;white-space:nowrap">
+        <a onclick="gfOpenAfetarModal(${m.id})" style="color:var(--mod-financeiro);cursor:pointer;font-size:11px">Repartir</a>
+      </td>
+    </tr>`;
+}
+
+function gfPendTbodyHtml(movPendentes) {
+  if (!movPendentes.length) return `<tr><td colspan="9" style="padding:40px;text-align:center;color:var(--text3)">Sem movimentos pendentes 🎉</td></tr>`;
+  return movPendentes.map(m => gfPendRowHtml(m)).join('');
+}
+
+function gfPendRefreshRow(movId) {
+  const m = GF_MOV_PENDENTES.find(x => x.id === movId);
+  const row = gfEl(`gf-pend-row-${movId}`);
+  if (m && row) row.outerHTML = gfPendRowHtml(m);
+  gfPendRefreshBar();
+}
+
+function gfPendProjChange(movId) {
+  const o = gfPendGetEdit(movId);
+  o.projetoId = parseInt(gfVal(`gf-pend-proj-${movId}`)) || null;
+  o.rubricaId = null;
+  o.solicitacaoId = null;
+  o.checked = false;
+  gfPendRefreshRow(movId);
+}
+
+function gfPendRubChange(movId) {
+  const o = gfPendGetEdit(movId);
+  o.rubricaId = parseInt(gfVal(`gf-pend-rub-${movId}`)) || null;
+  o.solicitacaoId = null;
+  o.checked = !!o.rubricaId; // fica pronta automaticamente assim que há rúbrica escolhida
+  gfPendRefreshRow(movId);
+}
+
+function gfPendSolChange(movId) {
+  gfPendGetEdit(movId).solicitacaoId = parseInt(gfVal(`gf-pend-sol-${movId}`)) || null;
+}
+
+function gfPendCheckChange(movId) {
+  const o = gfPendGetEdit(movId);
+  o.checked = !!gfEl(`gf-pend-chk-${movId}`)?.checked;
+  gfPendRefreshRow(movId);
+}
+
+function gfPendSelecionarTodosProntos() {
+  const movPendentes = GF_MOV_PENDENTES.filter(m => m.estado !== 'Afeto');
+  movPendentes.forEach(m => { const o = gfPendGetEdit(m.id); if (o.rubricaId) o.checked = true; });
+  const tbody = gfEl('gf-pend-tbody');
+  if (tbody) tbody.innerHTML = gfPendTbodyHtml(movPendentes);
+  gfPendRefreshBar();
+}
+
+// Grava uma linha simples (1 rúbrica, 100%): cria o Movimento Executado e marca o pendente como Afeto.
+async function gfPendGravarLinha(m, o) {
+  const tipo = (m.importancia || 0) < 0 ? 'Despesa' : 'Receita';
+  const valorAbs = Math.abs(m.importancia || 0);
+  const ano = m.dataMovimento ? new Date(m.dataMovimento).getFullYear() : GF.year;
+  const body = {
+    __metadata: { type: 'SP.Data.FJ_x005f_MovimentosExecutadosListItem' },
+    Title: gfMovNome(m).slice(0, 255),
+    MovimentoPendenteIdId: m.id,
+    TipoMovimento: tipo,
+    Valor: valorAbs,
+    Percentagem: 100,
+    ProjetoIdId: o.projetoId,
+    RubricaIdId: o.rubricaId,
+    DataMovimento: m.dataMovimento,
+    Ano: ano,
+    Descricao: m.descricao,
+    Observacao: m.observacao
+  };
+  if (o.solicitacaoId) body.SolicitacaoIdId = o.solicitacaoId;
+  await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosExecutados')/items`, body, 'POST');
+  await spWrite(
+    `${SP}/_api/web/lists/getbytitle('FJ_MovimentosBancarios')/items(${m.id})`,
+    { __metadata: { type: 'SP.Data.FJ_x005f_MovimentosBancariosListItem' }, Estado: 'Afeto', DataAfetacao: new Date().toISOString() },
+    'MERGE'
+  );
+  return o.solicitacaoId || null;
+}
+
+async function gfPendConfirmarSelecionados() {
+  const movPendentes = GF_MOV_PENDENTES.filter(m => m.estado !== 'Afeto');
+  const prontos = movPendentes
+    .map(m => ({ m, o: GF_PEND_EDIT[m.id] }))
+    .filter(x => x.o && x.o.checked && x.o.rubricaId);
+
+  if (!prontos.length) { showNotif('Não há nenhuma linha pronta (preenche Projeto + Rúbrica).', 'error'); return; }
+
+  const btn = gfEl('gf-pend-confirmar-btn');
+  if (btn) btn.disabled = true;
+  const solicitacoesTocadas = new Set();
+  let ok = 0, falhas = 0;
+
+  for (let i = 0; i < prontos.length; i++) {
+    const { m, o } = prontos[i];
+    if (btn) btn.textContent = `A confirmar ${i + 1}/${prontos.length}...`;
+    try {
+      const solId = await gfPendGravarLinha(m, o);
+      if (solId) solicitacoesTocadas.add(solId);
+      delete GF_PEND_EDIT[m.id];
+      ok++;
+    } catch (e) {
+      falhas++;
+      console.error('Erro ao afetar movimento', m.id, e);
+    }
+  }
+
+  // Recarrega uma única vez, já com todos os Movimentos Executados desta leva criados
+  await gfLoadAll();
+
+  // Solicitações cujo saldo por pagar chegou a 0 → passam a "Pago"
+  for (const solId of solicitacoesTocadas) {
+    const sol = GF_SOLICITACOES.find(s => s.id === solId);
+    if (sol && sol.estado !== 'Pago' && gfSolicitacaoSaldoPorPagar(sol) <= 0.005) {
+      await spWrite(
+        `${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${sol.id})`,
+        { __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' }, Estado: 'Pago', DataPago: new Date().toISOString() },
+        'MERGE'
+      );
+    }
+  }
+
+  showNotif(falhas ? `${ok} movimento(s) afeto(s), ${falhas} com erro — verifica e tenta outra vez.` : `${ok} movimento(s) afeto(s) com sucesso! ✓`, falhas ? 'error' : 'success');
+  await gfLoadAll();
+  gfRender();
+}
 
 // ═══ VIEWER PÚBLICO CA ═══════════════════════════════════════════
 function gerarLinkViewer(tipo, snapshotItems){
