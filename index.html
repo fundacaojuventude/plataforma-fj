@@ -10791,11 +10791,15 @@ function gfRenderAltList(list) {
                   ? `<span style="color:var(--green-mid);font-weight:500">✓ ${a.aprovDFNome}</span><br><span style="color:var(--text3);font-size:11px">${gfDate(a.dataAprovDF)}</span>`
                   : `<span style="color:var(--text3)">—</span>`}
               </td>
-              <td style="padding:14px 16px;text-align:center">${GF_BADGES[a.estado] || a.estado}</td>
+              <td style="padding:14px 16px;text-align:center">
+                ${GF_BADGES[a.estado] || a.estado}
+                ${a.estado === 'Aprovado' && !gfAlteracaoTotalmenteAplicada(a) ? `<br><span title="Aprovado, mas o valor ainda não foi refletido na(s) rúbrica(s) — usa 'Reaplicar'" style="display:inline-block;margin-top:4px;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:500;background:#FEF3C7;color:#92400E">⚠ Não aplicado ao orçamento</span>` : ''}
+              </td>
               <td style="padding:14px 16px;text-align:center;font-size:12px">${gfDate(a.dataSubmissao)}</td>
               <td style="padding:14px 16px;text-align:center;overflow:visible;text-overflow:clip;white-space:nowrap">
                 <button class="btn btn-sm" onclick="GF.alteracao=${a.id};gfNav('alteracao-view')">Ver</button>
                 ${a.estado === 'Pendente' ? `<button class="btn btn-sm" onclick="gfOpenAlteracaoEdit(${a.id})" style="margin-left:4px">Editar</button><button class="btn btn-sm btn-danger" onclick="gfDeleteAlteracao(${a.id})" style="margin-left:4px">✕</button>` : ''}
+                ${a.estado === 'Aprovado' && !gfAlteracaoTotalmenteAplicada(a) && gfCanProcessar() ? `<button class="btn btn-sm" style="margin-left:4px;background:#F59E0B;color:#fff;border-color:#F59E0B" onclick="gfReaplicarAlteracao(${a.id})" title="Voltar a aplicar esta alteração às rúbricas envolvidas">Reaplicar</button>` : ''}
               </td>
             </tr>
           `).join('')}
@@ -11393,13 +11397,13 @@ async function gfAprovarAlteracao(id) {
         return;
       }
       
-      // Diretor de Área aprova e passa para DF
+      // Diretor de Área aprova e passa para DF (não mexe em NivelAprovacao — era sobrescrito
+      // para 'df' aqui, o que apagava a exigência real de DF+PE/PCA para valores maiores)
       const body = {
         __metadata: { type: 'SP.Data.FJ_x005f_AlteracoesOrcamentaisListItem' },
         AprovDirId: await getCurrentUserId(),
         DataAprovDir: new Date().toISOString(),
-        Estado: 'Aprovado Dir.',
-        NivelAprovacao: 'df'  // Próximo nível: DF
+        Estado: 'Aprovado Dir.'
       };
       
       await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items(${id})`, body, 'MERGE');
@@ -11435,8 +11439,8 @@ async function gfAprovarAlteracao(id) {
       isFullyApproved = true;
     } else if (_financeRole === 'pe') {
       body.AprovPEId = await getCurrentUserId();
-      // Se nível é df_pe, aprovação completa
-      if (alt.nivel === 'df_pe') {
+      // Se nível é df_pe, aprovação completa (campo correto é nivelAprovacao, não nivel)
+      if (alt.nivelAprovacao === 'df_pe') {
         body.Estado = 'Aprovado';
         isFullyApproved = true;
       }
@@ -11460,7 +11464,46 @@ async function gfAprovarAlteracao(id) {
   }
 }
 
-// Aplica a alteração orçamental - diminui origem, aumenta destino
+// Uma "perna" (rúbrica de origem ou de destino) de uma Alteração já está aplicada se o seu
+// HistoricoAlteracoes já tiver um registo com este altId — usado para tornar a aplicação
+// idempotente: pode chamar-se outra vez em segurança (ex.: para recuperar de uma falha a meio)
+// sem voltar a somar/subtrair o mesmo valor duas vezes.
+function gfAlteracaoLegAplicada(rubricaId, altId) {
+  const rub = GF_RUBRICAS.find(r => r.id === rubricaId);
+  if (!rub) return false;
+  let hist = [];
+  try { hist = JSON.parse(rub.historicoAlteracoes || '[]'); } catch (e) { hist = []; }
+  return hist.some(h => h.altId === altId);
+}
+
+// Verifica se uma Alteração já foi totalmente refletida no orçamento (todas as rúbricas
+// envolvidas — origens e destino — já têm o registo desta alteração no seu histórico).
+function gfAlteracaoTotalmenteAplicada(alt) {
+  const origens = GF_ALTERACOES_ORIGENS.filter(o => o.alteracaoId === alt.id);
+  if (origens.some(o => !gfAlteracaoLegAplicada(o.origRubricaId, alt.id))) return false;
+  if (alt.destRubricaId && !gfAlteracaoLegAplicada(alt.destRubricaId, alt.id)) return false;
+  return true;
+}
+
+// Reaplica ao orçamento uma Alteração já Aprovada mas cujo valor não chegou a refletir-se
+// nas rúbricas (ex.: falha a meio da aplicação original). Seguro de repetir — só escreve
+// nas rúbricas cuja "perna" desta alteração ainda não está no histórico.
+async function gfReaplicarAlteracao(id) {
+  const alt = GF_ALTERACOES.find(a => a.id === id);
+  if (!alt) return;
+  if (!confirm('Reaplicar esta alteração ao orçamento das rúbricas envolvidas?')) return;
+  try {
+    await gfAplicarAlteracaoOrcamental(alt);
+    showNotif('Alteração reaplicada ao orçamento! ✓', 'success');
+    await gfLoadAll();
+  } catch (e) {
+    showNotif('Erro ao reaplicar: ' + e.message, 'error');
+  }
+}
+
+// Aplica a alteração orçamental - diminui origem, aumenta destino.
+// Idempotente por rúbrica: cada perna só é escrita se ainda não estiver no histórico dessa
+// rúbrica (ver gfAlteracaoLegAplicada) — chamar duas vezes para a mesma Alteração é seguro.
 async function gfAplicarAlteracaoOrcamental(alt) {
   const origens = GF_ALTERACOES_ORIGENS.filter(o => o.alteracaoId === alt.id);
   const dataHoje = new Date().toLocaleDateString('pt-PT');
@@ -11471,6 +11514,7 @@ async function gfAplicarAlteracaoOrcamental(alt) {
   for (const o of origens) {
     const rub = GF_RUBRICAS.find(r => r.id === o.origRubricaId); // bug corrigido
     if (!rub) continue;
+    if (gfAlteracaoLegAplicada(o.origRubricaId, alt.id)) continue; // já aplicado — não repetir
 
     const novoValor = Math.max(0, (rub.despOrc || 0) - o.valor);
 
@@ -11495,7 +11539,7 @@ async function gfAplicarAlteracaoOrcamental(alt) {
   }
 
   // ── Aumentar valor na rúbrica destino e registar histórico ──
-  if (destRub) {
+  if (destRub && !gfAlteracaoLegAplicada(alt.destRubricaId, alt.id)) {
     const novoValor = (destRub.despOrc || 0) + alt.valorTotal;
 
     // Construir resumo das origens para o histórico
