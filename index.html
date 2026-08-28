@@ -14161,7 +14161,7 @@ function gfPendTheadHtml() {
   const temFiltro = st.sortCol || Object.keys(st.filters).length;
   return `
     <tr style="background:var(--mod-financeiro-bg)">
-      <th style="padding:10px 8px;text-align:center;font-weight:500;color:var(--mod-financeiro);width:32px"></th>
+      <th style="padding:10px 8px;text-align:center;font-weight:500;color:var(--mod-financeiro);width:32px;position:sticky;left:0;background:var(--mod-financeiro-bg);z-index:2"></th>
       ${gfTh('pend', 'data', 'Data Mov.', { align: 'center', pad: '10px 8px' })}
       ${gfTh('pend', 'desc', 'Descrição', { align: 'left', pad: '10px 8px' })}
       ${gfTh('pend', 'tipo', 'Tipo', { align: 'center', pad: '10px 8px' })}
@@ -14169,10 +14169,10 @@ function gfPendTheadHtml() {
       <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Projeto</th>
       <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Rúbrica</th>
       <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Solicitação (opcional)</th>
-      <th style="padding:10px 8px;text-align:center;font-weight:500;color:var(--mod-financeiro)">${temFiltro ? `<a onclick="gfTableFilterClear('pend')" style="font-size:10px;font-weight:400;color:var(--mod-financeiro);cursor:pointer" title="Limpar ordenação/filtros">✕ limpar</a>` : ''}</th>
+      <th style="padding:10px 8px;text-align:center;font-weight:500;color:var(--mod-financeiro);position:sticky;right:0;background:var(--mod-financeiro-bg);z-index:2;box-shadow:-2px 0 4px rgba(0,0,0,.06)">${temFiltro ? `<a onclick="gfTableFilterClear('pend')" style="font-size:10px;font-weight:400;color:var(--mod-financeiro);cursor:pointer" title="Limpar ordenação/filtros">✕ limpar</a>` : 'Ação'}</th>
     </tr>
     <tr>
-      <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
+      <th style="padding:4px 8px;background:var(--mod-financeiro-bg);position:sticky;left:0;z-index:2"></th>
       <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
       ${gfThFilterText('pend', 'desc', 'Filtrar descrição...')}
       ${gfThFilterSelect('pend', 'tipo', ['Despesa', 'Receita'])}
@@ -14180,7 +14180,7 @@ function gfPendTheadHtml() {
       <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
       <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
       <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
-      <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
+      <th style="padding:4px 8px;background:var(--mod-financeiro-bg);position:sticky;right:0;z-index:2;box-shadow:-2px 0 4px rgba(0,0,0,.06)"></th>
     </tr>
   `;
 }
@@ -14209,7 +14209,7 @@ function gfPendRowHtml(m) {
   const pronto = !!(o.checked && o.rubricaId);
   return `
     <tr style="border-bottom:1px solid var(--border);${pronto ? 'background:#F0FDF4' : ''}" id="gf-pend-row-${m.id}">
-      <td style="padding:8px;text-align:center">
+      <td style="padding:8px;text-align:center;position:sticky;left:0;z-index:1;background:${pronto ? '#F0FDF4' : 'var(--surface)'}">
         <input type="checkbox" id="gf-pend-chk-${m.id}" ${o.checked ? 'checked' : ''} ${!o.rubricaId ? 'disabled' : ''} onchange="gfPendCheckChange(${m.id})">
       </td>
       <td style="padding:8px;text-align:center;white-space:nowrap">${gfDate(m.dataMovimento)}</td>
@@ -14234,7 +14234,7 @@ function gfPendRowHtml(m) {
           ${o.rubricaId ? gfAfetarSolOptions(o.rubricaId, o.solicitacaoId) : '<option value="">—</option>'}
         </select>
       </td>
-      <td style="padding:8px;text-align:center;white-space:nowrap">
+      <td style="padding:8px;text-align:center;white-space:nowrap;position:sticky;right:0;z-index:1;background:${pronto ? '#F0FDF4' : 'var(--surface)'};box-shadow:-2px 0 4px rgba(0,0,0,.06)">
         <a onclick="gfOpenAfetarModal(${m.id})" style="color:var(--mod-financeiro);cursor:pointer;font-size:11px">Repartir</a>
       </td>
     </tr>`;
