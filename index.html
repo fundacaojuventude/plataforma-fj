@@ -6091,12 +6091,20 @@ let plSemMyTasks=true; // true = mostrar só tarefas do utilizador; false = filt
 let plEditTrimId=null,plEditKdefId=null,plEditKregId=null,plEditTarId=null;
 let plHierOpen={};
 
+// Grupos de ações (subdivisões informais dentro de um projeto, ex.: "Logística", "Comunicação")
+// — geridos por projeto, guardados em FJ_Configuracoes (ver loadGruposAcoes)
+let GF_GRUPOS_ACOES=[]; // [{id, projetoId, nome, ordem}]
+let GF_ACAO_GRUPO={}; // {acaoId: grupoId} — a que grupo cada ação pertence (ausente = sem grupo)
+let _gfGruposAcoesSpIds={grupo:{},acaoGrupo:{}}; // ids SharePoint p/ update/delete: {grupo:{grupoId:spId}, acaoGrupo:{acaoId:spId}}
+let plGrupoOpen={}; // estado aberto/fechado de cada grupo na Hierarquia (por defeito fechado)
+let _gfAcaoDragId=null; // id da ação atualmente a ser arrastada (drag and drop entre grupos)
+
 /* ===== LOAD ===== */
 async function plLoadAll(){
   showNotif('A carregar dados...','info');
   try{
-    
-    await Promise.all([loadProjetos(),loadAcoes(),loadTarefas(),loadKPIDefs(),loadKPIRegs(),loadPlanoTrim(),loadDepartamentos()]);
+
+    await Promise.all([loadProjetos(),loadAcoes(),loadTarefas(),loadKPIDefs(),loadKPIRegs(),loadPlanoTrim(),loadDepartamentos(),loadGruposAcoes()]);
     renderDash();renderHier();renderTrim();renderSem();renderKdefs();renderKregs();populateDrops();
     showNotif(`Dados carregados! ${plTarefas.length} plTarefas · ${plProjetos.length} plProjetos · ${plAcoes.length} ações`,'success');
   }catch(e){showNotif('Erro ao carregar: '+e.message,'error');console.error(e);}
@@ -6179,6 +6187,165 @@ async function loadAcoes(){
     plAcoes=d.d.results.map(r=>({id:r.Id,nome:r.Title||'',estado:r.Estado||'Ativo',dataInicio:r.DataInicio?r.DataInicio.split('T')[0]:'',dataFim:r.DataFim?r.DataFim.split('T')[0]:'',projetoId:r.ProjetoId?.Id||r.ProjetoIdId||null,dep:normalizeDep(r.Departamento?.Title||''),responsavel:'',notas:r.Notas||''}));
     console.log('Ações carregadas:', plAcoes, 'Projetos IDs:', plProjetos.map(p=>p.id));
   }catch(e){console.warn('Acoes list error:',e.message);plAcoes=[];}
+}
+
+// ══════════════════════════════════════════════════════════════
+// GRUPOS DE AÇÕES — subdivisões informais dentro de um projeto (ex.: "Logística",
+// "Comunicação") para organizar visualmente projetos com muitas ações. Um grupo
+// pertence a um projeto; cada ação pode estar num grupo desse projeto (ou nenhum).
+// Como o FJ_Acoes não tem coluna própria para isto, guarda-se em FJ_Configuracoes:
+//   Title='GrupoAcaoProjeto_<projetoId>_<grupoId>' → Valor=JSON {nome, ordem}
+//   Title='AcaoGrupo_<acaoId>'                     → Valor=<grupoId> (texto simples)
+// ══════════════════════════════════════════════════════════════
+
+async function loadGruposAcoes(){
+  GF_GRUPOS_ACOES=[];
+  GF_ACAO_GRUPO={};
+  _gfGruposAcoesSpIds={grupo:{},acaoGrupo:{}};
+  try{
+    const d=await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$filter=startswith(Title,'GrupoAcaoProjeto_') or startswith(Title,'AcaoGrupo_')&$select=Id,Title,Valor&$top=5000`);
+    (d.d?.results||[]).forEach(row=>{
+      const title=row.Title||'';
+      const mGrupo=title.match(/^GrupoAcaoProjeto_(\d+)_(\d+)$/);
+      const mAcao=!mGrupo&&title.match(/^AcaoGrupo_(\d+)$/);
+      if(mGrupo){
+        const projetoId=parseInt(mGrupo[1]),grupoId=parseInt(mGrupo[2]);
+        let dados={};try{dados=JSON.parse(row.Valor||'{}');}catch(e){dados={};}
+        GF_GRUPOS_ACOES.push({id:grupoId,projetoId,nome:dados.nome||'',ordem:dados.ordem||0});
+        _gfGruposAcoesSpIds.grupo[grupoId]=row.Id;
+      }else if(mAcao){
+        const acaoId=parseInt(mAcao[1]);
+        const grupoId=parseInt(row.Valor)||null;
+        if(grupoId){GF_ACAO_GRUPO[acaoId]=grupoId;_gfGruposAcoesSpIds.acaoGrupo[acaoId]=row.Id;}
+      }
+    });
+    GF_GRUPOS_ACOES.sort((a,b)=>a.ordem-b.ordem);
+  }catch(e){
+    // Lista FJ_Configuracoes pode não existir ainda
+    GF_GRUPOS_ACOES=[];GF_ACAO_GRUPO={};
+  }
+}
+
+function gfGruposDoProjeto(projetoId){
+  return GF_GRUPOS_ACOES.filter(g=>String(g.projetoId)===String(projetoId)).sort((a,b)=>a.ordem-b.ordem);
+}
+
+async function gfCriarGrupoAcao(projetoId){
+  const nome=(prompt('Nome do novo grupo de ações (ex.: "Logística", "Comunicação"):')||'').trim();
+  if(!nome)return;
+  const grupos=gfGruposDoProjeto(projetoId);
+  const novoId=Date.now()+Math.floor(Math.random()*1000);
+  const novo={id:novoId,projetoId:parseInt(projetoId),nome,ordem:grupos.length};
+  GF_GRUPOS_ACOES.push(novo);
+  plGrupoOpen[`g_${novoId}`]=true; // começa aberto, para já se poder arrastar ações para dentro
+  try{
+    const body={__metadata:{type:'SP.Data.FJ_x005f_ConfiguracoesListItem'},Title:`GrupoAcaoProjeto_${projetoId}_${novoId}`,Valor:JSON.stringify({nome:novo.nome,ordem:novo.ordem})};
+    const r=await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items`,body,'POST');
+    const d=await r.json();_gfGruposAcoesSpIds.grupo[novoId]=d.d?.Id||null;
+    showNotif('Grupo criado ✓ — arrasta ações para dentro','success');
+  }catch(e){
+    GF_GRUPOS_ACOES=GF_GRUPOS_ACOES.filter(g=>g.id!==novoId);
+    showNotif('Erro ao criar grupo: '+e.message+' — Certifica-te que a lista FJ_Configuracoes existe no SharePoint.','error');
+  }
+  renderHier();
+}
+
+async function gfRenomearGrupoAcao(grupoId){
+  const grupo=GF_GRUPOS_ACOES.find(g=>g.id===grupoId);
+  if(!grupo)return;
+  const nome=(prompt('Novo nome do grupo:',grupo.nome)||'').trim();
+  if(!nome||nome===grupo.nome)return;
+  const anterior=grupo.nome;
+  grupo.nome=nome;
+  try{
+    const spId=_gfGruposAcoesSpIds.grupo[grupoId];
+    const body={__metadata:{type:'SP.Data.FJ_x005f_ConfiguracoesListItem'},Valor:JSON.stringify({nome:grupo.nome,ordem:grupo.ordem})};
+    if(spId)await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${spId})`,body,'MERGE');
+  }catch(e){
+    grupo.nome=anterior;
+    showNotif('Erro ao renomear grupo: '+e.message,'error');
+  }
+  renderHier();
+}
+
+async function gfEliminarGrupoAcao(grupoId){
+  if(!confirm('Eliminar este grupo? As ações lá dentro voltam a "Sem grupo" (não são eliminadas).'))return;
+  const acoesDoGrupo=Object.keys(GF_ACAO_GRUPO).filter(aid=>GF_ACAO_GRUPO[aid]===grupoId);
+  GF_GRUPOS_ACOES=GF_GRUPOS_ACOES.filter(g=>g.id!==grupoId);
+  acoesDoGrupo.forEach(aid=>delete GF_ACAO_GRUPO[aid]);
+  try{
+    const spId=_gfGruposAcoesSpIds.grupo[grupoId];
+    if(spId)await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${spId})`,null,'DELETE');
+    for(const aid of acoesDoGrupo){
+      const acaoSpId=_gfGruposAcoesSpIds.acaoGrupo[aid];
+      if(acaoSpId){await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${acaoSpId})`,null,'DELETE');delete _gfGruposAcoesSpIds.acaoGrupo[aid];}
+    }
+    delete _gfGruposAcoesSpIds.grupo[grupoId];
+    showNotif('Grupo eliminado','success');
+  }catch(e){
+    showNotif('Erro ao eliminar grupo: '+e.message,'error');
+  }
+  renderHier();
+}
+
+// Atribui (ou remove, se grupoId for null) uma ação a um grupo — usado pelo drag&drop
+async function gfAtribuirAcaoGrupo(acaoId,grupoId){
+  const anterior=GF_ACAO_GRUPO[acaoId]||null;
+  if(anterior===grupoId)return;
+  if(grupoId)GF_ACAO_GRUPO[acaoId]=grupoId;else delete GF_ACAO_GRUPO[acaoId];
+  renderHier();
+  try{
+    const spId=_gfGruposAcoesSpIds.acaoGrupo[acaoId];
+    if(grupoId){
+      const body={__metadata:{type:'SP.Data.FJ_x005f_ConfiguracoesListItem'},Title:`AcaoGrupo_${acaoId}`,Valor:String(grupoId)};
+      if(spId){
+        await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${spId})`,body,'MERGE');
+      }else{
+        const r=await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items`,body,'POST');
+        const d=await r.json();_gfGruposAcoesSpIds.acaoGrupo[acaoId]=d.d?.Id||null;
+      }
+    }else if(spId){
+      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${spId})`,null,'DELETE');
+      delete _gfGruposAcoesSpIds.acaoGrupo[acaoId];
+    }
+  }catch(e){
+    if(anterior)GF_ACAO_GRUPO[acaoId]=anterior;else delete GF_ACAO_GRUPO[acaoId];
+    showNotif('Erro ao mover ação: '+e.message,'error');
+    renderHier();
+  }
+}
+
+// Drag & drop de ações entre grupos
+function gfAcaoDragStart(ev,acaoId){
+  _gfAcaoDragId=acaoId;
+  ev.dataTransfer.effectAllowed='move';
+  try{ev.dataTransfer.setData('text/plain',String(acaoId));}catch(e){}
+}
+function gfAcaoDragOver(ev){
+  ev.preventDefault();
+  ev.dataTransfer.dropEffect='move';
+  ev.currentTarget.style.outline='2px dashed #7C3AED';
+  ev.currentTarget.style.outlineOffset='-2px';
+}
+function gfAcaoDragLeave(ev){
+  ev.currentTarget.style.outline='';
+}
+function gfAcaoDrop(ev,grupoId){
+  ev.preventDefault();
+  ev.currentTarget.style.outline='';
+  let acaoId=_gfAcaoDragId;
+  if(!acaoId){try{acaoId=parseInt(ev.dataTransfer.getData('text/plain'));}catch(e){}}
+  _gfAcaoDragId=null;
+  if(!acaoId)return;
+  gfAtribuirAcaoGrupo(acaoId,grupoId||null);
+}
+
+function toggleHierGrupo(grupoId){
+  const w=el(`hier-grupo-body-${grupoId}`);const arr=el(`hier-grupo-arrow-${grupoId}`);
+  if(!w)return;
+  const open=w.classList.toggle('open');
+  if(arr)arr.style.transform=open?'rotate(180deg)':'';
+  plGrupoOpen[`g_${grupoId}`]=open;
 }
 async function loadTarefas(){
   let all=[];
@@ -6430,6 +6597,63 @@ function renderHier(){
     const concTotal=tarTotal.filter(t=>t.estado==='Concluída').length;
     const pct=tarTotal.length?Math.round((concTotal/tarTotal.length)*100):null;
     const rag=pAcoes.length?(['r','a','v'].reduce((best,r)=>pAcoes.some(a=>calcRag(a.id)===r)?r:best,'c')):'c';
+
+    // Grupos de ações deste projeto (subdivisões informais, ex.: "Logística") — só entra
+    // em modo agrupado se o projeto já tiver pelo menos um grupo criado; caso contrário
+    // mantém-se a lista plana de sempre.
+    const gruposProjeto=gfGruposDoProjeto(p.id);
+    const temGrupos=gruposProjeto.length>0;
+    const renderAcaoRow=a=>{
+      const ts=plVisiveis(plTarefas.filter(t=>String(t.acaoId)===String(a.id)));
+      const conc=ts.filter(t=>t.estado==='Concluída').length;
+      const r=calcRag(a.id);
+      return`<div class="hier-acao-row" draggable="${temGrupos}" ondragstart="gfAcaoDragStart(event,${a.id})" onclick="toggleHierAcao(${a.id})">
+        <span class="rag rag-${r}"></span>
+        ${temGrupos?'<span style="cursor:grab;color:var(--tx3);flex-shrink:0" title="Arrastar para outro grupo">⠿</span>':''}
+        <span class="hier-acao-name">${a.nome}</span>
+        ${depBadgeAcao(a.dep)}
+        <span style="font-size:11px;color:var(--tx3);white-space:nowrap;flex-shrink:0">${conc}/${ts.length} tarefas</span>
+        ${(temGrupos&&GF_ACAO_GRUPO[a.id])?`<button class="btn btn-sm" onclick="event.stopPropagation();gfAtribuirAcaoGrupo(${a.id},null)" title="Retirar do grupo">↩</button>`:''}
+        <button class="btn btn-sm" onclick="event.stopPropagation();openAcaoForm(${p.id},${a.id})">Editar</button>
+        ${isDir?`<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();delAcao(${a.id})">✕</button>`:''}
+        <button class="btn btn-sm btn-or" onclick="event.stopPropagation();openTarFormForAcao(${a.id})">+ Tarefa</button>
+      </div>
+      <div class="hier-tasks" id="hier-t-${a.id}">
+        <div id="hier-t-content-${a.id}"></div>
+      </div>`;
+    };
+    let acoesHtml;
+    if(!temGrupos){
+      acoesHtml=pAcoes.map(renderAcaoRow).join('');
+    }else{
+      const semGrupo=pAcoes.filter(a=>!GF_ACAO_GRUPO[a.id]);
+      acoesHtml=gruposProjeto.map(g=>{
+        const acoesGrupo=pAcoes.filter(a=>GF_ACAO_GRUPO[a.id]===g.id);
+        const isOpen=plGrupoOpen[`g_${g.id}`]===true;
+        return`<div ondragover="gfAcaoDragOver(event)" ondragleave="gfAcaoDragLeave(event)" ondrop="gfAcaoDrop(event,${g.id})">
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 16px 8px 24px;cursor:pointer;background:#F5F3FF;border-top:0.5px solid var(--bd);border-left:4px solid #7C3AED" onclick="toggleHierGrupo(${g.id})">
+            <svg id="hier-grupo-arrow-${g.id}" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#5B21B6" stroke-width="1.5" style="transition:transform .2s;flex-shrink:0;transform:${isOpen?'rotate(180deg)':''}"><path d="M4 6l4 4 4-4"/></svg>
+            <span style="font-size:13px;font-weight:700;color:#5B21B6;flex:1">🗂️ ${g.nome}</span>
+            <span style="font-size:11px;background:#EDE9FE;border-radius:6px;padding:2px 8px;color:#5B21B6">${acoesGrupo.length} ações</span>
+            <button class="btn btn-sm" style="font-size:11px" onclick="event.stopPropagation();gfRenomearGrupoAcao(${g.id})" title="Renomear grupo">✎</button>
+            <button class="btn btn-sm btn-danger" style="font-size:11px" onclick="event.stopPropagation();gfEliminarGrupoAcao(${g.id})" title="Eliminar grupo">✕</button>
+          </div>
+          <div class="hier-acao-wrap${isOpen?' open':''}" id="hier-grupo-body-${g.id}">
+            ${acoesGrupo.length?acoesGrupo.map(renderAcaoRow).join(''):`<div style="padding:10px 16px 10px 36px;font-size:12px;color:var(--tx3);font-style:italic">Arrasta ações para aqui.</div>`}
+          </div>
+        </div>`;
+      }).join('')+`
+        <div ondragover="gfAcaoDragOver(event)" ondragleave="gfAcaoDragLeave(event)" ondrop="gfAcaoDrop(event,null)">
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 16px 8px 24px;background:#F3F4F6;border-top:0.5px solid var(--bd);border-left:4px solid #9CA3AF">
+            <span style="font-size:13px;font-weight:700;color:#4B5563;flex:1">📋 Sem grupo</span>
+            <span style="font-size:11px;background:#E5E7EB;border-radius:6px;padding:2px 8px;color:#4B5563">${semGrupo.length} ações</span>
+          </div>
+          <div class="hier-acao-wrap open">
+            ${semGrupo.length?semGrupo.map(renderAcaoRow).join(''):`<div style="padding:10px 16px 10px 36px;font-size:12px;color:var(--tx3);font-style:italic">Sem ações por atribuir.</div>`}
+          </div>
+        </div>`;
+    }
+
     return`<div class="hier-proj">
       <div class="hier-proj-hdr" onclick="toggleHier(${p.id})">
         <span class="rag rag-${rag}"></span>
@@ -6437,28 +6661,13 @@ function renderHier(){
         ${depBadgeAcao(p.dep)}
         <span style="font-size:11px;background:var(--bg3);border-radius:6px;padding:2px 8px;color:var(--tx2)">${pAcoes.length} ações · ${tarTotal.length} tarefas${pct!==null?' · '+pct+'% conc.':''}</span>
         <button class="btn btn-sm btn-primary" style="font-size:11px" onclick="event.stopPropagation();openAcaoForm(${p.id})">+ Ação</button>
+        <button class="btn btn-sm" style="font-size:11px" onclick="event.stopPropagation();gfCriarGrupoAcao(${p.id})" title="Criar uma subdivisão para organizar as ações">+ Grupo</button>
         ${isDir?`<button class="btn btn-sm" style="font-size:11px" onclick="event.stopPropagation();openProjetoForm(${p.id})" title="Editar projeto">✎</button>`:''}
         ${isDir?`<button class="btn btn-sm btn-danger" style="font-size:11px" onclick="event.stopPropagation();delProjeto(${p.id})" title="Eliminar projeto">✕</button>`:''}
         <svg id="hier-arrow-${p.id}" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="transition:transform .2s"><path d="M4 6l4 4 4-4"/></svg>
       </div>
       <div class="hier-acao-wrap" id="hier-plAcoes-${p.id}">
-        ${pAcoes.map(a=>{
-          const ts=plVisiveis(plTarefas.filter(t=>String(t.acaoId)===String(a.id)));
-          const conc=ts.filter(t=>t.estado==='Concluída').length;
-          const r=calcRag(a.id);
-          return`<div class="hier-acao-row" onclick="toggleHierAcao(${a.id})">
-            <span class="rag rag-${r}"></span>
-            <span class="hier-acao-name">${a.nome}</span>
-            ${depBadgeAcao(a.dep)}
-            <span style="font-size:11px;color:var(--tx3);white-space:nowrap;flex-shrink:0">${conc}/${ts.length} tarefas</span>
-            <button class="btn btn-sm" onclick="event.stopPropagation();openAcaoForm(${p.id},${a.id})">Editar</button>
-            ${isDir?`<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();delAcao(${a.id})">✕</button>`:''}
-            <button class="btn btn-sm btn-or" onclick="event.stopPropagation();openTarFormForAcao(${a.id})">+ Tarefa</button>
-          </div>
-          <div class="hier-tasks" id="hier-t-${a.id}">
-            <div id="hier-t-content-${a.id}"></div>
-          </div>`;
-        }).join('')}
+        ${acoesHtml}
         ${tarSemAcao.length?`
           <div style="border-top:0.5px solid var(--bd);background:var(--bg2)">
             <div style="padding:8px 16px 6px;font-size:11px;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;display:flex;align-items:center;gap:8px">
@@ -6775,7 +6984,14 @@ async function saveAcao(){
 }
 async function delAcao(id){
   if(!confirm('Eliminar esta ação?'))return;
-  try{await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Acoes')/items(${id})`,null,'DELETE');await loadAcoes();renderHier();populateDrops();showNotif('Eliminado.','success');}
+  try{
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Acoes')/items(${id})`,null,'DELETE');
+    // Limpa também a atribuição de grupo desta ação, se existir
+    const grupoSpId=_gfGruposAcoesSpIds.acaoGrupo[id];
+    if(grupoSpId){try{await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${grupoSpId})`,null,'DELETE');}catch(e){}}
+    delete GF_ACAO_GRUPO[id];delete _gfGruposAcoesSpIds.acaoGrupo[id];
+    await loadAcoes();renderHier();populateDrops();showNotif('Eliminado.','success');
+  }
   catch(e){showNotif('Erro: '+e.message,'error');}
 }
 
