@@ -798,6 +798,11 @@ tr:hover td{background:var(--bg3)}
         Pedidos de Alterações
       </div>
 
+      <div class="nav-item" id="gf-nav-modelos-reparticao" onclick="gfNav('modelos-reparticao')" style="color:rgba(255,255,255,.75);display:none">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        Modelos de Repartição
+      </div>
+
       <!-- Aprovações -->
       <div class="nav-item" id="gf-nav-aprovacoes" onclick="gfNav('aprovacoes')" style="color:rgba(255,255,255,.75)">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3,8 6,11 13,4"/></svg>
@@ -8006,6 +8011,9 @@ let GF_FATURAS = [];
 let GF_MOV_PENDENTES = [];   // FJ_MovimentosBancarios — importação do Excel do banco, ainda por afetar
 let GF_MOV_EXECUTADOS = [];  // FJ_MovimentosExecutados — ledger final, um registo por rúbrica afetada
 let GF_AFETAR = { movimento: null, repartida: false, linhas: [] }; // estado do modal "Afetar movimento" (repartição por várias rúbricas)
+let GF_MODELOS_REPARTICAO = []; // modelos de repartição fixa (ex.: salários) guardados em FJ_Configuracoes: [{id, nome, linhas:[{projetoId, projetoNome, rubricaTitulo, percentagem}]}]
+let _gfModelosReparticaoConfigId = null; // Id do item em FJ_Configuracoes (para MERGE)
+let GF_MODELO_EDIT = null; // modelo em edição no modal "Modelos de Repartição" (objeto ou null)
 let GF_PEND_EDIT = {}; // estado da tabela editável de Pendentes: { [movId]: { checked, projetoId, rubricaId, solicitacaoId } }
 let GF_TABLE_STATE = {}; // estado de ordenação/filtro por tabela (estilo Excel): { [tableId]: { sortCol, sortDir, filters:{col:val} } }
 
@@ -8255,6 +8263,9 @@ async function gfLoadAll() {
       GF._bloqueadoId = null;
     }
 
+    // Carregar modelos de repartição (persiste em FJ_Configuracoes)
+    await gfLoadModelosReparticao();
+
     gfRender();
   } catch (e) {
     console.error('gfLoadAll error:', e);
@@ -8388,6 +8399,7 @@ function gfNav(screen, params = {}) {
     'configuracoes':        'gf-nav-configuracoes',
     'tesouraria-divida':    'gf-nav-divida',
     'tesouraria-previsoes': 'gf-nav-previsoes',
+    'modelos-reparticao':   'gf-nav-modelos-reparticao',
   };
   const navId = NAV_MAP[screen] || NAV_MAP[screen.split('-')[0]];
   const navEl = navId ? gfEl(navId) : null;
@@ -8405,7 +8417,7 @@ function gfInit() {
 
 function gfUpdateSidebarNav() {
   const show = gfCanProcessar();
-  const ids = ['gf-nav-sol-processado', 'gf-nav-sol-pendentes'];
+  const ids = ['gf-nav-sol-processado', 'gf-nav-sol-pendentes', 'gf-nav-modelos-reparticao'];
   ids.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = show ? 'flex' : 'none';
@@ -8453,6 +8465,7 @@ function gfRender() {
     case 'faturas': html = gfRenderFaturas(); break;
     case 'configuracoes': html = gfRenderConfiguracoes(); break;
     case 'tesouraria-divida': html = gfRenderTesourariaDivida(); break;
+    case 'modelos-reparticao': html = gfRenderModelosReparticao(); break;
     default: html = gfRenderHome();
   }
   
@@ -13910,6 +13923,239 @@ async function gfSubmitProcessado() {
 }
 
 // ══════════════════════════════════════════════════════════════
+// MODELOS DE REPARTIÇÃO — repartições fixas por várias rúbricas (ex.: salários,
+// repartidos por 15+ combinações Projeto/Rúbrica) que a equipa pode aplicar num
+// clique dentro do "Repartir", em vez de preencher linha a linha todos os meses.
+// Guardados como um único JSON em FJ_Configuracoes (Title='ModelosReparticao'),
+// e referem a rúbrica pelo NOME (rubricaTitulo), não pelo Id — porque GF_RUBRICAS
+// tem um item por ano orçamental, e o modelo tem de continuar válido de ano para ano.
+// ══════════════════════════════════════════════════════════════
+
+async function gfLoadModelosReparticao() {
+  try {
+    const dc = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$filter=Title eq 'ModelosReparticao'&$select=Id,Title,Valor&$top=1`);
+    const cfg = dc.d?.results?.[0];
+    if (cfg) {
+      _gfModelosReparticaoConfigId = cfg.Id;
+      try { GF_MODELOS_REPARTICAO = JSON.parse(cfg.Valor || '[]'); } catch (e) { GF_MODELOS_REPARTICAO = []; }
+    } else {
+      _gfModelosReparticaoConfigId = null;
+      GF_MODELOS_REPARTICAO = [];
+    }
+  } catch (e) {
+    // Lista FJ_Configuracoes pode não existir ainda
+    _gfModelosReparticaoConfigId = null;
+    GF_MODELOS_REPARTICAO = [];
+  }
+}
+
+async function gfSaveModelosReparticaoSP() {
+  const body = {
+    __metadata: { type: 'SP.Data.FJ_x005f_ConfiguracoesListItem' },
+    Title: 'ModelosReparticao',
+    Valor: JSON.stringify(GF_MODELOS_REPARTICAO)
+  };
+  if (_gfModelosReparticaoConfigId) {
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${_gfModelosReparticaoConfigId})`, body, 'MERGE');
+  } else {
+    const r = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items`, body, 'POST');
+    const d = await r.json(); _gfModelosReparticaoConfigId = d.d?.Id || null;
+  }
+}
+
+function gfOpenModeloModal(modeloId) {
+  const existente = modeloId ? GF_MODELOS_REPARTICAO.find(m => m.id === modeloId) : null;
+  GF_MODELO_EDIT = existente
+    ? JSON.parse(JSON.stringify(existente))
+    : { id: Date.now() + Math.floor(Math.random() * 1000), nome: '', linhas: [{ projetoId: null, projetoNome: '', rubricaTitulo: '', percentagem: 100 }] };
+  document.getElementById('gf-modelo-modal').style.display = 'flex';
+  gfRenderModeloModal();
+}
+
+function gfCloseModeloModal() {
+  document.getElementById('gf-modelo-modal').style.display = 'none';
+  GF_MODELO_EDIT = null;
+}
+
+function gfModeloNomeChange() {
+  GF_MODELO_EDIT.nome = gfVal('gf-modelo-nome');
+}
+
+function gfModeloAddLinha() {
+  GF_MODELO_EDIT.linhas.push({ projetoId: null, projetoNome: '', rubricaTitulo: '', percentagem: 0 });
+  gfRenderModeloModal();
+}
+
+function gfModeloRemoveLinha(idx) {
+  GF_MODELO_EDIT.linhas.splice(idx, 1);
+  gfRenderModeloModal();
+}
+
+function gfModeloProjChange(idx) {
+  const projId = parseInt(gfVal(`gf-modelo-proj-${idx}`)) || null;
+  const proj = GF_PROJETOS.find(p => p.id === projId);
+  GF_MODELO_EDIT.linhas[idx].projetoId = projId;
+  GF_MODELO_EDIT.linhas[idx].projetoNome = proj ? proj.nome : '';
+  GF_MODELO_EDIT.linhas[idx].rubricaTitulo = '';
+  gfRenderModeloModal();
+}
+
+function gfModeloRubChange(idx) {
+  GF_MODELO_EDIT.linhas[idx].rubricaTitulo = gfVal(`gf-modelo-rub-${idx}`) || '';
+}
+
+function gfModeloPctChange(idx) {
+  GF_MODELO_EDIT.linhas[idx].percentagem = parseFloat(gfVal(`gf-modelo-pct-${idx}`)) || 0;
+  gfRenderModeloModal();
+}
+
+// Nomes de rúbricas ativas de um projeto (de qualquer ano orçamental — o modelo
+// guarda o nome, não o Id, para continuar válido ano após ano)
+function gfModeloRubOptions(projId, selectedTitulo) {
+  const titulos = [...new Set(GF_RUBRICAS.filter(r => r.projetoId === projId && r.estado === 'Ativo').map(r => r.titulo))].sort((a, b) => a.localeCompare(b));
+  if (!titulos.length) return `<option value="">Sem rúbricas ativas</option>`;
+  return '<option value="">Selecionar...</option>' +
+    titulos.map(t => `<option value="${t.replace(/"/g, '&quot;')}" ${selectedTitulo === t ? 'selected' : ''}>${t}</option>`).join('');
+}
+
+function gfModeloLinhaRow(l, idx) {
+  return `
+    <div style="display:grid;grid-template-columns:1fr 1fr 90px 40px;gap:10px;margin-bottom:10px;padding:14px;background:#F8FAFC;border-radius:8px;border:1px solid var(--border)">
+      <div>
+        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Projeto</label>
+        <select id="gf-modelo-proj-${idx}" onchange="gfModeloProjChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px">
+          <option value="">Selecionar...</option>
+          ${gfProjetosOptions(l.projetoId)}
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Rúbrica</label>
+        <select id="gf-modelo-rub-${idx}" onchange="gfModeloRubChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px" ${!l.projetoId ? 'disabled' : ''}>
+          ${l.projetoId ? gfModeloRubOptions(l.projetoId, l.rubricaTitulo) : '<option value="">Selecionar projeto...</option>'}
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">%</label>
+        <input type="number" id="gf-modelo-pct-${idx}" value="${l.percentagem || ''}" min="0" max="100" step="0.01" onchange="gfModeloPctChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px">
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        ${GF_MODELO_EDIT.linhas.length > 1 ? `<button onclick="gfModeloRemoveLinha(${idx})" style="width:36px;height:36px;border:none;background:#FEE2E2;color:#991B1B;border-radius:4px;cursor:pointer;font-size:18px;font-weight:bold" title="Remover">×</button>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function gfRenderModeloModal() {
+  const body = document.getElementById('gf-modelo-body');
+  if (!body || !GF_MODELO_EDIT) return;
+  const totalPct = GF_MODELO_EDIT.linhas.reduce((a, l) => a + (l.percentagem || 0), 0);
+  const pctOk = Math.abs(totalPct - 100) < 0.01;
+  const linhasValidas = GF_MODELO_EDIT.linhas.length > 0 && GF_MODELO_EDIT.linhas.every(l => l.projetoId && l.rubricaTitulo);
+
+  body.innerHTML = `
+    <div style="margin-bottom:16px">
+      <label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Nome do modelo</label>
+      <input type="text" id="gf-modelo-nome" value="${(GF_MODELO_EDIT.nome || '').replace(/"/g, '&quot;')}" oninput="gfModeloNomeChange()" placeholder="Ex.: Repartição de Salários" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+    </div>
+    <div id="gf-modelo-linhas">
+      ${GF_MODELO_EDIT.linhas.map((l, idx) => gfModeloLinhaRow(l, idx)).join('')}
+    </div>
+    <button class="btn btn-sm" onclick="gfModeloAddLinha()" style="margin-bottom:12px">+ Adicionar rúbrica</button>
+    <div style="font-size:13px;font-weight:600;color:${pctOk ? '#10B981' : '#EF4444'};margin-bottom:8px">Total: ${totalPct.toFixed(2)}% ${pctOk ? '✓' : '— tem de somar 100%'}</div>
+  `;
+
+  const btn = document.getElementById('gf-modelo-submit-btn');
+  if (btn) btn.disabled = !linhasValidas || !pctOk || !(GF_MODELO_EDIT.nome || '').trim();
+}
+
+async function gfSubmitModelo() {
+  if (!GF_MODELO_EDIT) return;
+  const totalPct = GF_MODELO_EDIT.linhas.reduce((a, l) => a + (l.percentagem || 0), 0);
+  if (!(GF_MODELO_EDIT.nome || '').trim()) { showNotif('Dá um nome ao modelo', 'error'); return; }
+  if (Math.abs(totalPct - 100) > 0.01) { showNotif('As percentagens têm de somar 100%', 'error'); return; }
+  if (GF_MODELO_EDIT.linhas.some(l => !l.projetoId || !l.rubricaTitulo)) { showNotif('Seleciona projeto e rúbrica em todas as linhas', 'error'); return; }
+
+  const btn = document.getElementById('gf-modelo-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'A guardar...'; }
+  try {
+    const idx = GF_MODELOS_REPARTICAO.findIndex(m => m.id === GF_MODELO_EDIT.id);
+    if (idx >= 0) GF_MODELOS_REPARTICAO[idx] = GF_MODELO_EDIT; else GF_MODELOS_REPARTICAO.push(GF_MODELO_EDIT);
+    await gfSaveModelosReparticaoSP();
+    showNotif('Modelo de repartição guardado ✓', 'success');
+    gfCloseModeloModal();
+    gfRender();
+  } catch (e) {
+    showNotif('Erro ao guardar modelo: ' + e.message + ' — Certifica-te que a lista FJ_Configuracoes existe no SharePoint.', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+  }
+}
+
+async function gfEliminarModelo(id) {
+  if (!confirm('Eliminar este modelo de repartição?')) return;
+  const anterior = GF_MODELOS_REPARTICAO;
+  GF_MODELOS_REPARTICAO = GF_MODELOS_REPARTICAO.filter(m => m.id !== id);
+  try {
+    await gfSaveModelosReparticaoSP();
+    showNotif('Modelo eliminado', 'success');
+  } catch (e) {
+    GF_MODELOS_REPARTICAO = anterior;
+    showNotif('Erro ao eliminar: ' + e.message, 'error');
+  }
+  gfRender();
+}
+
+function gfRenderModelosReparticao() {
+  if (!gfCanProcessar()) return '<div style="padding:60px;text-align:center;color:var(--text3)">Não tem permissão para aceder a esta secção.</div>';
+
+  return `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text3)">
+      <a onclick="gfNav('home')" style="color:var(--mod-financeiro);cursor:pointer">Início</a>
+      <span>›</span><span>Modelos de Repartição</span>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="font-size:20px;font-weight:600">🧩 Modelos de Repartição</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:2px">Guarda repartições fixas por várias rúbricas (ex.: salários) para aplicar num clique ao repartir um movimento.</div>
+      </div>
+      <button class="btn" style="background:var(--mod-financeiro);color:#fff;border-color:var(--mod-financeiro);white-space:nowrap" onclick="gfOpenModeloModal(null)">+ Novo Modelo</button>
+    </div>
+
+    <div style="margin-top:20px">
+      ${GF_MODELOS_REPARTICAO.length === 0 ? `
+        <div style="padding:40px;text-align:center;color:var(--text3);background:#fff;border:0.5px solid var(--border);border-radius:var(--r-lg)">Ainda não há modelos de repartição criados.</div>
+      ` : GF_MODELOS_REPARTICAO.map(m => `
+        <div style="background:#fff;border:0.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;margin-bottom:12px">
+          <div style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:14px;font-weight:600">${m.nome}</div>
+              <div style="font-size:12px;color:var(--text3);margin-top:2px">${m.linhas.length} rúbrica${m.linhas.length === 1 ? '' : 's'}</div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-sm" onclick="gfOpenModeloModal(${m.id})">Editar</button>
+              <button class="btn btn-sm" style="background:#FEE2E2;color:#991B1B;border-color:#FEE2E2" onclick="gfEliminarModelo(${m.id})">Eliminar</button>
+            </div>
+          </div>
+          <div style="padding:0 18px 14px 18px">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead><tr style="color:var(--text3);text-align:left">
+                <th style="padding:4px 8px;font-weight:600">Projeto</th>
+                <th style="padding:4px 8px;font-weight:600">Rúbrica</th>
+                <th style="padding:4px 8px;font-weight:600;text-align:right">%</th>
+              </tr></thead>
+              <tbody>
+                ${m.linhas.map(l => `<tr><td style="padding:4px 8px">${l.projetoNome || '—'}</td><td style="padding:4px 8px">${l.rubricaTitulo || '—'}</td><td style="padding:4px 8px;text-align:right">${(l.percentagem || 0).toFixed(2)}%</td></tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════════════════════════════
 // MOVIMENTOS PENDENTES → AFETAR A RÚBRICA (substitui o antigo "+ Pago")
 // ══════════════════════════════════════════════════════════════
 // "Pago" deixou de ser um clique manual: nasce de um movimento bancário real
@@ -13935,6 +14181,37 @@ function gfAfetarToggleRepartida(checked) {
     GF_AFETAR.linhas = [GF_AFETAR.linhas[0] || { projetoId: null, rubricaId: null, solicitacaoId: null, pct: 100 }];
     GF_AFETAR.linhas[0].pct = 100;
   }
+  gfRenderAfetarModal();
+}
+
+// Aplica um modelo de repartição gravado, resolvendo cada linha (Projeto + nome de rúbrica)
+// para o Id de rúbrica correto do ano orçamental deste movimento — porque GF_RUBRICAS
+// tem um item por ano, o mesmo nome de rúbrica pode ter Ids diferentes em anos diferentes.
+function gfAfetarAplicarModelo(modeloId) {
+  const m = GF_MOV_PENDENTES.find(x => x.id === GF_AFETAR.movimento);
+  const modelo = modeloId ? GF_MODELOS_REPARTICAO.find(md => md.id === modeloId) : null;
+  if (!m || !modelo) return;
+  const tipo = (m.importancia || 0) < 0 ? 'Despesa' : 'Receita';
+  const ano = m.dataMovimento ? new Date(m.dataMovimento).getFullYear() : GF.year;
+
+  let naoResolvidas = 0;
+  const linhas = modelo.linhas.map(l => {
+    const rub = GF_RUBRICAS.find(r => r.projetoId === l.projetoId && r.titulo === l.rubricaTitulo && r.ano === ano && r.estado === 'Ativo' &&
+      (tipo === 'Receita' ? (r.recOrc || 0) > 0 : (r.despOrc || 0) > 0));
+    if (!rub) naoResolvidas++;
+    return {
+      projetoId: l.projetoId,
+      rubricaId: rub ? rub.id : null,
+      solicitacaoId: null,
+      pct: l.percentagem || 0,
+      _aviso: rub ? null : `Não foi encontrada a rúbrica "${l.rubricaTitulo}" de ${l.projetoNome || 'projeto'} como ${tipo.toLowerCase()} ativa em ${ano} — seleciona manualmente.`
+    };
+  });
+
+  GF_AFETAR.repartida = linhas.length > 1;
+  GF_AFETAR.linhas = linhas;
+  if (naoResolvidas > 0) showNotif(`Modelo aplicado — ${naoResolvidas} linha${naoResolvidas === 1 ? '' : 's'} precisa${naoResolvidas === 1 ? '' : 'm'} de rúbrica selecionada manualmente`, 'error');
+  else showNotif('Modelo de repartição aplicado ✓', 'success');
   gfRenderAfetarModal();
 }
 
@@ -13995,6 +14272,7 @@ function gfAfetarLinhaRow(o, idx, movTipo, movAno) {
   const repartida = GF_AFETAR.repartida;
   return `
     <div style="display:grid;grid-template-columns:${repartida ? '1fr 1fr 1fr 90px 40px' : '1fr 1fr 1fr'};gap:10px;margin-bottom:10px;padding:14px;background:#F8FAFC;border-radius:8px;border:1px solid var(--border)">
+      ${o._aviso ? `<div style="grid-column:1/-1;font-size:11px;color:#991B1B;background:#FEE2E2;border-radius:4px;padding:6px 8px">⚠ ${o._aviso}</div>` : ''}
       <div>
         <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Projeto</label>
         <select id="gf-afetar-proj-${idx}" onchange="gfAfetarProjChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px">
@@ -14046,6 +14324,15 @@ function gfRenderAfetarModal() {
       <input type="checkbox" id="gf-afetar-repartida" ${GF_AFETAR.repartida ? 'checked' : ''} onchange="gfAfetarToggleRepartida(this.checked)">
       Repartir este valor por várias rúbricas (podem ser de projetos diferentes)
     </label>
+    ${GF_MODELOS_REPARTICAO.length > 0 ? `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <label style="font-size:12px;color:var(--text3);white-space:nowrap">🧩 Aplicar modelo de repartição:</label>
+        <select id="gf-afetar-modelo" onchange="gfAfetarAplicarModelo(parseInt(this.value)||null)" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px">
+          <option value="">Selecionar modelo...</option>
+          ${GF_MODELOS_REPARTICAO.map(md => `<option value="${md.id}">${md.nome}</option>`).join('')}
+        </select>
+      </div>
+    ` : ''}
     <div id="gf-afetar-linhas">
       ${GF_AFETAR.linhas.map((l, idx) => gfAfetarLinhaRow(l, idx, tipo, ano)).join('')}
     </div>
@@ -14956,6 +15243,24 @@ init();
     <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
       <button class="btn" onclick="gfCloseAfetarModal()">Cancelar</button>
       <button id="gf-afetar-submit-btn" class="btn" style="background:var(--mod-financeiro);color:#fff;border-color:var(--mod-financeiro)" onclick="gfSubmitAfetar()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL MODELO DE REPARTIÇÃO ══════════════════════════════════════ -->
+<div id="gf-modelo-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:720px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);margin:1rem">
+    <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:16px;font-weight:600">🧩 Modelo de Repartição</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">Define as rúbricas e percentagens fixas deste modelo (ex.: salários)</div>
+      </div>
+      <button onclick="gfCloseModeloModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">×</button>
+    </div>
+    <div id="gf-modelo-body" style="padding:20px 24px"></div>
+    <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn" onclick="gfCloseModeloModal()">Cancelar</button>
+      <button id="gf-modelo-submit-btn" class="btn" style="background:var(--mod-financeiro);color:#fff;border-color:var(--mod-financeiro)" onclick="gfSubmitModelo()">Guardar</button>
     </div>
   </div>
 </div>
