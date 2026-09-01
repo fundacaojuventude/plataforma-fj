@@ -8012,7 +8012,6 @@ let GF_MOV_PENDENTES = [];   // FJ_MovimentosBancarios — importação do Excel
 let GF_MOV_EXECUTADOS = [];  // FJ_MovimentosExecutados — ledger final, um registo por rúbrica afetada
 let GF_AFETAR = { movimento: null, repartida: false, linhas: [] }; // estado do modal "Afetar movimento" (repartição por várias rúbricas)
 let GF_MODELOS_REPARTICAO = []; // modelos de repartição fixa (ex.: salários) guardados em FJ_Configuracoes: [{id, nome, linhas:[{projetoId, projetoNome, rubricaTitulo, percentagem}]}]
-let _gfModelosReparticaoConfigId = null; // Id do item em FJ_Configuracoes (para MERGE)
 let GF_MODELO_EDIT = null; // modelo em edição no modal "Modelos de Repartição" (objeto ou null)
 let GF_PEND_EDIT = {}; // estado da tabela editável de Pendentes: { [movId]: { checked, projetoId, rubricaId, solicitacaoId } }
 let GF_TABLE_STATE = {}; // estado de ordenação/filtro por tabela (estilo Excel): { [tableId]: { sortCol, sortDir, filters:{col:val} } }
@@ -13926,41 +13925,99 @@ async function gfSubmitProcessado() {
 // MODELOS DE REPARTIÇÃO — repartições fixas por várias rúbricas (ex.: salários,
 // repartidos por 15+ combinações Projeto/Rúbrica) que a equipa pode aplicar num
 // clique dentro do "Repartir", em vez de preencher linha a linha todos os meses.
-// Guardados como um único JSON em FJ_Configuracoes (Title='ModelosReparticao'),
-// e referem a rúbrica pelo NOME (rubricaTitulo), não pelo Id — porque GF_RUBRICAS
-// tem um item por ano orçamental, e o modelo tem de continuar válido de ano para ano.
+// Guardados em FJ_Configuracoes, e referem a rúbrica pelo NOME (rubricaTitulo),
+// não pelo Id — porque GF_RUBRICAS tem um item por ano orçamental, e o modelo
+// tem de continuar válido de ano para ano.
+//
+// O campo "Valor" de FJ_Configuracoes é um texto de uma linha (limite ~255
+// caracteres do SharePoint) — um modelo com 15+ linhas nunca caberia inteiro
+// num único valor. Por isso cada modelo é guardado em VÁRIOS itens pequenos:
+//   Title = 'ModeloReparticao_<id>'              → Valor = JSON só com {nome}
+//   Title = 'ModeloReparticaoLinha_<id>_<idx>'    → Valor = JSON de uma linha
 // ══════════════════════════════════════════════════════════════
 
+let _gfModelosReparticaoSpIds = { header: {}, linhas: {} }; // {header:{modeloId:spItemId}, linhas:{modeloId:[spItemId,...]}}
+
 async function gfLoadModelosReparticao() {
+  GF_MODELOS_REPARTICAO = [];
+  _gfModelosReparticaoSpIds = { header: {}, linhas: {} };
   try {
-    const dc = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$filter=Title eq 'ModelosReparticao'&$select=Id,Title,Valor&$top=1`);
-    const cfg = dc.d?.results?.[0];
-    if (cfg) {
-      _gfModelosReparticaoConfigId = cfg.Id;
-      try { GF_MODELOS_REPARTICAO = JSON.parse(cfg.Valor || '[]'); } catch (e) { GF_MODELOS_REPARTICAO = []; }
-    } else {
-      _gfModelosReparticaoConfigId = null;
-      GF_MODELOS_REPARTICAO = [];
-    }
+    const dc = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$filter=startswith(Title,'ModeloReparticao')&$select=Id,Title,Valor&$top=2000`);
+    const rows = dc.d?.results || [];
+    const modelosMap = {};
+    const linhasTmp = {};
+    rows.forEach(row => {
+      const title = row.Title || '';
+      const mLinha = title.match(/^ModeloReparticaoLinha_(\d+)_(\d+)$/);
+      const mHeader = !mLinha && title.match(/^ModeloReparticao_(\d+)$/);
+      if (mLinha) {
+        const modeloId = parseInt(mLinha[1]);
+        const idx = parseInt(mLinha[2]);
+        let linha = {}; try { linha = JSON.parse(row.Valor || '{}'); } catch (e) { linha = {}; }
+        (linhasTmp[modeloId] = linhasTmp[modeloId] || []).push({ idx, linha });
+        (_gfModelosReparticaoSpIds.linhas[modeloId] = _gfModelosReparticaoSpIds.linhas[modeloId] || []).push(row.Id);
+      } else if (mHeader) {
+        const modeloId = parseInt(mHeader[1]);
+        let dados = {}; try { dados = JSON.parse(row.Valor || '{}'); } catch (e) { dados = {}; }
+        modelosMap[modeloId] = { id: modeloId, nome: dados.nome || '', linhas: [] };
+        _gfModelosReparticaoSpIds.header[modeloId] = row.Id;
+      }
+    });
+    Object.keys(modelosMap).forEach(modeloId => {
+      modelosMap[modeloId].linhas = (linhasTmp[modeloId] || []).sort((a, b) => a.idx - b.idx).map(x => x.linha);
+    });
+    GF_MODELOS_REPARTICAO = Object.values(modelosMap).sort((a, b) => a.nome.localeCompare(b.nome));
   } catch (e) {
     // Lista FJ_Configuracoes pode não existir ainda
-    _gfModelosReparticaoConfigId = null;
     GF_MODELOS_REPARTICAO = [];
   }
 }
 
-async function gfSaveModelosReparticaoSP() {
-  const body = {
+async function gfSaveModeloSP(modelo) {
+  // Cabeçalho (nome do modelo)
+  const headerBody = {
     __metadata: { type: 'SP.Data.FJ_x005f_ConfiguracoesListItem' },
-    Title: 'ModelosReparticao',
-    Valor: JSON.stringify(GF_MODELOS_REPARTICAO)
+    Title: `ModeloReparticao_${modelo.id}`,
+    Valor: JSON.stringify({ nome: modelo.nome })
   };
-  if (_gfModelosReparticaoConfigId) {
-    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${_gfModelosReparticaoConfigId})`, body, 'MERGE');
+  const headerId = _gfModelosReparticaoSpIds.header[modelo.id];
+  if (headerId) {
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${headerId})`, headerBody, 'MERGE');
   } else {
-    const r = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items`, body, 'POST');
-    const d = await r.json(); _gfModelosReparticaoConfigId = d.d?.Id || null;
+    const r = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items`, headerBody, 'POST');
+    const d = await r.json();
+    _gfModelosReparticaoSpIds.header[modelo.id] = d.d?.Id || null;
   }
+
+  // Linhas: apaga sempre as antigas e recria todas — mais simples e evita linhas
+  // órfãs quando o modelo passa a ter menos linhas do que tinha antes
+  const linhasAntigas = _gfModelosReparticaoSpIds.linhas[modelo.id] || [];
+  for (const spId of linhasAntigas) {
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${spId})`, null, 'DELETE');
+  }
+  const novasLinhasIds = [];
+  for (let idx = 0; idx < modelo.linhas.length; idx++) {
+    const body = {
+      __metadata: { type: 'SP.Data.FJ_x005f_ConfiguracoesListItem' },
+      Title: `ModeloReparticaoLinha_${modelo.id}_${idx}`,
+      Valor: JSON.stringify(modelo.linhas[idx])
+    };
+    const r = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items`, body, 'POST');
+    const d = await r.json();
+    novasLinhasIds.push(d.d?.Id);
+  }
+  _gfModelosReparticaoSpIds.linhas[modelo.id] = novasLinhasIds;
+}
+
+async function gfEliminarModeloSP(modeloId) {
+  const headerId = _gfModelosReparticaoSpIds.header[modeloId];
+  if (headerId) await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${headerId})`, null, 'DELETE');
+  const linhasIds = _gfModelosReparticaoSpIds.linhas[modeloId] || [];
+  for (const spId of linhasIds) {
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${spId})`, null, 'DELETE');
+  }
+  delete _gfModelosReparticaoSpIds.header[modeloId];
+  delete _gfModelosReparticaoSpIds.linhas[modeloId];
 }
 
 function gfOpenModeloModal(modeloId) {
@@ -14080,7 +14137,7 @@ async function gfSubmitModelo() {
   try {
     const idx = GF_MODELOS_REPARTICAO.findIndex(m => m.id === GF_MODELO_EDIT.id);
     if (idx >= 0) GF_MODELOS_REPARTICAO[idx] = GF_MODELO_EDIT; else GF_MODELOS_REPARTICAO.push(GF_MODELO_EDIT);
-    await gfSaveModelosReparticaoSP();
+    await gfSaveModeloSP(GF_MODELO_EDIT);
     showNotif('Modelo de repartição guardado ✓', 'success');
     gfCloseModeloModal();
     gfRender();
@@ -14096,7 +14153,7 @@ async function gfEliminarModelo(id) {
   const anterior = GF_MODELOS_REPARTICAO;
   GF_MODELOS_REPARTICAO = GF_MODELOS_REPARTICAO.filter(m => m.id !== id);
   try {
-    await gfSaveModelosReparticaoSP();
+    await gfEliminarModeloSP(id);
     showNotif('Modelo eliminado', 'success');
   } catch (e) {
     GF_MODELOS_REPARTICAO = anterior;
