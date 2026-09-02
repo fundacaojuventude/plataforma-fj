@@ -14227,6 +14227,10 @@ async function gfLoadModelosReparticao() {
         const modeloId = parseInt(mLinha[1]);
         const idx = parseInt(mLinha[2]);
         let linha = {}; try { linha = JSON.parse(row.Valor || '{}'); } catch (e) { linha = {}; }
+        // O nome do projeto não é guardado (poupa espaço no campo de texto de 255
+        // caracteres do SharePoint) — é sempre recalculado aqui a partir do Id.
+        const proj = GF_PROJETOS.find(p => p.id === linha.projetoId);
+        linha.projetoNome = proj ? proj.nome : '';
         (linhasTmp[modeloId] = linhasTmp[modeloId] || []).push({ idx, linha });
         (_gfModelosReparticaoSpIds.linhas[modeloId] = _gfModelosReparticaoSpIds.linhas[modeloId] || []).push(row.Id);
       } else if (mHeader) {
@@ -14270,10 +14274,18 @@ async function gfSaveModeloSP(modelo) {
   }
   const novasLinhasIds = [];
   for (let idx = 0; idx < modelo.linhas.length; idx++) {
+    const l = modelo.linhas[idx];
+    // Não guarda projetoNome — só ocupa espaço no campo de texto de 255 caracteres do
+    // SharePoint (e com nomes de projeto/rúbrica longos já foi o suficiente para
+    // ultrapassar o limite e dar erro ao guardar). É recalculado ao carregar, a partir do Id.
+    const valorLinha = JSON.stringify({ projetoId: l.projetoId, rubricaTitulo: l.rubricaTitulo, percentagem: l.percentagem });
+    if (valorLinha.length > 250) {
+      throw new Error(`O nome da rúbrica "${l.rubricaTitulo}" é demasiado longo para guardar num modelo (limite do SharePoint). Encurta o nome da rúbrica ou contacta quem gere a plataforma.`);
+    }
     const body = {
       __metadata: { type: 'SP.Data.FJ_x005f_ConfiguracoesListItem' },
       Title: `ModeloReparticaoLinha_${modelo.id}_${idx}`,
-      Valor: JSON.stringify(modelo.linhas[idx])
+      Valor: valorLinha
     };
     const r = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items`, body, 'POST');
     const d = await r.json();
