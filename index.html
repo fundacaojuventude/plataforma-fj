@@ -8528,6 +8528,18 @@ function gfSolicitacaoSaldoPorPagar(sol) {
   return Math.max(0, (sol.valor || 0) - gfCalcMovLigados(sol.id));
 }
 
+// Estados de solicitação que já contam como "aprovada" / "processada" (por ordem do fluxo)
+const GF_ESTADOS_APROVADA_TIER = ['Aprovado Dir.', 'Aprovado DF', 'Aprovado', 'Processado', 'Pago'];
+const GF_ESTADOS_PROCESSADA_TIER = ['Processado', 'Pago'];
+
+// Soma do saldo por pagar (gfSolicitacaoSaldoPorPagar) das solicitações de uma lista cujo
+// estado esteja num dado conjunto — usado para garantir que "aprovada"/"processada" nunca
+// ficam abaixo do que já foi realmente pago (Movimentos Executados), mesmo quando o valor
+// pedido na Solicitação (nominal) era diferente do valor realmente executado.
+function gfCalcRestantePorEstados(sols, estados) {
+  return sols.filter(s => estados.includes(s.estado)).reduce((a, s) => a + gfSolicitacaoSaldoPorPagar(s), 0);
+}
+
 // Calcula valores de despesa para uma rúbrica
 function gfCalcDespesa(rubricaId) {
   const sols = GF_SOLICITACOES.filter(s => s.rubricaId === rubricaId && s.tipoSolicitacao === 'Despesa');
@@ -8544,13 +8556,22 @@ function gfCalcDespesa(rubricaId) {
   const avulso = gfCalcAvulsoRubrica(rubricaId, 'Despesa'); // já pago diretamente do banco, sem Solicitação
   const usadoReal = bloqueio + compromissoRestante + executado; // nunca conta o mesmo euro duas vezes
 
+  // "aprovada"/"processada" partem do valor nominal pedido nas Solicitações, mas nunca podem
+  // ficar abaixo do que já foi realmente executado (Movimentos Executados) mais o que ainda
+  // falta das solicitações desse patamar — senão o valor "Pago" (real) passa acima do
+  // "Aprovada"/"Processada" (nominal), o que não faz sentido.
+  const aprovadaNominal = sols.filter(s => GF_ESTADOS_APROVADA_TIER.includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0) + avulso;
+  const processadaNominal = sols.filter(s => GF_ESTADOS_PROCESSADA_TIER.includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0) + avulso;
+  const aprovada = Math.max(aprovadaNominal, executado + gfCalcRestantePorEstados(sols, GF_ESTADOS_APROVADA_TIER));
+  const processada = Math.max(processadaNominal, executado + gfCalcRestantePorEstados(sols, GF_ESTADOS_PROCESSADA_TIER));
+
   return {
     solicitada: solicitada + bloqueio + avulso, // Inclui bloqueio de alterações pendentes (usado pelas Alterações Orçamentais — não mexer) + avulsos já pagos
     solicitadaPura: solicitada + avulso, // Sem bloqueio (para exibição)
     bloqueio: bloqueio, // Valor bloqueado por alterações
-    aprovada: sols.filter(s => ['Aprovado Dir.', 'Aprovado DF', 'Aprovado', 'Processado', 'Pago'].includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0) + avulso,
-    processada: sols.filter(s => ['Processado','Pago'].includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0) + avulso,
-    pago: sols.filter(s => s.estado === 'Pago').reduce((a, s) => a + (s.valor || 0), 0) + avulso,
+    aprovada,
+    processada,
+    pago: executado, // valor realmente pago — coincide sempre com "executado"
     // ── Campos novos, baseados em FJ_MovimentosExecutados — usar estes para "quanto já gastei / quanto tenho disponível" ──
     executado,          // € realmente pago (banco), com ou sem solicitação
     avulso,             // € pago diretamente do banco, sem Solicitação (já incluído em solicitada/aprovada/processada/pago acima)
@@ -8566,11 +8587,15 @@ function gfCalcReceita(rubricaId) {
     .reduce((a, s) => a + Math.max(0, (s.valor || 0) - gfCalcMovLigados(s.id)), 0);
   const executado = gfCalcExecutadoRubrica(rubricaId, 'Receita');
   const avulso = gfCalcAvulsoRubrica(rubricaId, 'Receita'); // já recebido diretamente do banco, sem Solicitação
+  const aprovadaNominal = sols.filter(s => GF_ESTADOS_APROVADA_TIER.includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0) + avulso;
+  const processadaNominal = sols.filter(s => GF_ESTADOS_PROCESSADA_TIER.includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0) + avulso;
+  const aprovada = Math.max(aprovadaNominal, executado + gfCalcRestantePorEstados(sols, GF_ESTADOS_APROVADA_TIER));
+  const processada = Math.max(processadaNominal, executado + gfCalcRestantePorEstados(sols, GF_ESTADOS_PROCESSADA_TIER));
   return {
     solicitada: sols.filter(s => s.estado !== 'Rejeitado').reduce((a, s) => a + (s.valor || 0), 0) + avulso,
-    aprovada: sols.filter(s => ['Aprovado Dir.', 'Aprovado DF', 'Aprovado', 'Processado', 'Pago'].includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0) + avulso,
-    processada: sols.filter(s => ['Processado','Pago'].includes(s.estado)).reduce((a, s) => a + (s.valor || 0), 0) + avulso,
-    pago: sols.filter(s => s.estado === 'Pago').reduce((a, s) => a + (s.valor || 0), 0) + avulso,
+    aprovada,
+    processada,
+    pago: executado,
     executado,
     avulso,
     compromissoRestante,
@@ -9884,7 +9909,7 @@ function gfRenderRubricas() {
                   <span style="color:var(--text3)">Resultado orçamentado: </span>
                   <span style="font-weight:600">${gfFmt(recOrc - despOrc)}</span>
                   <span style="color:var(--text3);margin-left:16px">Resultado real: </span>
-                  <span style="font-weight:600;color:${(rec.processada - desp.processada) >= 0 ? '#10B981' : '#EF4444'}">${gfFmt(rec.processada - desp.processada)}</span>
+                  <span style="font-weight:600;color:${((recOrc - despOrc) - (rec.aprovada - desp.aprovada)) >= 0 ? '#10B981' : '#EF4444'}">${gfFmt((recOrc - despOrc) - (rec.aprovada - desp.aprovada))}</span>
                   <br>
                   ` : ''}
                   <span style="font-size:11px;color:${canClose ? '#10B981' : '#9CA3AF'}">
