@@ -8229,6 +8229,8 @@ let GF_MOV_EXECUTADOS = [];  // FJ_MovimentosExecutados — ledger final, um reg
 let GF_AFETAR = { movimento: null, repartida: false, linhas: [] }; // estado do modal "Afetar movimento" (repartição por várias rúbricas)
 let GF_MODELOS_REPARTICAO = []; // modelos de repartição fixa (ex.: salários) guardados em FJ_Configuracoes: [{id, nome, linhas:[{projetoId, projetoNome, rubricaTitulo, percentagem}]}]
 let GF_MODELO_EDIT = null; // modelo em edição no modal "Modelos de Repartição" (objeto ou null)
+let GF_RH_BASE = []; // lista base de rúbricas tipicamente afetas em valor fixo no "Afetar RH" (passo 1): [{projetoId, projetoNome, rubricaTitulo}]
+let GF_RH_BASE_EDIT = null; // cópia de trabalho de GF_RH_BASE enquanto se edita a lista base (array ou null)
 let GF_PEND_EDIT = {}; // estado da tabela editável de Pendentes: { [movId]: { checked, projetoId, rubricaId, solicitacaoId } }
 let GF_TABLE_STATE = {}; // estado de ordenação/filtro por tabela (estilo Excel): { [tableId]: { sortCol, sortDir, filters:{col:val} } }
 
@@ -8480,6 +8482,7 @@ async function gfLoadAll() {
 
     // Carregar modelos de repartição (persiste em FJ_Configuracoes)
     await gfLoadModelosReparticao();
+    await gfLoadRHBase();
 
     gfRender();
   } catch (e) {
@@ -14249,6 +14252,143 @@ async function gfEliminarModeloSP(modeloId) {
   delete _gfModelosReparticaoSpIds.linhas[modeloId];
 }
 
+// ══════════════════════════════════════════════════════════════
+// LISTA BASE PARA "AFETAR RH" — rúbricas tipicamente afetas em VALOR FIXO
+// (não percentagem) no passo 1 do fluxo "Afetar RH" (ex.: Incorpora,
+// Pessoal Interno). É só um ponto de partida: ao abrir o passo 1, a lista
+// vem pré-preenchida a partir daqui, mas o utilizador pode sempre adicionar
+// ou remover linhas nesse momento, sem alterar esta lista base.
+// Guardada em FJ_Configuracoes, um item pequeno por linha (mesmo padrão dos
+// Modelos de Repartição): Title = 'RHBaseLinha_<idx>' → Valor = JSON da linha.
+// ══════════════════════════════════════════════════════════════
+
+let _gfRHBaseSpIds = []; // [spItemId, ...] na mesma ordem de GF_RH_BASE
+
+async function gfLoadRHBase() {
+  GF_RH_BASE = [];
+  _gfRHBaseSpIds = [];
+  try {
+    const dc = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$filter=startswith(Title,'RHBaseLinha_')&$select=Id,Title,Valor&$top=2000`);
+    const rows = (dc.d?.results || []).map(row => {
+      const m = (row.Title || '').match(/^RHBaseLinha_(\d+)$/);
+      let linha = {}; try { linha = JSON.parse(row.Valor || '{}'); } catch (e) { linha = {}; }
+      return { idx: m ? parseInt(m[1]) : 0, spId: row.Id, linha };
+    }).sort((a, b) => a.idx - b.idx);
+    GF_RH_BASE = rows.map(r => r.linha);
+    _gfRHBaseSpIds = rows.map(r => r.spId);
+  } catch (e) {
+    GF_RH_BASE = [];
+    _gfRHBaseSpIds = [];
+  }
+}
+
+async function gfSaveRHBaseSP(linhas) {
+  // Mais simples: apaga tudo e recria, tal como nos Modelos de Repartição
+  for (const spId of _gfRHBaseSpIds) {
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${spId})`, null, 'DELETE');
+  }
+  const novosIds = [];
+  for (let idx = 0; idx < linhas.length; idx++) {
+    const body = {
+      __metadata: { type: 'SP.Data.FJ_x005f_ConfiguracoesListItem' },
+      Title: `RHBaseLinha_${idx}`,
+      Valor: JSON.stringify(linhas[idx])
+    };
+    const r = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items`, body, 'POST');
+    const d = await r.json();
+    novosIds.push(d.d?.Id);
+  }
+  _gfRHBaseSpIds = novosIds;
+}
+
+function gfOpenRHBaseModal() {
+  GF_RH_BASE_EDIT = GF_RH_BASE.length
+    ? JSON.parse(JSON.stringify(GF_RH_BASE))
+    : [{ projetoId: null, projetoNome: '', rubricaTitulo: '' }];
+  document.getElementById('gf-rhbase-modal').style.display = 'flex';
+  gfRenderRHBaseModal();
+}
+
+function gfCloseRHBaseModal() {
+  document.getElementById('gf-rhbase-modal').style.display = 'none';
+  GF_RH_BASE_EDIT = null;
+}
+
+function gfRHBaseAddLinha() {
+  GF_RH_BASE_EDIT.push({ projetoId: null, projetoNome: '', rubricaTitulo: '' });
+  gfRenderRHBaseModal();
+}
+
+function gfRHBaseRemoveLinha(idx) {
+  GF_RH_BASE_EDIT.splice(idx, 1);
+  gfRenderRHBaseModal();
+}
+
+function gfRHBaseProjChange(idx) {
+  const projId = parseInt(gfVal(`gf-rhbase-proj-${idx}`)) || null;
+  const proj = GF_PROJETOS.find(p => p.id === projId);
+  GF_RH_BASE_EDIT[idx].projetoId = projId;
+  GF_RH_BASE_EDIT[idx].projetoNome = proj ? proj.nome : '';
+  GF_RH_BASE_EDIT[idx].rubricaTitulo = '';
+  gfRenderRHBaseModal();
+}
+
+function gfRHBaseRubChange(idx) {
+  GF_RH_BASE_EDIT[idx].rubricaTitulo = gfVal(`gf-rhbase-rub-${idx}`) || '';
+}
+
+function gfRenderRHBaseModal() {
+  const body = document.getElementById('gf-rhbase-body');
+  if (!body || !GF_RH_BASE_EDIT) return;
+  const linhasValidas = GF_RH_BASE_EDIT.every(l => l.projetoId && l.rubricaTitulo);
+  body.innerHTML = `
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Estas são as rúbricas que aparecem já sugeridas no Passo 1 do "Afetar RH" (valores fixos). No próprio fluxo ainda podes adicionar rúbricas extra ou remover as que não se apliquem naquele movimento — isto é só o ponto de partida.</div>
+    <div id="gf-rhbase-linhas">
+      ${GF_RH_BASE_EDIT.map((l, idx) => `
+        <div style="display:grid;grid-template-columns:1fr 1fr 40px;gap:10px;margin-bottom:10px;padding:14px;background:#F8FAFC;border-radius:8px;border:1px solid var(--border)">
+          <div>
+            <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Projeto</label>
+            <select id="gf-rhbase-proj-${idx}" onchange="gfRHBaseProjChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px">
+              <option value="">Selecionar...</option>
+              ${gfProjetosOptions(l.projetoId)}
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Rúbrica</label>
+            <select id="gf-rhbase-rub-${idx}" onchange="gfRHBaseRubChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px" ${!l.projetoId ? 'disabled' : ''}>
+              ${l.projetoId ? gfModeloRubOptions(l.projetoId, l.rubricaTitulo) : '<option value="">Selecionar projeto...</option>'}
+            </select>
+          </div>
+          <div style="display:flex;align-items:flex-end">
+            ${GF_RH_BASE_EDIT.length > 1 ? `<button onclick="gfRHBaseRemoveLinha(${idx})" style="width:36px;height:36px;border:none;background:#FEE2E2;color:#991B1B;border-radius:4px;cursor:pointer;font-size:18px;font-weight:bold" title="Remover">×</button>` : ''}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    <button class="btn btn-sm" onclick="gfRHBaseAddLinha()">+ Adicionar rúbrica</button>
+  `;
+  const btn = document.getElementById('gf-rhbase-submit-btn');
+  if (btn) btn.disabled = !linhasValidas;
+}
+
+async function gfSubmitRHBase() {
+  if (!GF_RH_BASE_EDIT) return;
+  if (GF_RH_BASE_EDIT.some(l => !l.projetoId || !l.rubricaTitulo)) { showNotif('Seleciona projeto e rúbrica em todas as linhas', 'error'); return; }
+  const btn = document.getElementById('gf-rhbase-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'A guardar...'; }
+  try {
+    await gfSaveRHBaseSP(GF_RH_BASE_EDIT);
+    GF_RH_BASE = GF_RH_BASE_EDIT;
+    showNotif('Lista base do "Afetar RH" guardada ✓', 'success');
+    gfCloseRHBaseModal();
+    gfRender();
+  } catch (e) {
+    showNotif('Erro ao guardar: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+  }
+}
+
 function gfOpenModeloModal(modeloId) {
   const existente = modeloId ? GF_MODELOS_REPARTICAO.find(m => m.id === modeloId) : null;
   GF_MODELO_EDIT = existente
@@ -14438,6 +14578,29 @@ function gfRenderModelosReparticao() {
         </div>
       `).join('')}
     </div>
+
+    <div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:16px;font-weight:600">🧑‍💼 Lista base para "Afetar RH"</div>
+          <div style="font-size:13px;color:var(--text3);margin-top:2px">Rúbricas que aparecem já sugeridas no Passo 1 (valores fixos) do "Afetar RH" — ex.: Incorpora, Pessoal Interno. Podem sempre ser ajustadas na hora, para cada movimento.</div>
+        </div>
+        <button class="btn btn-sm" onclick="gfOpenRHBaseModal()">${GF_RH_BASE.length ? 'Editar lista' : '+ Definir lista base'}</button>
+      </div>
+      ${GF_RH_BASE.length ? `
+        <div style="background:#fff;border:0.5px solid var(--border);border-radius:var(--r-lg);overflow:hidden;margin-top:12px;padding:0 18px">
+          <table style="width:100%;border-collapse:collapse;font-size:12px">
+            <thead><tr style="color:var(--text3);text-align:left">
+              <th style="padding:8px">Projeto</th>
+              <th style="padding:8px">Rúbrica</th>
+            </tr></thead>
+            <tbody>
+              ${GF_RH_BASE.map(l => `<tr style="border-top:1px solid var(--border)"><td style="padding:8px">${l.projetoNome || '—'}</td><td style="padding:8px">${l.rubricaTitulo || '—'}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : ''}
+    </div>
   `;
 }
 
@@ -14451,8 +14614,133 @@ function gfRenderModelosReparticao() {
 function gfOpenAfetarModal(movId) {
   const m = GF_MOV_PENDENTES.find(x => x.id === movId);
   if (!m) return;
-  GF_AFETAR = { movimento: movId, repartida: false, linhas: [{ projetoId: null, rubricaId: null, solicitacaoId: null, pct: 100 }] };
+  GF_AFETAR = { movimento: movId, repartida: false, linhas: [{ projetoId: null, rubricaId: null, solicitacaoId: null, pct: 100 }], modo: 'normal', rhFase: 1, rhLinhas: [] };
   document.getElementById('gf-afetar-modal').style.display = 'flex';
+  gfRenderAfetarModal();
+}
+
+// ═══ AFETAR RH — fluxo em 2 passos para movimentos de recursos humanos ═══
+// Passo 1: valores FIXOS em € para as rúbricas tipicamente afetas de forma direta
+// (ex.: afetações a projetos europeus como IN:FORMAT Algarve, INCorpora). Passo 2:
+// o que sobrar do total do movimento é repartido por percentagem, como na afetação
+// normal (incluindo a opção de aplicar um modelo de repartição já guardado).
+// Não há nada "automático" aqui — cada valor fixo é escrito à mão pela equipa em
+// cada movimento; a lista base só serve para não partir sempre de rúbricas vazias.
+function gfAfetarIniciarRH() {
+  const m = GF_MOV_PENDENTES.find(x => x.id === GF_AFETAR.movimento);
+  if (!m) return;
+  const ano = m.dataMovimento ? new Date(m.dataMovimento).getFullYear() : GF.year;
+  GF_AFETAR.modo = 'rh';
+  GF_AFETAR.rhFase = 1;
+  GF_AFETAR.repartida = true;
+  GF_AFETAR.rhLinhas = GF_RH_BASE.length
+    ? GF_RH_BASE.map(l => {
+        const rub = GF_RUBRICAS.find(r => r.projetoId === l.projetoId && r.titulo === l.rubricaTitulo && r.ano === ano && r.estado === 'Ativo');
+        return {
+          projetoId: l.projetoId, rubricaId: rub ? rub.id : null, solicitacaoId: null, valor: 0,
+          _avisoBase: rub ? null : `Não foi encontrada a rúbrica "${l.rubricaTitulo}" de ${l.projetoNome || 'projeto'} ativa em ${ano} — seleciona manualmente.`
+        };
+      })
+    : [{ projetoId: null, rubricaId: null, solicitacaoId: null, valor: 0 }];
+  GF_AFETAR.linhas = [{ projetoId: null, rubricaId: null, solicitacaoId: null, pct: 100 }];
+  gfRenderAfetarModal();
+}
+
+function gfAfetarRHCancelar() {
+  GF_AFETAR.modo = 'normal';
+  GF_AFETAR.rhFase = 1;
+  GF_AFETAR.rhLinhas = [];
+  GF_AFETAR.repartida = false;
+  GF_AFETAR.linhas = [{ projetoId: null, rubricaId: null, solicitacaoId: null, pct: 100 }];
+  gfRenderAfetarModal();
+}
+
+function gfAfetarRHAddLinha() {
+  GF_AFETAR.rhLinhas.push({ projetoId: null, rubricaId: null, solicitacaoId: null, valor: 0 });
+  gfRenderAfetarModal();
+}
+
+function gfAfetarRHRemoveLinha(idx) {
+  GF_AFETAR.rhLinhas.splice(idx, 1);
+  gfRenderAfetarModal();
+}
+
+function gfAfetarRHProjChange(idx) {
+  GF_AFETAR.rhLinhas[idx].projetoId = parseInt(gfVal(`gf-afetar-rh-proj-${idx}`)) || null;
+  GF_AFETAR.rhLinhas[idx].rubricaId = null;
+  GF_AFETAR.rhLinhas[idx].solicitacaoId = null;
+  gfRenderAfetarModal();
+}
+
+function gfAfetarRHRubChange(idx) {
+  const novoId = parseInt(gfVal(`gf-afetar-rh-rub-${idx}`)) || null;
+  const m = GF_MOV_PENDENTES.find(x => x.id === GF_AFETAR.movimento);
+  const tipoMov = ((m?.importancia) || 0) < 0 ? 'Despesa' : 'Receita';
+  if (novoId && !gfConfirmarRubricaSemValor(novoId, tipoMov)) { gfRenderAfetarModal(); return; }
+  GF_AFETAR.rhLinhas[idx].rubricaId = novoId;
+  GF_AFETAR.rhLinhas[idx].solicitacaoId = null;
+  gfRenderAfetarModal();
+}
+
+function gfAfetarRHSolChange(idx) {
+  GF_AFETAR.rhLinhas[idx].solicitacaoId = parseInt(gfVal(`gf-afetar-rh-sol-${idx}`)) || null;
+}
+
+function gfAfetarRHValorChange(idx) {
+  GF_AFETAR.rhLinhas[idx].valor = parseFloat(gfVal(`gf-afetar-rh-valor-${idx}`)) || 0;
+  gfRenderAfetarModal(); // recalcula os totais apresentados
+}
+
+function gfAfetarRHLinhaRow(o, idx, movTipo, movAno) {
+  return `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 110px 40px;gap:10px;margin-bottom:10px;padding:14px;background:#F8FAFC;border-radius:8px;border:1px solid var(--border)">
+      ${o._avisoBase ? `<div style="grid-column:1/-1;font-size:11px;color:#991B1B;background:#FEE2E2;border-radius:4px;padding:6px 8px">⚠ ${o._avisoBase}</div>` : ''}
+      <div>
+        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Projeto</label>
+        <select id="gf-afetar-rh-proj-${idx}" onchange="gfAfetarRHProjChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px">
+          <option value="">Selecionar...</option>
+          ${gfProjetosOptions(o.projetoId)}
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Rúbrica</label>
+        <select id="gf-afetar-rh-rub-${idx}" onchange="gfAfetarRHRubChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px" ${!o.projetoId ? 'disabled' : ''}>
+          ${o.projetoId ? gfAfetarRubOptions(o.projetoId, movTipo, movAno, o.rubricaId) : '<option value="">Selecionar projeto...</option>'}
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Solicitação (opcional)</label>
+        <select id="gf-afetar-rh-sol-${idx}" onchange="gfAfetarRHSolChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px" ${!o.rubricaId ? 'disabled' : ''}>
+          ${o.rubricaId ? gfAfetarSolOptions(o.rubricaId, o.solicitacaoId) : '<option value="">—</option>'}
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Valor (€)</label>
+        <input type="number" id="gf-afetar-rh-valor-${idx}" value="${o.valor || ''}" min="0" step="0.01" onchange="gfAfetarRHValorChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px">
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        ${GF_AFETAR.rhLinhas.length > 1 ? `<button onclick="gfAfetarRHRemoveLinha(${idx})" style="width:36px;height:36px;border:none;background:#FEE2E2;color:#991B1B;border-radius:4px;cursor:pointer;font-size:18px;font-weight:bold" title="Remover">×</button>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function gfAfetarRHAvancar() {
+  const linhasComValor = GF_AFETAR.rhLinhas.filter(l => (l.valor || 0) > 0);
+  if (linhasComValor.some(l => !l.rubricaId)) { showNotif('Seleciona a rúbrica em todas as linhas com valor preenchido', 'error'); return; }
+  const m = GF_MOV_PENDENTES.find(x => x.id === GF_AFETAR.movimento);
+  const totalMov = Math.abs(m?.importancia || 0);
+  const totalFixo = linhasComValor.reduce((a, l) => a + (l.valor || 0), 0);
+  if (totalFixo > totalMov + 0.005) {
+    if (!confirm(`Os valores fixos somam ${gfFmt(totalFixo)}, mais do que o valor total do movimento (${gfFmt(totalMov)}).\n\nConfirmas que queres continuar assim? Vais ter de ajustar os valores antes de conseguires confirmar a afetação.`)) return;
+  }
+  GF_AFETAR.rhFase = 2;
+  GF_AFETAR.linhas = [{ projetoId: null, rubricaId: null, solicitacaoId: null, pct: 100 }];
+  gfRenderAfetarModal();
+}
+
+function gfAfetarRHVoltar() {
+  GF_AFETAR.rhFase = 1;
   gfRenderAfetarModal();
 }
 
@@ -14618,19 +14906,72 @@ function gfRenderAfetarModal() {
   if (!m || !body) return;
   const tipo = (m.importancia || 0) < 0 ? 'Despesa' : 'Receita';
   const ano = m.dataMovimento ? new Date(m.dataMovimento).getFullYear() : GF.year;
+  const valorAbs = Math.abs(m.importancia || 0);
+
+  const header = `
+    <div style="padding:14px;background:var(--mod-financeiro-bg);border-radius:8px;margin-bottom:16px">
+      <div style="font-weight:600;font-size:14px;margin-bottom:4px">${gfMovNome(m)}</div>
+      <div style="font-size:12px;color:var(--text3)">${gfDate(m.dataMovimento)} · <span style="font-weight:600;color:${tipo === 'Receita' ? '#F97316' : '#2563EB'}">${tipo}</span> · <span style="font-weight:700;color:var(--text)">${gfFmt(valorAbs)}</span></div>
+    </div>
+  `;
+
+  // ── Passo 1 do "Afetar RH": só os valores fixos, tem botão próprio ("Avançar") ──
+  if (GF_AFETAR.modo === 'rh' && GF_AFETAR.rhFase === 1) {
+    const totalFixo = GF_AFETAR.rhLinhas.reduce((a, l) => a + (l.valor || 0), 0);
+    const restante = valorAbs - totalFixo;
+    const linhasValidas = GF_AFETAR.rhLinhas.filter(l => (l.valor || 0) > 0).every(l => l.rubricaId);
+    body.innerHTML = header + `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:600">🧑‍💼 Afetar RH — Passo 1 de 2: valores fixos</div>
+        <a onclick="gfAfetarRHCancelar()" style="font-size:12px;color:var(--text3);cursor:pointer">← Voltar à afetação normal</a>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Indica em euros o que vai diretamente para cada rúbrica (ex.: afetações fixas a projetos europeus). O que sobrar passa, no passo seguinte, a ser repartido por percentagem.</div>
+      <div id="gf-afetar-rh-linhas">
+        ${GF_AFETAR.rhLinhas.map((l, idx) => gfAfetarRHLinhaRow(l, idx, tipo, ano)).join('')}
+      </div>
+      <button class="btn btn-sm" onclick="gfAfetarRHAddLinha()" style="margin-bottom:16px">+ Adicionar rúbrica</button>
+      <div style="display:flex;justify-content:space-between;padding:12px 14px;background:#F8FAFC;border-radius:8px;border:1px solid var(--border);font-size:13px">
+        <span>Total fixo: <strong>${gfFmt(totalFixo)}</strong></span>
+        <span>Resta para percentagem: <strong style="color:${restante < 0 ? '#DC2626' : '#059669'}">${gfFmt(restante)}</strong></span>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:14px">
+        <button class="btn" style="background:var(--mod-financeiro);color:#fff;border-color:var(--mod-financeiro)" ${!linhasValidas ? 'disabled' : ''} onclick="gfAfetarRHAvancar()">Avançar para percentagens →</button>
+      </div>
+    `;
+    const btn = document.getElementById('gf-afetar-submit-btn');
+    if (btn) btn.style.display = 'none';
+    return;
+  }
+
+  // ── Passo 2 do "Afetar RH", ou afetação normal — ambos usam GF_AFETAR.linhas + % ──
   const totalPct = GF_AFETAR.linhas.reduce((a, l) => a + (l.pct || 0), 0);
   const pctOk = Math.abs(totalPct - 100) < 0.01;
   const linhasValidas = GF_AFETAR.linhas.length > 0 && GF_AFETAR.linhas.every(l => l.rubricaId);
 
-  body.innerHTML = `
-    <div style="padding:14px;background:var(--mod-financeiro-bg);border-radius:8px;margin-bottom:16px">
-      <div style="font-weight:600;font-size:14px;margin-bottom:4px">${gfMovNome(m)}</div>
-      <div style="font-size:12px;color:var(--text3)">${gfDate(m.dataMovimento)} · <span style="font-weight:600;color:${tipo === 'Receita' ? '#F97316' : '#2563EB'}">${tipo}</span> · <span style="font-weight:700;color:var(--text)">${gfFmt(Math.abs(m.importancia || 0))}</span></div>
-    </div>
-    <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;cursor:pointer">
-      <input type="checkbox" id="gf-afetar-repartida" ${GF_AFETAR.repartida ? 'checked' : ''} onchange="gfAfetarToggleRepartida(this.checked)">
-      Repartir este valor por várias rúbricas (podem ser de projetos diferentes)
-    </label>
+  let topo;
+  if (GF_AFETAR.modo === 'rh') {
+    const totalFixo = GF_AFETAR.rhLinhas.reduce((a, l) => a + (l.valor || 0), 0);
+    const restante = valorAbs - totalFixo;
+    topo = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:600">🧑‍💼 Afetar RH — Passo 2 de 2: percentagem sobre o restante</div>
+        <a onclick="gfAfetarRHVoltar()" style="font-size:12px;color:var(--text3);cursor:pointer">← Voltar aos valores fixos</a>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Reparte por percentagem o valor que sobra depois dos fixos: <strong style="color:${restante < 0 ? '#DC2626' : '#1E293B'}">${gfFmt(restante)}</strong></div>
+    `;
+  } else {
+    topo = `
+      <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:13px;cursor:pointer">
+        <input type="checkbox" id="gf-afetar-repartida" ${GF_AFETAR.repartida ? 'checked' : ''} onchange="gfAfetarToggleRepartida(this.checked)">
+        Repartir este valor por várias rúbricas (podem ser de projetos diferentes)
+      </label>
+      <div style="margin-bottom:16px">
+        <a onclick="gfAfetarIniciarRH()" style="font-size:12px;color:var(--mod-financeiro);cursor:pointer;font-weight:600">🧑‍💼 Afetar RH (valores fixos + percentagem em dois passos)</a>
+      </div>
+    `;
+  }
+
+  body.innerHTML = header + topo + `
     ${GF_MODELOS_REPARTICAO.length > 0 ? `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
         <label style="font-size:12px;color:var(--text3);white-space:nowrap">🧩 Aplicar modelo de repartição:</label>
@@ -14643,40 +14984,60 @@ function gfRenderAfetarModal() {
     <div id="gf-afetar-linhas">
       ${GF_AFETAR.linhas.map((l, idx) => gfAfetarLinhaRow(l, idx, tipo, ano)).join('')}
     </div>
-    ${GF_AFETAR.repartida ? `
+    ${(GF_AFETAR.repartida || GF_AFETAR.modo === 'rh') ? `
       <button class="btn btn-sm" onclick="gfAfetarAddLinha()" style="margin-bottom:12px">+ Adicionar rúbrica</button>
       <div style="font-size:13px;font-weight:600;color:${pctOk ? '#10B981' : '#EF4444'};margin-bottom:8px">Total: ${totalPct.toFixed(2)}% ${pctOk ? '✓' : '— tem de somar 100%'}</div>
     ` : ''}
   `;
 
   const btn = document.getElementById('gf-afetar-submit-btn');
-  if (btn) btn.disabled = !linhasValidas || !pctOk;
+  if (btn) { btn.style.display = ''; btn.disabled = !linhasValidas || !pctOk; }
 }
 
 async function gfSubmitAfetar() {
   const m = GF_MOV_PENDENTES.find(x => x.id === GF_AFETAR.movimento);
   if (!m) return;
-  const totalPct = GF_AFETAR.linhas.reduce((a, l) => a + (l.pct || 0), 0);
-  if (Math.abs(totalPct - 100) > 0.01) { showNotif('As percentagens têm de somar 100%', 'error'); return; }
-  if (GF_AFETAR.linhas.some(l => !l.rubricaId)) { showNotif('Seleciona uma rúbrica em todas as linhas', 'error'); return; }
 
   const tipo = (m.importancia || 0) < 0 ? 'Despesa' : 'Receita';
   const valorAbs = Math.abs(m.importancia || 0);
   const ano = m.dataMovimento ? new Date(m.dataMovimento).getFullYear() : GF.year;
 
+  // Junta, num único formato {projetoId, rubricaId, solicitacaoId, valor}, tanto a
+  // afetação normal (percentagem sobre o total) como o "Afetar RH" em 2 passos
+  // (valores fixos + percentagem sobre o que sobra) — a partir daqui o resto do
+  // fluxo (gravar Movimentos Executados, marcar Afeto, atualizar Solicitações) é igual.
+  let linhasFinais = [];
+  if (GF_AFETAR.modo === 'rh') {
+    const rhComValor = GF_AFETAR.rhLinhas.filter(l => (l.valor || 0) > 0);
+    if (rhComValor.some(l => !l.rubricaId)) { showNotif('Seleciona uma rúbrica em todas as linhas de valor fixo (Passo 1)', 'error'); return; }
+    const totalPctRestante = GF_AFETAR.linhas.reduce((a, l) => a + (l.pct || 0), 0);
+    if (Math.abs(totalPctRestante - 100) > 0.01) { showNotif('As percentagens do Passo 2 têm de somar 100%', 'error'); return; }
+    if (GF_AFETAR.linhas.some(l => !l.rubricaId)) { showNotif('Seleciona uma rúbrica em todas as linhas do Passo 2', 'error'); return; }
+    const totalFixo = rhComValor.reduce((a, l) => a + (l.valor || 0), 0);
+    const restante = valorAbs - totalFixo;
+    linhasFinais = [
+      ...rhComValor.map(l => ({ projetoId: l.projetoId, rubricaId: l.rubricaId, solicitacaoId: l.solicitacaoId, valor: Math.round((l.valor || 0) * 100) / 100 })),
+      ...GF_AFETAR.linhas.map(l => ({ projetoId: l.projetoId, rubricaId: l.rubricaId, solicitacaoId: l.solicitacaoId, valor: Math.round(restante * (l.pct || 0) / 100 * 100) / 100 }))
+    ];
+  } else {
+    const totalPct = GF_AFETAR.linhas.reduce((a, l) => a + (l.pct || 0), 0);
+    if (Math.abs(totalPct - 100) > 0.01) { showNotif('As percentagens têm de somar 100%', 'error'); return; }
+    if (GF_AFETAR.linhas.some(l => !l.rubricaId)) { showNotif('Seleciona uma rúbrica em todas as linhas', 'error'); return; }
+    linhasFinais = GF_AFETAR.linhas.map(l => ({ projetoId: l.projetoId, rubricaId: l.rubricaId, solicitacaoId: l.solicitacaoId, valor: Math.round(valorAbs * (l.pct || 0) / 100 * 100) / 100 }));
+  }
+
   const btn = document.getElementById('gf-afetar-submit-btn');
   btn.disabled = true; btn.textContent = 'A guardar...';
   try {
     const solicitacoesTocadas = new Set();
-    for (const l of GF_AFETAR.linhas) {
-      const valorLinha = Math.round(valorAbs * (l.pct || 0) / 100 * 100) / 100;
+    for (const l of linhasFinais) {
       const body = {
         __metadata: { type: 'SP.Data.FJ_x005f_MovimentosExecutadosListItem' },
         Title: gfMovNome(m).slice(0, 255),
         MovimentoPendenteIdId: m.id,
         TipoMovimento: tipo,
-        Valor: valorLinha,
-        Percentagem: l.pct || 0,
+        Valor: l.valor,
+        Percentagem: valorAbs > 0 ? Math.round((l.valor / valorAbs) * 10000) / 100 : 0,
         ProjetoIdId: l.projetoId,
         RubricaIdId: l.rubricaId,
         DataMovimento: m.dataMovimento,
@@ -15638,6 +15999,24 @@ init();
     <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
       <button class="btn" onclick="gfCloseModeloModal()">Cancelar</button>
       <button id="gf-modelo-submit-btn" class="btn" style="background:var(--mod-financeiro);color:#fff;border-color:var(--mod-financeiro)" onclick="gfSubmitModelo()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL LISTA BASE "AFETAR RH" ══════════════════════════════════════ -->
+<div id="gf-rhbase-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);margin:1rem">
+    <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:16px;font-weight:600">🧑‍💼 Lista base — Afetar RH</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">Rúbricas sugeridas no Passo 1 (valores fixos) ao afetar um movimento de RH</div>
+      </div>
+      <button onclick="gfCloseRHBaseModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">×</button>
+    </div>
+    <div id="gf-rhbase-body" style="padding:20px 24px"></div>
+    <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn" onclick="gfCloseRHBaseModal()">Cancelar</button>
+      <button id="gf-rhbase-submit-btn" class="btn" style="background:var(--mod-financeiro);color:#fff;border-color:var(--mod-financeiro)" onclick="gfSubmitRHBase()">Guardar</button>
     </div>
   </div>
 </div>
