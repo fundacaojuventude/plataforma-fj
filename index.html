@@ -9681,6 +9681,7 @@ function gfRenderRubricas() {
               fornecedor: solLigada ? solLigada.fornecedor : null,
               data: m.dataMovimento, valor: m.valor, tipo: m.tipo || 'Despesa',
               estadoHtml: `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:#DCFCE7;color:#166534">Pago${solLigada ? '' : ' (banco)'}</span>`,
+              movExecId: m.id,
               _ord: m.dataMovimento ? new Date(m.dataMovimento).getTime() : 0
             };
           }),
@@ -9836,6 +9837,7 @@ function gfRenderRubricas() {
                         <th style="padding:8px 12px;text-align:center;font-weight:500">Tipo</th>
                         <th style="padding:8px 12px;text-align:right;font-weight:500">Valor</th>
                         <th style="padding:8px 12px;text-align:left;font-weight:500">Estado</th>
+                        ${gfCanProcessar() ? `<th style="padding:8px 12px;text-align:center;font-weight:500"></th>` : ''}
                       </tr>
                     </thead>
                     <tbody>
@@ -9848,6 +9850,7 @@ function gfRenderRubricas() {
                           <td style="padding:8px 12px;text-align:center"><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:${s.tipo === 'Receita' ? '#FFF7ED' : '#EFF6FF'};color:${s.tipo === 'Receita' ? '#F97316' : '#2563EB'}">${s.tipo}</span></td>
                           <td style="padding:8px 12px;text-align:right;font-weight:500">${gfFmt(s.valor)}</td>
                           <td style="padding:8px 12px">${s.estadoHtml}</td>
+                          ${gfCanProcessar() ? `<td style="padding:8px 12px;text-align:center">${s.movExecId ? `<button class="btn btn-sm" style="font-size:11px;color:#DC2626;border-color:#FCA5A5" title="Reverter esta afetação — o movimento volta para Pendentes" onclick="gfReverterMovExecutado(${s.movExecId})">↩ Reverter</button>` : ''}</td>` : ''}
                         </tr>
                       `).join('')}
                     </tbody>
@@ -14718,6 +14721,69 @@ async function gfSubmitAfetar() {
     showNotif('Erro ao afetar movimento: ' + e.message, 'error');
   } finally {
     btn.disabled = false; btn.textContent = 'Confirmar';
+  }
+}
+
+// ═══ REVERTER AFETAÇÃO (movimento executado → volta para Pendentes) ══════
+// Usado quando um movimento bancário foi afeto à rúbrica/projeto errado.
+// Anula TODA a afetação original (todas as linhas de repartição do mesmo
+// movimento bancário, não só a clicada) e devolve o movimento à lista de
+// Pendentes, como se nunca tivesse sido processado.
+function gfEstadoAntesDoPagamento(sol) {
+  if (sol.dataProcessado) return 'Processado';
+  if (sol.dataAprovDF || sol.aprovDFNome) return 'Aprovado DF';
+  if (sol.dataAprovDir || sol.aprovDirNome) return 'Aprovado Dir.';
+  return 'Submetido';
+}
+
+async function gfReverterMovExecutado(movExecId) {
+  const mov = GF_MOV_EXECUTADOS.find(x => x.id === movExecId);
+  if (!mov) return;
+  if (!gfCanProcessar()) { showNotif('Sem permissão para reverter afetações.', 'error'); return; }
+
+  const irmaos = mov.movimentoPendenteId
+    ? GF_MOV_EXECUTADOS.filter(x => x.movimentoPendenteId === mov.movimentoPendenteId)
+    : [mov];
+
+  const msg = irmaos.length > 1
+    ? `Este movimento bancário foi repartido por ${irmaos.length} rúbricas/projetos. Reverter vai anular TODAS essas linhas e devolver o valor total à lista de Pendentes, para reafetares de novo.\n\nContinuar?`
+    : `Reverter esta afetação?\n\nO movimento volta para "Pendentes" (como se nunca tivesse sido afeto) e esta linha de Movimento Executado é eliminada.`;
+  if (!confirm(msg)) return;
+
+  try {
+    for (const l of irmaos) {
+      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosExecutados')/items(${l.id})`, null, 'DELETE');
+    }
+
+    if (mov.movimentoPendenteId) {
+      await spWrite(
+        `${SP}/_api/web/lists/getbytitle('FJ_MovimentosBancarios')/items(${mov.movimentoPendenteId})`,
+        { __metadata: { type: 'SP.Data.FJ_x005f_MovimentosBancariosListItem' }, Estado: 'Pendente' },
+        'MERGE'
+      );
+    }
+
+    // Recarregar antes de verificar saldos, para as linhas apagadas já não contarem
+    await gfLoadAll();
+
+    // Solicitações que tinham ficado "Pago" por causa deste movimento → repõe estado anterior
+    const solicitacoesTocadas = new Set(irmaos.map(l => l.solicitacaoId).filter(Boolean));
+    for (const solId of solicitacoesTocadas) {
+      const sol = GF_SOLICITACOES.find(s => s.id === solId);
+      if (sol && sol.estado === 'Pago' && gfSolicitacaoSaldoPorPagar(sol) > 0.005) {
+        await spWrite(
+          `${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${sol.id})`,
+          { __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' }, Estado: gfEstadoAntesDoPagamento(sol) },
+          'MERGE'
+        );
+      }
+    }
+
+    showNotif('Afetação revertida — o movimento voltou para Pendentes ✓', 'success');
+    await gfLoadAll();
+    gfRender();
+  } catch (e) {
+    showNotif('Erro ao reverter afetação: ' + e.message, 'error');
   }
 }
 
