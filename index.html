@@ -8231,6 +8231,7 @@ let GF_MODELOS_REPARTICAO = []; // modelos de repartição fixa (ex.: salários)
 let GF_MODELO_EDIT = null; // modelo em edição no modal "Modelos de Repartição" (objeto ou null)
 let GF_RH_BASE = []; // lista base de rúbricas tipicamente afetas em valor fixo no "Afetar RH" (passo 1): [{projetoId, projetoNome, rubricaTitulo}]
 let GF_RH_BASE_EDIT = null; // cópia de trabalho de GF_RH_BASE enquanto se edita a lista base (array ou null)
+let GF_RUBRICAS_SENSIVEIS = []; // rúbricas cuja tabela "Faturas/Solicitações" só PE/Financeiro veem (ex.: vencimentos): [{projetoId, projetoNome, rubricaTitulo}]
 let GF_PEND_EDIT = {}; // estado da tabela editável de Pendentes: { [movId]: { checked, projetoId, rubricaId, solicitacaoId } }
 let GF_TABLE_STATE = {}; // estado de ordenação/filtro por tabela (estilo Excel): { [tableId]: { sortCol, sortDir, filters:{col:val} } }
 
@@ -8483,6 +8484,7 @@ async function gfLoadAll() {
     // Carregar modelos de repartição (persiste em FJ_Configuracoes)
     await gfLoadModelosReparticao();
     await gfLoadRHBase();
+    await gfLoadRubricasSensiveis();
 
     gfRender();
   } catch (e) {
@@ -9697,19 +9699,21 @@ function gfRenderRubricas() {
         ].sort((a, b) => b._ord - a._ord);
         const canClose = despDisp <= 0 || r.estado === 'Suspenso';
         const hasWarning = desp.processada > desp.solicitada;
-        
+        const sensivel = gfRubricaEhSensivel(r);
+        const podeVerDetalhe = !sensivel || gfPodeVerDetalheSensivel();
+
         return `
           <div class="card" style="margin-bottom:12px;padding:0;overflow:hidden${hasWarning ? ';border-color:#FCD34D' : ''}">
             ${hasWarning ? `<div style="padding:8px 16px;background:#FEF3C7;color:#92400E;font-size:12px">⚠ Despesa processada (${gfFmt(desp.processada)}) é superior à solicitada (${gfFmt(desp.solicitada)})</div>` : ''}
-            
+
             <!-- Header da rúbrica -->
             <div style="padding:14px 16px;cursor:pointer;display:grid;grid-template-columns:${gfIsMembroRestrito() ? '200px 1fr 36px' : '200px 1fr 1fr 36px'};gap:14px;align-items:center;border-bottom:1px solid var(--border)" onclick="this.parentElement.classList.toggle('rubrica-expanded')">
               <!-- Nome + tipo -->
               <div>
-                <div style="font-weight:600;font-size:14px">${r.titulo}</div>
+                <div style="font-weight:600;font-size:14px">${r.titulo}${sensivel ? ' <span title="Rúbrica confidencial — detalhe só visível a Presidente Executivo e equipa Financeiro" style="font-size:12px">🔒</span>' : ''}</div>
                 <div style="font-size:12px;color:var(--text3);margin-top:2px">${r.tipo || 'Despesa'}</div>
               </div>
-              
+
               <!-- DESPESAS mini-panel -->
               <div style="padding:10px 14px;background:#EFF6FF;border-radius:8px;border:1px solid #BFDBFE">
                 <div style="font-size:10px;font-weight:700;color:#1E40AF;letter-spacing:.04em;margin-bottom:7px">DESPESAS</div>
@@ -9826,8 +9830,20 @@ function gfRenderRubricas() {
                 ` : ''}
               </div>
               
+              <!-- Alternar confidencialidade da rúbrica — só quem já pode ver o detalhe -->
+              ${gfPodeVerDetalheSensivel() ? `
+                <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:12px;color:var(--text3);cursor:pointer">
+                  <input type="checkbox" ${sensivel ? 'checked' : ''} onchange="gfToggleRubricaSensivel(${r.id}, this.checked); event.stopPropagation()" onclick="event.stopPropagation()">
+                  🔒 Rúbrica confidencial — só Presidente Executivo e equipa Financeiro veem a tabela de faturas/solicitações abaixo (os totais continuam visíveis a todos)
+                </label>
+              ` : ''}
+
               <!-- Lista de solicitações/faturas (inclui movimentos afetos diretamente a partir do banco) -->
-              ${linhasFaturas.length > 0 ? `
+              ${!podeVerDetalhe ? `
+                <div style="margin-bottom:16px;padding:14px 16px;background:#F8FAFC;border:1px dashed var(--border);border-radius:8px;font-size:12px;color:var(--text3);text-align:center">
+                  🔒 O detalhe de faturas/solicitações desta rúbrica é confidencial — visível apenas ao Presidente Executivo e à equipa Financeiro.
+                </div>
+              ` : linhasFaturas.length > 0 ? `
                 <div style="margin-bottom:16px">
                   <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px">FATURAS / SOLICITAÇÕES (${linhasFaturas.length})</div>
                   <table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:6px;overflow:hidden">
@@ -9860,7 +9876,7 @@ function gfRenderRubricas() {
                   </table>
                 </div>
               ` : ''}
-              
+
               <!-- Resultado e ações -->
               <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:#fff;border-radius:6px">
                 <div style="font-size:12px">
@@ -14386,6 +14402,88 @@ async function gfSubmitRHBase() {
     showNotif('Erro ao guardar: ' + e.message, 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// RÚBRICAS CONFIDENCIAIS — rúbricas de vencimentos/RH cuja tabela "Faturas /
+// Solicitações" (que mostra a quem/onde foi cada valor) só é visível para o
+// Presidente Executivo e para a equipa Financeiro. Todos os outros continuam
+// a ver os totais da rúbrica (Orç./Aprov./Proce./Pago/Disp.) normalmente —
+// só a lista de detalhe fica escondida.
+// Guardada em FJ_Configuracoes pelo NOME da rúbrica (mesmo padrão dos Modelos
+// de Repartição e da Lista Base RH), para continuar válida de ano para ano:
+// Title = 'RubricaSensivelLinha_<idx>' → Valor = JSON {projetoId, projetoNome, rubricaTitulo}
+// ══════════════════════════════════════════════════════════════
+
+let _gfRubricasSensiveisSpIds = []; // [spItemId, ...] na mesma ordem de GF_RUBRICAS_SENSIVEIS
+
+async function gfLoadRubricasSensiveis() {
+  GF_RUBRICAS_SENSIVEIS = [];
+  _gfRubricasSensiveisSpIds = [];
+  try {
+    const dc = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$filter=startswith(Title,'RubricaSensivelLinha_')&$select=Id,Title,Valor&$top=2000`);
+    const rows = (dc.d?.results || []).map(row => {
+      const m = (row.Title || '').match(/^RubricaSensivelLinha_(\d+)$/);
+      let linha = {}; try { linha = JSON.parse(row.Valor || '{}'); } catch (e) { linha = {}; }
+      return { idx: m ? parseInt(m[1]) : 0, spId: row.Id, linha };
+    }).sort((a, b) => a.idx - b.idx);
+    GF_RUBRICAS_SENSIVEIS = rows.map(r => r.linha);
+    _gfRubricasSensiveisSpIds = rows.map(r => r.spId);
+  } catch (e) {
+    GF_RUBRICAS_SENSIVEIS = [];
+    _gfRubricasSensiveisSpIds = [];
+  }
+}
+
+async function gfSaveRubricasSensiveisSP(linhas) {
+  for (const spId of _gfRubricasSensiveisSpIds) {
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${spId})`, null, 'DELETE');
+  }
+  const novosIds = [];
+  for (let idx = 0; idx < linhas.length; idx++) {
+    const body = {
+      __metadata: { type: 'SP.Data.FJ_x005f_ConfiguracoesListItem' },
+      Title: `RubricaSensivelLinha_${idx}`,
+      Valor: JSON.stringify(linhas[idx])
+    };
+    const r = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items`, body, 'POST');
+    const d = await r.json();
+    novosIds.push(d.d?.Id);
+  }
+  _gfRubricasSensiveisSpIds = novosIds;
+}
+
+// Só Presidente Executivo ou membros da equipa Financeiro (qualquer cargo) veem o
+// detalhe de uma rúbrica marcada como confidencial.
+function gfPodeVerDetalheSensivel() {
+  return userCargo() === 'Presidente Executivo' || isFinanceiroEquipa();
+}
+
+function gfRubricaEhSensivel(r) {
+  if (!r) return false;
+  return GF_RUBRICAS_SENSIVEIS.some(x => x.projetoId === r.projetoId && x.rubricaTitulo === r.titulo);
+}
+
+async function gfToggleRubricaSensivel(rubricaId, checked) {
+  if (!gfPodeVerDetalheSensivel()) return;
+  const r = GF_RUBRICAS.find(x => x.id === rubricaId);
+  if (!r) return;
+  const anterior = GF_RUBRICAS_SENSIVEIS;
+  if (checked) {
+    GF_RUBRICAS_SENSIVEIS = gfRubricaEhSensivel(r)
+      ? GF_RUBRICAS_SENSIVEIS
+      : [...GF_RUBRICAS_SENSIVEIS, { projetoId: r.projetoId, projetoNome: r.projetoNome, rubricaTitulo: r.titulo }];
+  } else {
+    GF_RUBRICAS_SENSIVEIS = GF_RUBRICAS_SENSIVEIS.filter(x => !(x.projetoId === r.projetoId && x.rubricaTitulo === r.titulo));
+  }
+  gfRender();
+  try {
+    await gfSaveRubricasSensiveisSP(GF_RUBRICAS_SENSIVEIS);
+  } catch (e) {
+    GF_RUBRICAS_SENSIVEIS = anterior;
+    showNotif('Erro ao guardar: ' + e.message, 'error');
+    gfRender();
   }
 }
 
