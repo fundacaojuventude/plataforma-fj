@@ -9666,21 +9666,29 @@ function gfRenderRubricas() {
         const despDisp = despOrc - desp.usadoReal; // disponível real (comprometido por pagar + executado no banco)
         const despPct = despOrc > 0 ? Math.round((desp.processada / despOrc) * 100) : 0;
         const solicitacoes = gfGetSolicitacoes(r.id);
-        const movAvulsos = gfGetMovAvulsos(r.id);
-        // Lista combinada para "Faturas/Solicitações": inclui também movimentos afetos
-        // diretamente a partir do banco (sem Solicitação), para mostrar tudo o que foi considerado.
+        const movExecutados = GF_MOV_EXECUTADOS.filter(m => m.rubricaId === r.id);
+        // Lista combinada para "Faturas/Solicitações": mostra sempre o que REALMENTE aconteceu
+        // (Movimentos Executados — o valor final e real, tenha ou não Solicitação por trás, que
+        // pode diferir do valor pedido) e, de cada Solicitação, só o saldo que ainda falta
+        // processar. Uma Solicitação já totalmente paga não aparece como linha própria — os
+        // Movimentos Executados que a pagaram já mostram, de forma mais fiável, o que aconteceu.
         const linhasFaturas = [
-          ...solicitacoes.map(s => ({
-            codigo: s.codigo, titulo: s.titulo, fornecedor: s.fornecedor,
-            data: s.dataSubmissao, valor: s.valor,
+          ...movExecutados.map(m => {
+            const solLigada = m.solicitacaoId ? GF_SOLICITACOES.find(s => s.id === m.solicitacaoId) : null;
+            return {
+              codigo: solLigada ? solLigada.codigo : null,
+              titulo: m.descricao || solLigada?.titulo || '(movimento bancário)',
+              fornecedor: solLigada ? solLigada.fornecedor : null,
+              data: m.dataMovimento, valor: m.valor, tipo: m.tipo || 'Despesa',
+              estadoHtml: `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:#DCFCE7;color:#166534">Pago${solLigada ? '' : ' (banco)'}</span>`,
+              _ord: m.dataMovimento ? new Date(m.dataMovimento).getTime() : 0
+            };
+          }),
+          ...solicitacoes.filter(s => s.estado !== 'Rejeitado' && gfSolicitacaoSaldoPorPagar(s) > 0.005).map(s => ({
+            codigo: s.codigo, titulo: s.titulo, fornecedor: s.fornecedor, nota: 'saldo por processar',
+            data: s.dataSubmissao, valor: gfSolicitacaoSaldoPorPagar(s), tipo: s.tipoSolicitacao || 'Despesa',
             estadoHtml: GF_BADGES[s.estado] || s.estado,
             _ord: s.dataSubmissao ? new Date(s.dataSubmissao).getTime() : 0
-          })),
-          ...movAvulsos.map(m => ({
-            codigo: null, titulo: m.descricao || '(movimento bancário)', fornecedor: null,
-            data: m.dataMovimento, valor: m.valor,
-            estadoHtml: `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:#DCFCE7;color:#166534">Pago (banco)</span>`,
-            _ord: m.dataMovimento ? new Date(m.dataMovimento).getTime() : 0
           }))
         ].sort((a, b) => b._ord - a._ord);
         const canClose = despDisp <= 0 || r.estado === 'Suspenso';
@@ -9825,6 +9833,7 @@ function gfRenderRubricas() {
                         <th style="padding:8px 12px;text-align:left;font-weight:500">Título</th>
                         <th style="padding:8px 12px;text-align:left;font-weight:500">Fornecedor</th>
                         <th style="padding:8px 12px;text-align:left;font-weight:500">Data</th>
+                        <th style="padding:8px 12px;text-align:center;font-weight:500">Tipo</th>
                         <th style="padding:8px 12px;text-align:right;font-weight:500">Valor</th>
                         <th style="padding:8px 12px;text-align:left;font-weight:500">Estado</th>
                       </tr>
@@ -9833,9 +9842,10 @@ function gfRenderRubricas() {
                       ${linhasFaturas.map(s => `
                         <tr style="border-top:1px solid var(--border)">
                           <td style="padding:8px 12px;color:#2563EB">${s.codigo || '—'}</td>
-                          <td style="padding:8px 12px;font-weight:500">${s.titulo || '—'}</td>
+                          <td style="padding:8px 12px;font-weight:500">${s.titulo || '—'}${s.nota ? `<div style="font-size:10px;color:var(--text3);font-weight:400;margin-top:2px">${s.nota}</div>` : ''}</td>
                           <td style="padding:8px 12px">${s.fornecedor || '—'}</td>
                           <td style="padding:8px 12px">${s.data ? new Date(s.data).toLocaleDateString('pt-PT') : '—'}</td>
+                          <td style="padding:8px 12px;text-align:center"><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:${s.tipo === 'Receita' ? '#FFF7ED' : '#EFF6FF'};color:${s.tipo === 'Receita' ? '#F97316' : '#2563EB'}">${s.tipo}</span></td>
                           <td style="padding:8px 12px;text-align:right;font-weight:500">${gfFmt(s.valor)}</td>
                           <td style="padding:8px 12px">${s.estadoHtml}</td>
                         </tr>
