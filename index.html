@@ -14469,8 +14469,7 @@ function gfAfetarAplicarModelo(modeloId) {
 
   let naoResolvidas = 0;
   const linhas = modelo.linhas.map(l => {
-    const rub = GF_RUBRICAS.find(r => r.projetoId === l.projetoId && r.titulo === l.rubricaTitulo && r.ano === ano && r.estado === 'Ativo' &&
-      (tipo === 'Receita' ? (r.recOrc || 0) > 0 : (r.despOrc || 0) > 0));
+    const rub = GF_RUBRICAS.find(r => r.projetoId === l.projetoId && r.titulo === l.rubricaTitulo && r.ano === ano && r.estado === 'Ativo');
     if (!rub) naoResolvidas++;
     return {
       projetoId: l.projetoId,
@@ -14506,7 +14505,14 @@ function gfAfetarProjChange(idx) {
 }
 
 function gfAfetarRubChange(idx) {
-  GF_AFETAR.linhas[idx].rubricaId = parseInt(gfVal(`gf-afetar-rub-${idx}`)) || null;
+  const novoId = parseInt(gfVal(`gf-afetar-rub-${idx}`)) || null;
+  const m = GF_MOV_PENDENTES.find(x => x.id === GF_AFETAR.movimento);
+  const tipoMov = ((m?.importancia) || 0) < 0 ? 'Despesa' : 'Receita';
+  if (novoId && !gfConfirmarRubricaSemValor(novoId, tipoMov)) {
+    gfRenderAfetarModal(); // repõe a seleção anterior no <select>
+    return;
+  }
+  GF_AFETAR.linhas[idx].rubricaId = novoId;
   GF_AFETAR.linhas[idx].solicitacaoId = null;
   gfRenderAfetarModal();
 }
@@ -14520,16 +14526,31 @@ function gfAfetarPctChange(idx) {
   gfRenderAfetarModal(); // só para recalcular o total apresentado
 }
 
-// Rúbricas ativas de um projeto, do tipo e ano do movimento.
-// Uma rúbrica é "de Despesa" se tiver Despesa Orçamentada > 0, e "de Receita" se tiver
-// Receita Orçamentada > 0 — não depende do campo TipoRubrica, que nem sempre reflete isto
-// (uma rúbrica pode ter as duas componentes orçamentadas ao mesmo tempo).
+// Rúbricas ativas de um projeto, no ano do movimento — mostra TODAS (não só as que têm
+// valor orçamentado do tipo do movimento), porque por vezes é preciso afetar a uma rúbrica
+// sem valor previsto desse lado (ex.: um pagamento feito por engano cuja devolução, uma
+// receita, tem de "balancear" numa rúbrica que só tinha despesa prevista). As que não têm
+// valor previsto para este tipo ficam assinaladas — a seleção pede confirmação extra
+// (ver gfConfirmarRubricaSemValor), em vez de ficarem simplesmente escondidas.
 function gfAfetarRubOptions(projId, tipo, ano, selectedId) {
-  const rubs = GF_RUBRICAS.filter(r => r.projetoId === projId && r.ano === ano && r.estado === 'Ativo' &&
-    (tipo === 'Receita' ? (r.recOrc || 0) > 0 : (r.despOrc || 0) > 0));
-  if (!rubs.length) return `<option value="">Sem rúbricas de ${tipo.toLowerCase()} ativas em ${ano}</option>`;
-  return '<option value="">Selecionar...</option>' +
-    rubs.map(r => `<option value="${r.id}" ${selectedId === r.id ? 'selected' : ''}>${r.titulo}</option>`).join('');
+  const rubs = GF_RUBRICAS.filter(r => r.projetoId === projId && r.ano === ano && r.estado === 'Ativo');
+  if (!rubs.length) return `<option value="">Sem rúbricas ativas em ${ano}</option>`;
+  const temValor = r => tipo === 'Receita' ? (r.recOrc || 0) > 0 : (r.despOrc || 0) > 0;
+  const comValor = rubs.filter(temValor).sort((a, b) => a.titulo.localeCompare(b.titulo));
+  const semValor = rubs.filter(r => !temValor(r)).sort((a, b) => a.titulo.localeCompare(b.titulo));
+  const opt = r => `<option value="${r.id}" ${selectedId === r.id ? 'selected' : ''}>${r.titulo}${temValor(r) ? '' : ' (sem valor previsto)'}</option>`;
+  return '<option value="">Selecionar...</option>' + comValor.map(opt).join('') + semValor.map(opt).join('');
+}
+
+// Uma rúbrica sem valor orçamentado para este tipo (Despesa/Receita) ainda pode ser
+// escolhida — só pede confirmação, para apanhar enganos sem bloquear casos legítimos
+// (ex.: devolução de um pagamento indevido, que entra como receita numa rúbrica de despesa).
+function gfConfirmarRubricaSemValor(rubricaId, tipo) {
+  const r = GF_RUBRICAS.find(x => x.id === rubricaId);
+  if (!r) return true;
+  const temValor = tipo === 'Receita' ? (r.recOrc || 0) > 0 : (r.despOrc || 0) > 0;
+  if (temValor) return true;
+  return confirm(`A rúbrica "${r.titulo}" não tem valor de ${tipo.toLowerCase()} previsto no orçamento.\n\nConfirmas que é mesmo esta a rúbrica certa? (ex.: devolução de um pagamento feito por engano, que precisa de balancear aqui mesmo sem estar orçamentado)`);
 }
 
 // Solicitações aprovadas dessa rúbrica que ainda têm saldo por pagar (associação é sempre opcional)
@@ -14823,7 +14844,14 @@ function gfPendProjChange(movId) {
 
 function gfPendRubChange(movId) {
   const o = gfPendGetEdit(movId);
-  o.rubricaId = parseInt(gfVal(`gf-pend-rub-${movId}`)) || null;
+  const novoId = parseInt(gfVal(`gf-pend-rub-${movId}`)) || null;
+  const m = GF_MOV_PENDENTES.find(x => x.id === movId);
+  const tipoMov = ((m?.importancia) || 0) < 0 ? 'Despesa' : 'Receita';
+  if (novoId && !gfConfirmarRubricaSemValor(novoId, tipoMov)) {
+    gfPendRefreshRow(movId); // repõe a seleção anterior no <select>
+    return;
+  }
+  o.rubricaId = novoId;
   o.solicitacaoId = null;
   o.checked = !!o.rubricaId; // fica pronta automaticamente assim que há rúbrica escolhida
   gfPendRefreshRow(movId);
