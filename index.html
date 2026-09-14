@@ -6113,7 +6113,7 @@ async function plLoadAll(){
 
     await Promise.all([loadProjetos(),loadAcoes(),loadTarefas(),loadKPIDefs(),loadKPIRegs(),loadPlanoTrim(),loadDepartamentos(),loadGruposAcoes()]);
     renderDash();renderHier();renderTrim();renderSem();renderKdefs();renderKregs();populateDrops();
-    showNotif(`Dados carregados! ${plTarefas.length} plTarefas · ${plProjetos.length} plProjetos · ${plAcoes.length} ações`,'success');
+    showNotif(`Dados carregados! ${plTarefas.length} tarefas · ${plProjetos.length} projetos · ${plAcoes.length} ações`,'success');
   }catch(e){showNotif('Erro ao carregar: '+e.message,'error');console.error(e);}
 }
 async function loadDepartamentos(){
@@ -6449,8 +6449,8 @@ function populateDrops(){
     const faProj=el('fa-proj');
     if(faProj){faProj.innerHTML='<option value="">Selecionar...</option>'+po;faProj.disabled=false;}
   }
-  const ffkd=el('ff-kd-proj');if(ffkd)ffkd.innerHTML='<option value="">Todos os plProjetos</option>'+po;
-  const ffap=el('ff-ac-proj');if(ffap)ffap.innerHTML='<option value="">Todos os plProjetos</option>'+po;
+  const ffkd=el('ff-kd-proj');if(ffkd)ffkd.innerHTML='<option value="">Todos os projetos</option>'+po;
+  const ffap=el('ff-ac-proj');if(ffap)ffap.innerHTML='<option value="">Todos os projetos</option>'+po;
   // Ações = lista Acoes (manual)
   const ao=plAcoes.map(a=>`<option value="${a.id}">${a.nome}</option>`).join('');
   const ftA=el('ftar-acao');if(ftA)ftA.innerHTML='<option value="">Nenhuma</option>'+ao;
@@ -7888,7 +7888,10 @@ function setKTab(t){
   if(elKpReg)elKpReg.classList.toggle('active',t==='reg');
 }
 function renderKdefs(){
-  const container=el('tbody-kdef')?.closest('.table-wrap');
+  // Nota: o contentor real é a div "kpi-defs-container" (blocos por projeto/ação, não uma tabela
+  // com tbody) — o seletor antigo procurava um "tbody-kdef" que já não existe no HTML, por isso
+  // esta função saía sempre sem fazer nada e a página ficava presa em "A carregar KPIs...".
+  const container=el('kpi-defs-container');
   if(!container)return;
   const projFlt=gv('ff-kd-proj'),tipoFlt=gv('ff-kd-tipo');
 
@@ -8264,6 +8267,7 @@ const GF_BADGES = {
   'Submetido': '<span class="bdg" style="background:#FEF3C7;color:#92400E">Submetido</span>',
   'Aprovado Dir.': '<span class="bdg" style="background:#DBEAFE;color:#1E40AF">Aprovado Dir.</span>',
   'Aprovado DF': '<span class="bdg" style="background:#D1FAE5;color:#065F46">Aprovado DF</span>',
+  'Pendente Informação': '<span class="bdg" style="background:#EDE9FE;color:#5B21B6">Pendente Informação</span>',
   'Processado': '<span class="bdg" style="background:#10B981;color:#fff">Processado</span>',
   'Pago': '<span class="bdg" style="background:#6366F1;color:#fff">Pago</span>',
   'Rejeitado': '<span class="bdg" style="background:#FEE2E2;color:#991B1B">Rejeitado</span>',
@@ -8374,7 +8378,8 @@ async function gfLoadAll() {
       dataProcessado: r.DataProcessado || null,
       dataPago: r.DataPago || null,
       dataLimitePagamento: r.DataLimitePagamento ? r.DataLimitePagamento.split('T')[0] : null,
-      motivoRejeicao: r.MotivoRejeicao || ''
+      motivoRejeicao: r.MotivoRejeicao || '',
+      comentarios: r.Comentarios || '' // Log de comentários de aprovação (um por linha) — ver gfAppendComentario
     }));
 
     // Alterações Orçamentais
@@ -10863,8 +10868,11 @@ function gfRenderSolicitacaoView() {
   
   const isFinanceiro = projDep === 'Financeiro';
 
-  const canApproveDir = (_financeRole === 'area_director' || _financeRole === 'pca' || _financeRole === 'pe' || _financeRole === 'pe') && sol.estado === 'Submetido' && gfIsMyDepartamento(projDep);
-  const canApproveDF = _financeRole === 'df' && (isFinanceiro ? ['Submetido', 'Aprovado Dir.'].includes(sol.estado) : sol.estado === 'Aprovado Dir.');
+  // "Pendente Informação" conta como se ainda estivesse no respetivo patamar de aprovação —
+  // assim quem marcou (ou o colega do mesmo nível) continua a poder decidir assim que o
+  // esclarecimento chegar, em vez de a solicitação ficar presa nesse estado.
+  const canApproveDir = (_financeRole === 'area_director' || _financeRole === 'pca' || _financeRole === 'pe' || _financeRole === 'pe') && ['Submetido', 'Pendente Informação'].includes(sol.estado) && gfIsMyDepartamento(projDep);
+  const canApproveDF = _financeRole === 'df' && (isFinanceiro ? ['Submetido', 'Aprovado Dir.', 'Pendente Informação'].includes(sol.estado) : ['Aprovado Dir.', 'Pendente Informação'].includes(sol.estado));
   
   return `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text3)">
@@ -10924,17 +10932,35 @@ function gfRenderSolicitacaoView() {
         ${(canApproveDir || canApproveDF) ? `
         <div class="card" style="background:#FFFBEB;border-color:#FCD34D">
           <div style="font-size:14px;font-weight:600;margin-bottom:12px">Ações de Aprovação</div>
-          <div style="display:flex;gap:10px">
+          <div style="margin-bottom:12px">
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">
+              Comentário <span style="font-weight:400;color:var(--text3)">(obrigatório para Rejeitar ou Pendente; fica visível no histórico da solicitação)</span>
+            </label>
+            <textarea id="gf-sol-comentario-${sol.id}" rows="3" placeholder="Escreva aqui uma nota, ou o que falta esclarecer..." style="width:100%;padding:8px 10px;border:1px solid var(--border2);border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;background:#fff"></textarea>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
             <button class="btn" style="background:#10B981;color:white" onclick="gfAprovarSolicitacao(${sol.id})">✓ Aprovar</button>
+            <button class="btn" style="background:#8B5CF6;color:white" onclick="gfPendenteSolicitacao(${sol.id})">⏸ Pendente</button>
             <button class="btn" style="background:#EF4444;color:white" onclick="gfRejeitarSolicitacao(${sol.id})">✕ Rejeitar</button>
           </div>
         </div>
         ` : ''}
-        
+
         ${sol.motivoRejeicao ? `
         <div class="card" style="background:#FEF2F2;border-color:#FECACA;margin-top:16px">
           <div style="font-size:12px;font-weight:600;color:#991B1B;margin-bottom:4px">Motivo da Rejeição</div>
           <div style="font-size:13px">${sol.motivoRejeicao}</div>
+        </div>
+        ` : ''}
+
+        ${sol.comentarios ? `
+        <div class="card" style="margin-top:16px">
+          <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:10px">💬 Comentários</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${sol.comentarios.split('\n').filter(Boolean).map(linha => `
+              <div style="font-size:13px;padding:8px 10px;background:var(--bg);border-radius:6px;white-space:pre-wrap">${linha}</div>
+            `).join('')}
+          </div>
         </div>
         ` : ''}
       </div>
@@ -11002,29 +11028,43 @@ function gfLoadSolicitacaoAttachments(solId) {
     .catch(e => { wrap.innerHTML = `<div style="color:var(--red);font-size:13px">Erro ao carregar documentos: ${e.message}</div>`; });
 }
 
+// Lê o texto da caixa de comentário da solicitação (na página de detalhe)
+function gfComentarioTextarea(id) {
+  const el = document.getElementById('gf-sol-comentario-' + id);
+  return el ? el.value.trim() : '';
+}
+
+// Acrescenta uma linha ao histórico de comentários de uma solicitação (não substitui as anteriores)
+function gfAppendComentario(sol, texto, rotulo) {
+  if (!texto) return sol.comentarios || '';
+  const quando = new Date().toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' });
+  const autor = currentUserFJ?.titulo || user?.name || 'Utilizador';
+  const linha = `[${quando}] ${autor}${rotulo ? ' — ' + rotulo : ''}: ${texto}`;
+  return sol.comentarios ? sol.comentarios + '\n' + linha : linha;
+}
+
 async function gfAprovarSolicitacao(id) {
+  const sol = GF_SOLICITACOES.find(s => s.id === id);
+  if (!sol) { showNotif('Solicitação não encontrada', 'error'); return; }
   if (!confirm('Aprovar esta solicitação?')) return;
   try {
-    const sol = GF_SOLICITACOES.find(s => s.id === id);
-    if (!sol) throw new Error('Solicitação não encontrada');
-    
     // VALIDAÇÃO: Diretor de Área só pode aprovar do seu departamento
     if (_financeRole === 'area_director' || _financeRole === 'pca' || _financeRole === 'pe') {
       const solProj = GF_PROJETOS.find(p => p.id === sol.projetoId);
       const projDep = solProj?.dep || solProj?.departamento || '';
-      
+
       if (!gfIsMyDepartamento(projDep)) {
         showNotif('Apenas pode aprovar solicitações do departamento da sua equipa', 'error');
         return;
       }
-      
-      // VALIDAÇÃO: Estado deve ser "Submetido"
-      if (sol.estado !== 'Submetido') {
+
+      // VALIDAÇÃO: Estado deve ser "Submetido" (ou "Pendente Informação", se foi devolvida a este patamar)
+      if (!['Submetido', 'Pendente Informação'].includes(sol.estado)) {
         showNotif('Esta solicitação não está no estado "Submetido"', 'error');
         return;
       }
     }
-    
+
     // VALIDAÇÃO: DF não pode aprovar sem aprovação do Diretor primeiro
     // EXCEÇÃO: projetos do departamento Financeiro (DF é a própria Diretora de Área)
     if (_financeRole === 'df') {
@@ -11034,12 +11074,12 @@ async function gfAprovarSolicitacao(id) {
       } else if (sol.estado === 'Submetido') {
         showNotif('⏳ Aguardando aprovação do Diretor de Área primeiro', 'warn');
         return;
-      } else if (sol.estado !== 'Aprovado Dir.') {
+      } else if (!['Aprovado Dir.', 'Pendente Informação'].includes(sol.estado)) {
         showNotif('Esta solicitação não está pronta para aprovação da DF', 'error');
         return;
       }
     }
-    
+
     const novoEstado = (_financeRole === 'area_director' || _financeRole === 'pca' || _financeRole === 'pe') ? 'Aprovado Dir.' : 'Aprovado DF';
     const body = {
       __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' },
@@ -11052,6 +11092,8 @@ async function gfAprovarSolicitacao(id) {
       body.DataAprovDF = new Date().toISOString();
       body.AprovDFId = await getCurrentUserId();
     }
+    const comentario = gfComentarioTextarea(id);
+    if (comentario) body.Comentarios = gfAppendComentario(sol, comentario, 'Aprovado');
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${id})`, body, 'MERGE');
     showNotif('Solicitação aprovada!', 'success');
     await gfLoadAll();
@@ -11062,16 +11104,45 @@ async function gfAprovarSolicitacao(id) {
 }
 
 async function gfRejeitarSolicitacao(id) {
-  const motivo = prompt('Motivo da rejeição (obrigatório):');
-  if (!motivo || !motivo.trim()) { showNotif('Motivo obrigatório', 'error'); return; }
+  const sol = GF_SOLICITACOES.find(s => s.id === id);
+  if (!sol) { showNotif('Solicitação não encontrada', 'error'); return; }
+  // A caixa de comentário na página de detalhe serve de motivo; se não existir (ex.: ação rápida
+  // a partir da lista de Aprovações), pede-se por um prompt como antes.
+  let motivo = gfComentarioTextarea(id);
+  if (!motivo) motivo = (prompt('Motivo da rejeição (obrigatório):') || '').trim();
+  if (!motivo) { showNotif('Motivo obrigatório', 'error'); return; }
   try {
     const body = {
       __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' },
       Estado: 'Rejeitado',
-      MotivoRejeicao: motivo.trim()
+      MotivoRejeicao: motivo,
+      Comentarios: gfAppendComentario(sol, motivo, 'Rejeitado')
     };
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${id})`, body, 'MERGE');
     showNotif('Solicitação rejeitada', 'success');
+    await gfLoadAll();
+    gfNav('solicitacoes');
+  } catch (e) {
+    showNotif('Erro: ' + e.message, 'error');
+  }
+}
+
+// Marca a solicitação como "Pendente Informação" — devolve-a ao patamar de aprovação atual
+// (fica visível para o mesmo aprovador voltar a decidir assim que o esclarecimento chegar).
+async function gfPendenteSolicitacao(id) {
+  const sol = GF_SOLICITACOES.find(s => s.id === id);
+  if (!sol) { showNotif('Solicitação não encontrada', 'error'); return; }
+  const comentario = gfComentarioTextarea(id);
+  if (!comentario) { showNotif('Escreva no comentário o que falta esclarecer', 'error'); return; }
+  if (!confirm('Marcar esta solicitação como Pendente (a aguardar mais informação)?')) return;
+  try {
+    const body = {
+      __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' },
+      Estado: 'Pendente Informação',
+      Comentarios: gfAppendComentario(sol, comentario, 'Pendente')
+    };
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${id})`, body, 'MERGE');
+    showNotif('Solicitação marcada como Pendente', 'success');
     await gfLoadAll();
     gfNav('solicitacoes');
   } catch (e) {
@@ -11600,7 +11671,7 @@ function gfRenderAprovacoes() {
   // SOLICITAÇÕES - Mostrar todas as pendentes, filtradas por departamento
   // Membros da equipa Financeiro vêem tudo em modo leitura
   let solsPend = GF_SOLICITACOES.filter(s => {
-    const estadosPendentes = ['Submetido', 'Aprovado Dir.'];
+    const estadosPendentes = ['Submetido', 'Aprovado Dir.', 'Pendente Informação'];
     if (!estadosPendentes.includes(s.estado)) return false;
     if (_financeRole === 'df') return true;
     if (isFinanceiroEquipa()) return true; // leitura total para equipa Financeiro
@@ -11650,7 +11721,7 @@ function gfRenderAprovacoes() {
         <div class="card" style="margin-bottom:10px">
           <div style="display:flex;align-items:center;justify-content:space-between">
             <div style="flex:1">
-              <div style="font-weight:500">${s.titulo}</div>
+              <div style="font-weight:500;display:flex;align-items:center;gap:8px">${s.titulo}${s.estado === 'Pendente Informação' ? GF_BADGES['Pendente Informação'] : ''}</div>
               <div style="font-size:12px;color:var(--text3)">${s.projetoNome} · ${s.autorNome} · ${gfDate(s.dataSubmissao)}</div>
               <div style="display:flex;gap:12px;margin-top:8px;font-size:12px">
                 <div style="display:flex;align-items:center;gap:4px">
