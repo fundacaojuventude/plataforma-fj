@@ -1842,6 +1842,20 @@ tr:hover td{background:var(--bg3)}
       <!-- RELATÓRIOS -->
       <div id="pl-page-relatorios" class="page">
         <div class="page-title">Relatórios</div>
+        <div id="frm-relnota-ov" class="overlay">
+          <div class="panel">
+            <div class="panel-title" id="relnota-modal-title">Nota do Relatório</div>
+            <div class="fgrid">
+              <div class="fg" style="grid-column:span 2">
+                <textarea id="relnota-textarea" style="width:100%;min-height:160px;padding:10px;border:1px solid var(--border2);border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box"></textarea>
+              </div>
+            </div>
+            <div class="panel-footer">
+              <button class="btn" onclick="closeRelNotaModal()">Cancelar</button>
+              <button class="btn btn-primary" onclick="saveRelNotaModal()">Guardar</button>
+            </div>
+          </div>
+        </div>
         <div class="toolbar" id="rel-filters-bar">
           <select class="flt" id="rp-periodo" onchange="onRelPeriodoChange()">
             <option value="trimestral">Trimestral</option>
@@ -8325,15 +8339,30 @@ async function saveRelNotaAcao(acaoId,periodKey,textareaId){
     await loadRelNotasAcao();renderRelatorio();showNotif('Nota do relatório guardada!','success');
   }catch(e){showNotif('Erro ao guardar nota: '+e.message,'error');}
 }
-function toggleRelNotaAcaoEdit(btn,acaoId,periodKey){
-  const td=btn.closest('td');if(!td)return;
+let relNotaEditAcaoId=null,relNotaEditPeriodKey=null;
+function relPeriodoLabel(periodKey){
+  if(!periodKey)return'';
+  if(periodKey.startsWith('ANUAL-'))return`Anual ${periodKey.split('-')[1]}`;
+  const[trim,ano]=periodKey.split('-');
+  return`${trim} ${ano}`;
+}
+function openRelNotaModal(acaoId,periodKey){
+  relNotaEditAcaoId=acaoId;relNotaEditPeriodKey=periodKey;
   const nota=findRelNotaAcao(acaoId,periodKey);
-  const taId=`rel-nota-acao-ta-${acaoId}`;
-  td.innerHTML=`<textarea id="${taId}" style="width:100%;min-height:60px;padding:6px;border:1px solid var(--border2);border-radius:6px;font-family:inherit;font-size:12px;box-sizing:border-box">${nota?.notas||''}</textarea>
-    <div style="margin-top:4px;display:flex;gap:6px">
-      <button class="btn btn-sm btn-primary" onclick="saveRelNotaAcao(${acaoId},'${periodKey}','${taId}')">Guardar</button>
-      <button class="btn btn-sm" onclick="renderRelatorio()">Cancelar</button>
-    </div>`;
+  const acao=plAcoes.find(a=>String(a.id)===String(acaoId));
+  const ta=el('relnota-textarea');if(ta)ta.value=nota?.notas||'';
+  const title=el('relnota-modal-title');
+  if(title)title.textContent=`Nota do Relatório · ${relPeriodoLabel(periodKey)}${acao?' · '+(acao.nome||acao.titulo):''}`;
+  el('frm-relnota-ov').classList.add('open');
+}
+function closeRelNotaModal(){
+  const ov=el('frm-relnota-ov');if(ov)ov.classList.remove('open');
+  relNotaEditAcaoId=null;relNotaEditPeriodKey=null;
+}
+async function saveRelNotaModal(){
+  if(relNotaEditAcaoId==null||relNotaEditPeriodKey==null)return;
+  await saveRelNotaAcao(relNotaEditAcaoId,relNotaEditPeriodKey,'relnota-textarea');
+  closeRelNotaModal();
 }
 // Registo mais recente de um KPI dentro do período selecionado
 function kpiValorPeriodo(k,ano,trim,periodo){
@@ -8380,12 +8409,8 @@ function relAcoesGroupHTML(labelTipo,badgeCls,acoesGrupo,ano,trim,periodo){
       <td style="text-align:center;font-weight:700;color:${corA}">${pctA!==null?pctA+'%':'—'}</td>
       <td style="font-size:11px;color:var(--text2);white-space:normal;word-break:break-word">${kpisTxt}</td>
       <td style="font-size:11px;color:var(--text2);white-space:normal;word-break:break-word">
-        <span>${a.notas?a.notas:'—'}</span>
-        <button class="btn btn-sm" style="display:block;margin-top:4px" onclick="toggleAcaoNotaEdit(this,${a.id})">Editar</button>
-      </td>
-      <td style="font-size:11px;color:var(--text2);white-space:normal;word-break:break-word">
         <span>${notaRel&&notaRel.notas?notaRel.notas:'—'}</span>
-        <button class="btn btn-sm" style="display:block;margin-top:4px" onclick="toggleRelNotaAcaoEdit(this,${a.id},'${periodKey}')">Editar</button>
+        <button class="btn btn-sm" style="display:block;margin-top:4px" onclick="openRelNotaModal(${a.id},'${periodKey}')">Editar</button>
       </td>
     </tr>`;
   }).join('');
@@ -8393,8 +8418,8 @@ function relAcoesGroupHTML(labelTipo,badgeCls,acoesGrupo,ano,trim,periodo){
     <div class="kpi-acao-title"><span class="badge ${badgeCls}" style="font-size:10px">${labelTipo}</span> <span style="margin-left:6px">${acoesGrupo.length} ${labelTipo==='Inovação'?'ação(ões)':'ação(ões)'}</span></div>
     <div class="table-wrap" style="border-top:none">
       <table style="table-layout:fixed">
-        <colgroup><col style="width:17%"><col style="width:8%"><col style="width:6%"><col style="width:6%"><col style="width:6%"><col style="width:7%"><col style="width:6%"><col style="width:16%"><col style="width:14%"><col style="width:14%"></colgroup>
-        <thead><tr><th>Ação/Marco</th><th>Departamento</th><th>Início</th><th>Fim</th><th>Tarefas</th><th>Concluídas</th><th>%</th><th>KPIs da Ação</th><th>Notas (gerais)</th><th>Notas do Relatório</th></tr></thead>
+        <colgroup><col style="width:20%"><col style="width:9%"><col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:8%"><col style="width:7%"><col style="width:18%"><col style="width:17%"></colgroup>
+        <thead><tr><th>Ação/Marco</th><th>Departamento</th><th>Início</th><th>Fim</th><th>Tarefas</th><th>Concluídas</th><th>%</th><th>KPIs da Ação</th><th>Notas do Relatório</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -8542,26 +8567,6 @@ function exportRelatorioXLSX(){
   XLSX.writeFile(wb,fname);
 }
 
-/* ===== NOTAS DE ÁÇÃO/MARCO (campo Notas já existente em FJ_Acoes, editável inline no relatório) ===== */
-async function saveAcaoNotaInline(acaoId,textareaId){
-  const texto=gv(textareaId);
-  try{
-    const body={__metadata:{type:'SP.Data.FJ_x005f_AcoesListItem'},Notas:texto};
-    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Acoes')/items(${acaoId})`,body,'MERGE','*');
-    const a=plAcoes.find(x=>x.id===acaoId);if(a)a.notas=texto;
-    renderRelatorio();showNotif('Nota guardada!','success');
-  }catch(e){showNotif('Erro ao guardar nota: '+e.message,'error');}
-}
-function toggleAcaoNotaEdit(btn,acaoId){
-  const td=btn.closest('td');if(!td)return;
-  const a=plAcoes.find(x=>x.id===acaoId);
-  const taId=`acao-nota-ta-${acaoId}`;
-  td.innerHTML=`<textarea id="${taId}" style="width:100%;min-height:60px;padding:6px;border:1px solid var(--border2);border-radius:6px;font-family:inherit;font-size:12px;box-sizing:border-box">${a?.notas||''}</textarea>
-    <div style="margin-top:4px;display:flex;gap:6px">
-      <button class="btn btn-sm btn-primary" onclick="saveAcaoNotaInline(${acaoId},'${taId}')">Guardar</button>
-      <button class="btn btn-sm" onclick="renderRelatorio()">Cancelar</button>
-    </div>`;
-}
 
 /* ===== PEOPLE SEARCH ===== */
 async function plSearchPeople(q,sugId,inputId,emailId){
@@ -8591,6 +8596,7 @@ document.addEventListener('click',e=>{
   if(e.target===el('frm-trim-ov'))closeTrimForm();
   if(e.target===el('frm-kdef-ov'))closeKdefForm();
   if(e.target===el('frm-acao-ov'))closeAcaoForm();
+  if(e.target===el('frm-relnota-ov'))closeRelNotaModal();
 });
 
 /* ===== BOOT ===== */
