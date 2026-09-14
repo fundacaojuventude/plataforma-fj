@@ -5573,6 +5573,9 @@ function fmt(v){return v==null?'—':new Intl.NumberFormat('pt-PT',{minimumFract
 function pct(v,t){return t>0?Math.min(Math.round(v/t*100),100):0;}
 function today(){return new Date().toISOString().slice(0,10);}
 function fd(d){if(!d)return'—';try{const[y,m,day]=d.split('-');return`${day}/${m}/${y}`;}catch(e){return d;}}
+const MES_ABREV_FD=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+// Formato curto sem ano, ex: "1 mai" — usado onde o ano já está definido pelo contexto/filtro
+function fdShort(d){if(!d)return'—';try{const[,m,day]=d.split('-');return`${parseInt(day,10)} ${MES_ABREV_FD[parseInt(m,10)-1]}`;}catch(e){return d;}}
 
 // init() call removed to avoid duplication
 
@@ -6102,7 +6105,7 @@ function rhRenderAnalise(){
 // ══ FIM MÓDULO REGISTO HORAS ═══════════════════════════════════════
 /* ===== STATE ===== */
 
-let plProjetos=[],plAcoes=[],plTarefas=[],plKpdefs=[],plKpregs=[],plPlanoTrim=[],plDepartamentos=[];
+let plProjetos=[],plAcoes=[],plTarefas=[],plKpdefs=[],plKpregs=[],plPlanoTrim=[],plDepartamentos=[],plRelNotasAcao=[];
 let plSemView='pessoal',plViewWeek,plViewYear;
 let plSemMyTasks=true; // true = mostrar só tarefas do utilizador; false = filtros dept/colab
 let plEditTrimId=null,plEditKdefId=null,plEditKregId=null,plEditTarId=null;
@@ -6121,7 +6124,7 @@ async function plLoadAll(){
   showNotif('A carregar dados...','info');
   try{
 
-    await Promise.all([loadProjetos(),loadAcoes(),loadTarefas(),loadKPIDefs(),loadKPIRegs(),loadPlanoTrim(),loadDepartamentos(),loadGruposAcoes()]);
+    await Promise.all([loadProjetos(),loadAcoes(),loadTarefas(),loadKPIDefs(),loadKPIRegs(),loadPlanoTrim(),loadDepartamentos(),loadGruposAcoes(),loadRelNotasAcao()]);
     renderDash();renderHier();renderTrim();renderSem();renderKdefs();renderKregs();populateDrops();populateRelFiltros();renderRelatorio();
     showNotif(`Dados carregados! ${plTarefas.length} tarefas · ${plProjetos.length} projetos · ${plAcoes.length} ações`,'success');
   }catch(e){showNotif('Erro ao carregar: '+e.message,'error');console.error(e);}
@@ -8299,6 +8302,39 @@ function relPeriodoRange(periodo,ano,trim){
   const m=qMeses[trim]||[0,1,2];
   return{start:new Date(ano,m[0],1),end:new Date(ano,m[2]+1,0,23,59,59)};
 }
+// Chave do período do relatório (Q1-2026, Q2-2026, ..., ANUAL-2026) — usada para diferenciar as Notas do Relatório
+function relPeriodKeyFor(periodo,ano,trim){
+  return periodo==='anual'?`ANUAL-${ano}`:`${trim}-${ano}`;
+}
+async function loadRelNotasAcao(){
+  try{
+    const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_RelatorioNotasAcao')/items?$select=*&$top=2000`);
+    plRelNotasAcao=d.d.results.map(r=>({id:r.Id,acaoId:r.AcaoId||null,periodo:r.Periodo||'',notas:r.Notas||''}));
+  }catch(e){console.warn('FJ_RelatorioNotasAcao: lista pode ainda não existir no SharePoint —',e.message);plRelNotasAcao=[];}
+}
+function findRelNotaAcao(acaoId,periodKey){
+  return plRelNotasAcao.find(n=>String(n.acaoId)===String(acaoId)&&n.periodo===periodKey);
+}
+async function saveRelNotaAcao(acaoId,periodKey,textareaId){
+  const texto=gv(textareaId);
+  const existing=findRelNotaAcao(acaoId,periodKey);
+  try{
+    const body={__metadata:{type:'SP.Data.FJ_x005f_RelatorioNotasAcaoListItem'},Title:`${periodKey} · Ação ${acaoId}`,AcaoId:parseInt(acaoId),Periodo:periodKey,Notas:texto};
+    if(existing)await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_RelatorioNotasAcao')/items(${existing.id})`,body,'MERGE','*');
+    else await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_RelatorioNotasAcao')/items`,body,'POST');
+    await loadRelNotasAcao();renderRelatorio();showNotif('Nota do relatório guardada!','success');
+  }catch(e){showNotif('Erro ao guardar nota: '+e.message,'error');}
+}
+function toggleRelNotaAcaoEdit(btn,acaoId,periodKey){
+  const td=btn.closest('td');if(!td)return;
+  const nota=findRelNotaAcao(acaoId,periodKey);
+  const taId=`rel-nota-acao-ta-${acaoId}`;
+  td.innerHTML=`<textarea id="${taId}" style="width:100%;min-height:60px;padding:6px;border:1px solid var(--border2);border-radius:6px;font-family:inherit;font-size:12px;box-sizing:border-box">${nota?.notas||''}</textarea>
+    <div style="margin-top:4px;display:flex;gap:6px">
+      <button class="btn btn-sm btn-primary" onclick="saveRelNotaAcao(${acaoId},'${periodKey}','${taId}')">Guardar</button>
+      <button class="btn btn-sm" onclick="renderRelatorio()">Cancelar</button>
+    </div>`;
+}
 // Registo mais recente de um KPI dentro do período selecionado
 function kpiValorPeriodo(k,ano,trim,periodo){
   let regs=plKpregs.filter(r=>String(r.kpiId)===String(k.id)&&String(r.ano)===String(ano));
@@ -8321,6 +8357,7 @@ function relAcoesFiltradas(periodo,ano,trim,depFlt,projFlt){
 }
 // Renderiza um grupo de Ações/Marcos (Inovação ou Recorrente) como uma caixa com a sua própria tabela
 function relAcoesGroupHTML(labelTipo,badgeCls,acoesGrupo,ano,trim,periodo){
+  const periodKey=relPeriodKeyFor(periodo,ano,trim);
   const rows=acoesGrupo.map(a=>{
     const ts=plTarefas.filter(t=>String(t.acaoId)===String(a.id));
     const concA=ts.filter(t=>t.estado==='Concluída').length;
@@ -8332,11 +8369,12 @@ function relAcoesGroupHTML(labelTipo,badgeCls,acoesGrupo,ano,trim,periodo){
       const pctK=reg&&k.meta?Math.round((reg.valor/k.meta)*100):null;
       return`${k.nome}: ${reg?reg.valor+(k.uni?' '+k.uni:''):'—'}${k.meta?'/'+k.meta:''}${pctK!==null?' ('+pctK+'%)':''}`;
     }).join(' · ')||'—';
+    const notaRel=findRelNotaAcao(a.id,periodKey);
     return`<tr>
       <td style="font-weight:500;white-space:normal;overflow:visible;text-overflow:clip;word-break:break-word">${a.nome||a.titulo}</td>
       <td style="white-space:normal;word-break:break-word">${a.dep?`<span class="badge b-info" style="font-size:10px">${a.dep}</span>`:'—'}</td>
-      <td style="font-size:12px">${fd(a.dataInicio)}</td>
-      <td style="font-size:12px">${fd(a.dataFim)}</td>
+      <td style="font-size:12px;white-space:nowrap">${fdShort(a.dataInicio)}</td>
+      <td style="font-size:12px;white-space:nowrap">${fdShort(a.dataFim)}</td>
       <td style="text-align:center">${ts.length}</td>
       <td style="text-align:center;color:var(--green-mid);font-weight:600">${concA}</td>
       <td style="text-align:center;font-weight:700;color:${corA}">${pctA!==null?pctA+'%':'—'}</td>
@@ -8345,14 +8383,18 @@ function relAcoesGroupHTML(labelTipo,badgeCls,acoesGrupo,ano,trim,periodo){
         <span>${a.notas?a.notas:'—'}</span>
         <button class="btn btn-sm" style="display:block;margin-top:4px" onclick="toggleAcaoNotaEdit(this,${a.id})">Editar</button>
       </td>
+      <td style="font-size:11px;color:var(--text2);white-space:normal;word-break:break-word">
+        <span>${notaRel&&notaRel.notas?notaRel.notas:'—'}</span>
+        <button class="btn btn-sm" style="display:block;margin-top:4px" onclick="toggleRelNotaAcaoEdit(this,${a.id},'${periodKey}')">Editar</button>
+      </td>
     </tr>`;
   }).join('');
   return`<div class="kpi-acao-block">
     <div class="kpi-acao-title"><span class="badge ${badgeCls}" style="font-size:10px">${labelTipo}</span> <span style="margin-left:6px">${acoesGrupo.length} ${labelTipo==='Inovação'?'ação(ões)':'ação(ões)'}</span></div>
     <div class="table-wrap" style="border-top:none">
       <table style="table-layout:fixed">
-        <colgroup><col style="width:19%"><col style="width:9%"><col style="width:8%"><col style="width:8%"><col style="width:6%"><col style="width:7%"><col style="width:6%"><col style="width:18%"><col style="width:19%"></colgroup>
-        <thead><tr><th>Ação/Marco</th><th>Departamento</th><th>Início</th><th>Fim</th><th>Tarefas</th><th>Concluídas</th><th>%</th><th>KPIs da Ação</th><th>Notas</th></tr></thead>
+        <colgroup><col style="width:17%"><col style="width:8%"><col style="width:6%"><col style="width:6%"><col style="width:6%"><col style="width:7%"><col style="width:6%"><col style="width:16%"><col style="width:14%"><col style="width:14%"></colgroup>
+        <thead><tr><th>Ação/Marco</th><th>Departamento</th><th>Início</th><th>Fim</th><th>Tarefas</th><th>Concluídas</th><th>%</th><th>KPIs da Ação</th><th>Notas (gerais)</th><th>Notas do Relatório</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
