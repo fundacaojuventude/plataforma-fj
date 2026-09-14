@@ -1779,7 +1779,7 @@ tr:hover td{background:var(--bg3)}
       <div id="pl-page-kpis" class="page">
         <div class="page-title">KPIs</div>
         <div class="tabs">
-          <div class="tab active" id="tab-def" onclick="setKTab('def')">Definições</div>
+          <div class="tab active" id="tab-def" onclick="setKTab('def')">Criar KPI</div>
           <div class="tab" id="tab-reg" onclick="setKTab('reg')">Registos</div>
         </div>
         <div id="kp-def" class="tab-panel active">
@@ -1803,7 +1803,7 @@ tr:hover td{background:var(--bg3)}
                 <div class="fg"><label>Frequência</label>
                   <select id="fk-freq"><option>Semanal</option><option selected>Mensal</option><option>Trimestral</option><option>Anual</option><option>Única vez</option></select>
                 </div>
-                <div class="fg"><label>Responsável</label><select id="fk-resp" class="user-resp-sel"><option value="">— Selecionar —</option></select></div>
+                <div class="fg"><label>Responsável</label><select id="fk-resp" class="user-resp-sel" onchange="onUserSelChange(this,'fk-resp-email')"><option value="">— Selecionar —</option></select><input type="hidden" id="fk-resp-email"></div>
                 <div class="fg"><label>Ativo</label><select id="fk-ativo"><option value="1">Sim</option><option value="0">Não</option></select></div>
                 <div class="fg" style="grid-column:span 2"><label>Descrição / Fórmula</label><textarea id="fk-desc" placeholder="Como é calculado?"></textarea></div>
               </div>
@@ -1816,42 +1816,23 @@ tr:hover td{background:var(--bg3)}
           <div class="toolbar">
             <select class="flt" id="ff-kd-proj" onchange="renderKdefs()"><option value="">Todos os projetos</option></select>
             <select class="flt" id="ff-kd-tipo" onchange="renderKdefs()"><option value="">Todos os tipos</option><option>Manual</option><option>Automático</option></select>
-            <button class="btn btn-primary" onclick="openKdefForm()">+ Novo KPI</button>
+            <button class="btn btn-primary" id="btn-new-kdef" onclick="openKdefForm()">+ Novo KPI</button>
           </div>
           <div id="kpi-defs-container" class="table-wrap" style="padding:0">
             <div class="empty" style="padding:2rem;text-align:center">A carregar KPIs...</div>
           </div>
         </div>
         <div id="kp-reg" class="tab-panel">
-          <div id="frm-kreg-ov" class="overlay">
-            <div class="panel">
-              <div class="panel-title">Novo registo</div>
-              <div class="fgrid">
-                <div class="fg"><label>KPI *</label><select id="fr-kpi"><option value="">Selecionar...</option></select></div>
-                <div class="fg"><label>Valor *</label><input id="fr-valor" type="number" step="0.01" placeholder="0"></div>
-                <div class="fg"><label>Trimestre</label><select id="fr-trim"><option>Q1</option><option>Q2</option><option>Q3</option><option>Q4</option></select></div>
-                <div class="fg"><label>Semana</label><input id="fr-sem" type="number" placeholder="1-53"></div>
-                <div class="fg"><label>Ano</label><select id="fr-ano"><option>2025</option><option selected>2026</option><option>2027</option><option>2028</option><option>2029</option><option>2030</option></select></div>
-                <div class="fg"><label>Data</label><input id="fr-data" type="date"></div>
-                <div class="fg" style="grid-column:span 2"><label>Notas</label><textarea id="fr-notas" placeholder="Contexto ou justificação"></textarea></div>
-              </div>
-              <div class="panel-footer">
-                <button class="btn" onclick="closeKregForm()">Cancelar</button>
-                <button class="btn btn-primary" id="save-kreg-btn" onclick="saveKreg()">Guardar</button>
-              </div>
-            </div>
-          </div>
-          <div class="toolbar">
+          <div class="toolbar" id="kreg-filters-bar">
             <select class="flt" id="ff-kr-kpi" onchange="renderKregs()"><option value="">Todos os KPIs</option></select>
-            <select class="flt" id="ff-kr-ano" onchange="renderKregs()"><option value="">Todos os anos</option><option>2025</option><option>2026</option><option>2027</option><option>2028</option><option>2029</option><option>2030</option></select>
-            <button class="btn btn-primary" onclick="openKregForm()">+ Novo Registo</button>
+            <select class="flt" id="ff-kr-est" onchange="renderKregs()">
+              <option value="">Todos os estados</option>
+              <option value="pendente">Por preencher</option>
+              <option value="preenchido">Preenchidos</option>
+            </select>
           </div>
-          <div class="table-wrap">
-            <table>
-              <colgroup><col style="width:20%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:8%"><col style="width:10%"><col style="width:10%"><col style="width:4%"></colgroup>
-              <thead><tr><th>KPI</th><th>Período</th><th>Valor</th><th>Objetivo</th><th>Estado</th><th>%</th><th>Data</th><th>Inserido por</th><th></th></tr></thead>
-              <tbody id="tbody-kreg"><tr><td colspan="9"><div class="empty" style="padding:2rem;text-align:center">A carregar registos...</div></td></tr></tbody>
-            </table>
+          <div id="kregs-container" class="table-wrap" style="padding:0">
+            <div class="empty" style="padding:2rem;text-align:center">A carregar registos...</div>
           </div>
         </div>
       </div>
@@ -6435,12 +6416,12 @@ async function loadTarefas(){
   plTarefas=all;
 }
 async function loadKPIDefs(){
-  const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_KPI_Definicoes')/items?$select=*&$orderby=Title asc&$top=500`);
-  plKpdefs=d.d.results.map(r=>({id:r.Id,nome:r.Title||'',projetoId:r.ProjetoIdId||null,acaoId:r.AcaoIdId||null,tipo:r.TipoKPI||'Manual',dir:r.Direcao||'meta',uni:r.Unidade||'',meta:r.Meta||0,freq:r.Frequencia||'Mensal',resp:r.Responsavel||'',ativo:r.Ativo!==false,desc:r.Descricao||''}));
+  const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_KPI_Definicoes')/items?$select=*,Responsavel/Title,Responsavel/EMail&$expand=Responsavel&$orderby=Title asc&$top=500`);
+  plKpdefs=d.d.results.map(r=>({id:r.Id,nome:r.Title||'',projetoId:r.ProjetoIdId||null,acaoId:r.AcaoIdId||null,tipo:r.TipoKPI||'Manual',dir:r.Direcao||'meta',uni:r.Unidade||'',meta:r.Meta||0,freq:r.Frequencia||'Mensal',resp:r.Responsavel?.Title||'',respEmail:(r.Responsavel?.EMail||'').toLowerCase(),ativo:r.Ativo!==false,desc:r.Descricao||'',criado:r.Created?r.Created.split('T')[0]:''}));
 }
 async function loadKPIRegs(){
   const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_KPI_Registos')/items?$select=*,InseridoPor/Title&$expand=InseridoPor&$orderby=Created desc&$top=500`);
-  plKpregs=d.d.results.map(r=>({id:r.Id,periodo:r.Title||'',kpiId:r.KPIId||null,valor:r.Valor||0,trim:r.Trimestre||'',sem:r.Semana||null,ano:r.AnoFJ||null,dataReg:r.DataRegisto?r.DataRegisto.split('T')[0]:'',inseridoPor:r.InseridoPor?.Title||'',notas:r.Notas||''}));
+  plKpregs=d.d.results.map(r=>({id:r.Id,periodo:r.Title||'',kpiId:r.KPIIdId||null,valor:r.Valor||0,trim:r.Trimestre||'',sem:r.Semana||null,ano:r.AnoFJ||null,dataReg:r.DataRegisto?r.DataRegisto.split('T')[0]:'',inseridoPor:r.InseridoPor?.Title||'',notas:r.Notas||''}));
 }
 async function loadPlanoTrim(){
   const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_PlanoTrimestral')/items?$select=*&$orderby=AnoFJ desc,Trimestre asc&$top=500`);
@@ -7888,6 +7869,90 @@ async function plSaveTarefa(){
 }
 
 /* ===== KPIs ===== */
+/* ===== PERMISSÕES KPI ===== */
+// Departamento "dono" de um KPI = departamento do projeto associado (se houver)
+function kpiOwnerDep(k){
+  if(!k||!k.projetoId)return'';
+  const p=plProjetos.find(x=>String(x.id)===String(k.projetoId));
+  return p?.dep||'';
+}
+// Projetos onde o utilizador atual pode criar/editar KPIs
+function getManageableProjetos(){
+  const cargo=userCargo();
+  if(cargo==='Presidente Executivo')return plProjetos;
+  if(cargo==='Diretor')return plProjetos.filter(p=>_financeDepts.some(d=>normalizeDep(d)===normalizeDep(p.dep)));
+  return [];
+}
+// Pode criar/editar a definição de um KPI? k=null → a abrir o formulário genérico (sem projeto ainda escolhido)
+// projId → ao usar o botão "+ KPI" de um projeto específico
+function canManageKpiDef(k,projId){
+  const cargo=userCargo();
+  if(cargo==='Presidente Executivo')return true;
+  if(cargo!=='Diretor')return false;
+  let dep='';
+  if(k)dep=kpiOwnerDep(k);
+  else if(projId)dep=(plProjetos.find(x=>String(x.id)===String(projId))||{}).dep||'';
+  if(!dep)return true; // sem projeto associado: qualquer Diretor ou PE
+  return _financeDepts.some(d=>normalizeDep(d)===normalizeDep(dep));
+}
+// Pode registar (preencher) um valor deste KPI? Diretor (qualquer), PE, ou o Responsável do KPI
+function canRegistarKpi(k){
+  const cargo=userCargo();
+  if(cargo==='Presidente Executivo'||cargo==='Diretor')return true;
+  const myEmail=(currentUserFJ?.email||'').toLowerCase();
+  if(myEmail&&k?.respEmail&&myEmail===k.respEmail)return true;
+  return false;
+}
+
+/* ===== PERÍODOS KPI (para a página de Registo) ===== */
+const MES_NOMES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+function monthLabel(m,y){return`${MES_NOMES[m]} ${y}`;}
+function isoMonday(date){const d=new Date(date);d.setHours(0,0,0,0);const day=d.getDay()||7;d.setDate(d.getDate()-day+1);return d;}
+function isoYearOf(date){const d=new Date(date);d.setHours(0,0,0,0);d.setDate(d.getDate()+4-(d.getDay()||7));return d.getFullYear();}
+// Gera a lista cronológica de períodos esperados de um KPI, desde a criação até hoje
+function kpiPeriodos(k){
+  const freq=k.freq||'Mensal';
+  const start=new Date((k.criado||today())+'T00:00:00');
+  const end=new Date();
+  const periods=[];
+  if(isNaN(start.getTime()))return periods;
+  if(freq==='Única vez'){
+    periods.push({key:'unico',label:'Registo único'});
+    return periods;
+  }
+  if(freq==='Semanal'){
+    let cur=isoMonday(start);
+    while(cur<=end){
+      const y=isoYearOf(cur),w=isoWeek(cur);
+      periods.push({key:`${y}-W${String(w).padStart(2,'0')}`,label:weekLabel(w,y)});
+      cur=new Date(cur);cur.setDate(cur.getDate()+7);
+    }
+    return periods;
+  }
+  if(freq==='Trimestral'){
+    let q=Math.floor(start.getMonth()/3)+1,y=start.getFullYear();
+    while(new Date(y,(q-1)*3,1)<=end){
+      periods.push({key:`${y}-Q${q}`,label:`Q${q} ${y}`});
+      q++;if(q>4){q=1;y++;}
+    }
+    return periods;
+  }
+  if(freq==='Anual'){
+    let y=start.getFullYear();
+    while(new Date(y,0,1)<=end){periods.push({key:`${y}`,label:`${y}`});y++;}
+    return periods;
+  }
+  // Mensal (default)
+  let m=start.getMonth(),y=start.getFullYear();
+  while(new Date(y,m,1)<=end){
+    periods.push({key:`${y}-M${String(m+1).padStart(2,'0')}`,label:monthLabel(m,y)});
+    m++;if(m>11){m=0;y++;}
+  }
+  return periods;
+}
+function findRegParaPeriodo(kpiId,periodKey){
+  return plKpregs.find(r=>String(r.kpiId)===String(kpiId)&&r.periodo===periodKey);
+}
 function setKTab(t){
   const elDef=el('tab-def'),elReg=el('tab-reg'),elKpDef=el('kp-def'),elKpReg=el('kp-reg');
   if(elDef)elDef.classList.toggle('active',t==='def');
@@ -7921,17 +7986,23 @@ function renderKdefs(){
   const semProjeto=kpis.filter(k=>!k.projetoId);
   const comProjeto=plProjetos.filter(p=>kpis.some(k=>String(k.projetoId)===String(p.id)));
 
+  // Botão global "+ Novo KPI": qualquer Diretor ou PE pode sempre criar (pelo menos KPIs sem projeto)
+  const btnNovoKdef=el('btn-new-kdef');
+  if(btnNovoKdef)btnNovoKdef.classList.toggle('hidden',!canManageKpiDef(null));
+
   let html='';
 
   // KPIs sem projeto
-  if(semProjeto.length){
+  const podeGerirSemProj=canManageKpiDef(null);
+  if(semProjeto.length||podeGerirSemProj){
     html+=`<div class="kpi-proj-block">
       <div class="kpi-proj-hdr" onclick="this.nextElementSibling.classList.toggle('hidden')">
         <span style="font-size:13px;font-weight:600;color:var(--text2)">Sem projeto associado</span>
         <span style="font-size:11px;color:var(--text3);margin-left:auto">${semProjeto.length} KPI${semProjeto.length!==1?'s':''}</span>
+        ${podeGerirSemProj?`<button class="btn btn-sm" style="font-size:11px;margin-left:8px" onclick="event.stopPropagation();openKdefForm()">+ KPI</button>`:''}
       </div>
       <div class="kpi-acao-block">
-        ${semProjeto.map(k=>{const c=kpiCumprimento(k);return kpiRow(k,c);}).join('')}
+        ${semProjeto.length?semProjeto.map(k=>{const c=kpiCumprimento(k);return kpiRow(k,c);}).join(''):'<div class="empty" style="padding:1rem;text-align:center;font-size:12px">Sem KPIs.</div>'}
       </div>
     </div>`;
   }
@@ -7943,13 +8014,14 @@ function renderKdefs(){
     const semAcao=projKpis.filter(k=>!k.acaoId);
     const cumprMedio=projKpis.reduce((sum,k)=>{const c=kpiCumprimento(k);return c?sum+Math.min(c.pct,100):sum;},0)/(projKpis.filter(k=>kpiCumprimento(k)).length||1);
     const cor=cumprMedio>=80?'var(--green-mid)':cumprMedio>=50?'var(--amber)':'var(--red)';
+    const podeGerirProj=canManageKpiDef(null,p.id);
     html+=`<div class="kpi-proj-block">
       <div class="kpi-proj-hdr" onclick="this.nextElementSibling.classList.toggle('hidden')">
         <span style="font-size:14px;font-weight:600">${p.nome}</span>
         ${p.dep?`<span class="badge b-info" style="font-size:10px">${p.dep}</span>`:''}
         <span style="margin-left:auto;font-size:12px;font-weight:700;color:${cor}">${Math.round(cumprMedio)}% cumprimento</span>
         <span style="font-size:11px;color:var(--text3);margin-left:8px">${projKpis.length} KPI${projKpis.length!==1?'s':''}</span>
-        <button class="btn btn-sm" style="font-size:11px;margin-left:8px" onclick="event.stopPropagation();openKdefFormForProj(${p.id})">+ KPI</button>
+        ${podeGerirProj?`<button class="btn btn-sm" style="font-size:11px;margin-left:8px" onclick="event.stopPropagation();openKdefFormForProj(${p.id})">+ KPI</button>`:''}
       </div>
       <div>
         ${semAcao.length?`<div class="kpi-acao-block">
@@ -7971,7 +8043,7 @@ function renderKdefs(){
     </div>`;
   });
 
-  if(!html)html=`<div class="empty" style="padding:2rem;text-align:center">Sem KPIs definidos. Clique em "+ Novo KPI" para começar.</div>`;
+  if(!html)html=`<div class="empty" style="padding:2rem;text-align:center">Sem KPIs definidos.</div>`;
 
   // Substituir o table-wrap por blocos de projeto
   container.innerHTML=html;
@@ -7980,10 +8052,11 @@ function renderKdefs(){
 function kpiRow(k,c){
   const barW=c?Math.min(c.pct,100):0;
   const barCor=c?c.cor:'var(--border2)';
+  const podeGerir=canManageKpiDef(k);
   return`<div class="kpi-row">
     <div>
       <div style="font-weight:500">${k.nome}</div>
-      <div style="font-size:11px;color:var(--text3)">${k.freq||'—'} · ${k.dir==='limite'?'↓ Limite':'↑ Meta'} · ${k.uni||'—'}</div>
+      <div style="font-size:11px;color:var(--text3)">${k.freq||'—'} · ${k.dir==='limite'?'↓ Limite':'↑ Meta'} · ${k.uni||'—'}${k.resp?' · Resp.: '+k.resp:''}</div>
     </div>
     <div style="text-align:center">
       ${c?`<span style="font-weight:700;font-size:14px;color:${c.cor}">${c.valor} ${k.uni||''}</span><br><span style="font-size:10px;color:var(--text3)">atual</span>`:'<span style="color:var(--text3);font-size:12px">sem registo</span>'}
@@ -7997,20 +8070,27 @@ function kpiRow(k,c){
       <div style="font-size:11px;font-weight:700;color:${barCor};margin-top:2px">${c?c.pct+'%':'—'}</div>
     </div>
     <div class="actions">
-      <button class="btn btn-sm" onclick="editKdef(${k.id})">Editar</button>
-      <button class="btn btn-sm btn-danger" onclick="delKdef(${k.id})">✕</button>
+      ${podeGerir?`<button class="btn btn-sm" onclick="editKdef(${k.id})">Editar</button><button class="btn btn-sm btn-danger" onclick="delKdef(${k.id})">✕</button>`:''}
     </div>
   </div>`;
 }
 
 function openKdefFormForProj(projId){
+  if(!canManageKpiDef(null,projId)){showNotif('Sem permissão para criar KPIs neste projeto.','error');return;}
   openKdefForm();
   const projSel=el('fk-proj');
   if(projSel){sv2('fk-proj',String(projId));loadAcoesForProj(projId,'fk-acao');}
 }
 function openKdefForm(id){
+  if(id){
+    const k=plKpdefs.find(x=>x.id===id);
+    if(!k||!canManageKpiDef(k)){showNotif('Sem permissão para editar este KPI.','error');return;}
+  }else if(!canManageKpiDef(null)){
+    showNotif('Sem permissão para criar KPIs.','error');return;
+  }
   plEditKdefId=id||null;el('frm-kdef-ov').classList.add('open');
-  el('fk-proj').innerHTML='<option value="">Nenhum</option>'+plProjetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+  const projOpts=getManageableProjetos();
+  el('fk-proj').innerHTML='<option value="">Nenhum</option>'+projOpts.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
   el('fk-proj').onchange=function(){loadAcoesForProj(this.value,'fk-acao');};
   if(id){
     const k=plKpdefs.find(x=>x.id===id);if(!k)return;
@@ -8018,10 +8098,11 @@ function openKdefForm(id){
     sv2('fk-nome',k.nome);sv2('fk-proj',k.projetoId||'');loadAcoesForProj(k.projetoId,'fk-acao',k.acaoId);
     sv2('fk-tipo',k.tipo);sv2('fk-dir',k.dir||'meta');sv2('fk-uni',k.uni||'');
     sv2('fk-meta',k.meta||0);sv2('fk-freq',k.freq);sv2('fk-resp',k.resp||'');
+    el('fk-resp-email').value=k.respEmail||'';
     sv2('fk-ativo',k.ativo?'1':'0');sv2('fk-desc',k.desc||'');
   }else{
     el('frm-kdef-title').textContent='Novo KPI';
-    ['fk-nome','fk-uni','fk-resp','fk-desc'].forEach(i=>sv2(i,''));
+    ['fk-nome','fk-uni','fk-resp','fk-desc','fk-resp-email'].forEach(i=>sv2(i,''));
     sv2('fk-tipo','Manual');sv2('fk-dir','meta');sv2('fk-meta',0);sv2('fk-freq','Mensal');sv2('fk-ativo','1');
     loadAcoesForProj('','fk-acao');
   }
@@ -8030,10 +8111,13 @@ function editKdef(id){openKdefForm(id);}
 function closeKdefForm(){el('frm-kdef-ov').classList.remove('open');plEditKdefId=null;}
 async function saveKdef(){
   const nome=gv('fk-nome').trim();if(!nome){alert('Nome obrigatório.');return;}
+  const pidChk=gv('fk-proj');
+  const kChk=plEditKdefId?plKpdefs.find(x=>x.id===plEditKdefId):null;
+  if(!canManageKpiDef(kChk,pidChk||null)){showNotif('Sem permissão para guardar este KPI.','error');return;}
   const btn=el('save-kdef-btn');btn.textContent='A guardar...';btn.disabled=true;
   try{
     const body={__metadata:{type:'SP.Data.FJ_x005f_KPI_x005f_DefinicoesListItem'},Title:nome,TipoKPI:gv('fk-tipo'),Direcao:gv('fk-dir'),Unidade:gv('fk-uni'),Frequencia:gv('fk-freq'),Ativo:gv('fk-ativo')==='1',Descricao:gv('fk-desc')};
-    const respEmail=gv('fk-resp');if(respEmail){const uid=await getSpUID(respEmail);if(uid)body.ResponsavelId=uid;}
+    const respEmail=gv('fk-resp-email');if(respEmail){const uid=await getSpUID(respEmail);if(uid)body.ResponsavelId=uid;}
     const m=parseFloat(gv('fk-meta'));if(!isNaN(m))body.Meta=m;
     const pid=gv('fk-proj');if(pid)body.ProjetoIdId=parseInt(pid);
     const aid=gv('fk-acao');if(aid)body.AcaoIdId=parseInt(aid);
@@ -8049,53 +8133,119 @@ async function delKdef(id){
   catch(e){showNotif('Erro: '+e.message,'error');}
 }
 function renderKregs(){
-  const tbody=el('tbody-kreg');
-  if(!tbody)return; // Safety check
-  const kpiId=gv('ff-kr-kpi'),ano=gv('ff-kr-ano');
-  const list=plKpregs.filter(r=>{if(kpiId&&String(r.kpiId)!==kpiId)return false;if(ano&&String(r.ano)!==ano)return false;return true;});
-  tbody.innerHTML=list.map(r=>{
-    const k=plKpdefs.find(x=>String(x.id)===String(r.kpiId));
-    const meta=k?.meta||null;const pct=meta&&r.valor!==null?Math.round((r.valor/meta)*100):null;
-    const c=pct!==null?kpiColor(k,pct):'var(--tx)';
-    const est=pct!==null?kpiEstado(k,pct):'—';
-    return`<tr>
-      <td style="font-weight:500;font-size:12px">${kn(r.kpiId)}</td>
-      <td>${r.periodo||'—'}</td>
-      <td style="font-weight:700">${r.valor} ${k?.uni||''}</td>
-      <td>${meta!==null?meta+' '+(k?.uni||''):'—'}</td>
-      <td style="font-size:12px">${est}</td>
-      <td style="font-weight:700;color:${c}">${pct!==null?pct+'%':'—'}</td>
-      <td style="font-size:12px">${fd(r.dataReg)}</td>
-      <td style="font-size:12px">${r.inseridoPor||'—'}</td>
-      <td><button class="btn btn-sm btn-danger" title="Eliminar" onclick="delKreg(${r.id})">✕</button></td>
-    </tr>`;
-  }).join('')||`<tr><td colspan="9"><div class="empty">Sem registos.</div></td></tr>`;
+  const container=el('kregs-container');
+  if(!container)return; // Safety check
+  const kpiFlt=gv('ff-kr-kpi'),estFlt=gv('ff-kr-est');
+  let kpis=plKpdefs.filter(k=>k.ativo);
+  if(kpiFlt)kpis=kpis.filter(k=>String(k.id)===kpiFlt);
+  kpis=kpis.slice().sort((a,b)=>a.nome.localeCompare(b.nome));
+
+  let html='';
+  kpis.forEach(k=>{
+    const podeRegistar=canRegistarKpi(k);
+    const periods=kpiPeriodos(k).slice().reverse(); // mais recente/urgente primeiro
+    const rows=periods.map(p=>{
+      const reg=findRegParaPeriodo(k.id,p.key);
+      const preenchido=!!reg;
+      if(estFlt==='pendente'&&preenchido)return'';
+      if(estFlt==='preenchido'&&!preenchido)return'';
+      const meta=k.meta||null;
+      const pct=preenchido&&meta?Math.round((reg.valor/meta)*100):null;
+      const cor=pct!==null?kpiColor(k,pct):'var(--tx3)';
+      const est=pct!==null?kpiEstado(k,pct):'—';
+      const inputId=`kreg-inline-${k.id}-${p.key.replace(/[^A-Za-z0-9]/g,'')}`;
+      if(preenchido){
+        return`<tr>
+          <td>${p.label}</td>
+          <td>
+            <span style="font-weight:700">${reg.valor} ${k.uni||''}</span>
+            ${podeRegistar?` <button class="btn btn-sm" onclick="toggleKregEdit(this,${k.id},'${p.key}',${reg.valor})">Editar</button>`:''}
+          </td>
+          <td>${meta!==null?meta+' '+(k.uni||''):'—'}</td>
+          <td style="font-size:12px">${est}</td>
+          <td style="font-weight:700;color:${cor}">${pct!==null?pct+'%':'—'}</td>
+          <td style="font-size:12px">${fd(reg.dataReg)}</td>
+          <td style="font-size:12px">${reg.inseridoPor||'—'}</td>
+          <td>${podeRegistar?`<button class="btn btn-sm btn-danger" title="Eliminar" onclick="delKreg(${reg.id})">✕</button>`:''}</td>
+        </tr>`;
+      }
+      return`<tr style="background:rgba(220,38,38,.06)">
+        <td style="font-weight:600">${p.label}</td>
+        <td>
+          ${podeRegistar?`<input type="number" step="0.01" id="${inputId}" placeholder="Valor" style="width:90px">
+          <button class="btn btn-sm btn-primary" onclick="saveKregPeriodo(${k.id},'${p.key}','${inputId}')">Guardar</button>`:'<span style="color:var(--red);font-weight:600;font-size:12px">Por preencher</span>'}
+        </td>
+        <td>${meta!==null?meta+' '+(k.uni||''):'—'}</td>
+        <td style="font-size:12px;color:var(--red);font-weight:600">Em falta</td>
+        <td>—</td><td>—</td><td>—</td><td></td>
+      </tr>`;
+    }).join('');
+    if(!rows)return;
+    html+=`<div class="kpi-proj-block">
+      <div class="kpi-proj-hdr" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <span style="font-size:14px;font-weight:600">${k.nome}</span>
+        <span style="font-size:11px;color:var(--text3);margin-left:8px">${k.freq||'—'}</span>
+        ${!podeRegistar?'<span class="badge b-gray" style="font-size:10px;margin-left:8px">Sem permissão para registar</span>':''}
+      </div>
+      <div class="table-wrap" style="border:none">
+        <table>
+          <colgroup><col style="width:20%"><col style="width:24%"><col style="width:12%"><col style="width:12%"><col style="width:8%"><col style="width:10%"><col style="width:10%"><col style="width:4%"></colgroup>
+          <thead><tr><th>Período</th><th>Valor</th><th>Objetivo</th><th>Estado</th><th>%</th><th>Data</th><th>Inserido por</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  });
+  container.innerHTML=html||`<div class="empty" style="padding:2rem;text-align:center">Sem KPIs para mostrar.</div>`;
+}
+function toggleKregEdit(btn,kpiId,periodKey,currentVal){
+  const td=btn.closest('td');if(!td)return;
+  const inputId=`kreg-edit-${kpiId}-${periodKey.replace(/[^A-Za-z0-9]/g,'')}`;
+  td.innerHTML=`<input type="number" step="0.01" id="${inputId}" value="${currentVal}" style="width:90px">
+    <button class="btn btn-sm btn-primary" onclick="saveKregPeriodo(${kpiId},'${periodKey}','${inputId}')">Guardar</button>
+    <button class="btn btn-sm" onclick="renderKregs()">Cancelar</button>`;
+}
+async function saveKregPeriodo(kpiId,periodKey,inputId){
+  const k=plKpdefs.find(x=>String(x.id)===String(kpiId));
+  if(!k){showNotif('KPI não encontrado.','error');return;}
+  if(!canRegistarKpi(k)){showNotif('Sem permissão para registar este KPI.','error');return;}
+  const inputEl=el(inputId);
+  const val=parseFloat(inputEl?.value);
+  if(isNaN(val)){showNotif('Introduz um valor.','error');return;}
+  const existing=findRegParaPeriodo(kpiId,periodKey);
+  let ano=null,sem=null,trim='';
+  let m;
+  if((m=periodKey.match(/^(\d{4})-W(\d{2})$/))){
+    ano=parseInt(m[1]);sem=parseInt(m[2]);
+    const wr=weekRange(sem,ano);trim='Q'+(Math.floor(wr.start.getMonth()/3)+1);
+  }else if((m=periodKey.match(/^(\d{4})-M(\d{2})$/))){
+    ano=parseInt(m[1]);trim='Q'+(Math.floor((parseInt(m[2])-1)/3)+1);
+  }else if((m=periodKey.match(/^(\d{4})-Q([1-4])$/))){
+    ano=parseInt(m[1]);trim='Q'+m[2];
+  }else if((m=periodKey.match(/^(\d{4})$/))){
+    ano=parseInt(m[1]);
+  }else{
+    ano=new Date().getFullYear();
+  }
+  const body={__metadata:{type:'SP.Data.FJ_x005f_KPI_x005f_RegistosListItem'},Title:periodKey,KPIIdId:parseInt(kpiId),Valor:val};
+  if(ano)body.AnoFJ=ano;
+  if(sem)body.Semana=sem;
+  if(trim)body.Trimestre=trim;
+  body.DataRegisto=today()+'T00:00:00Z';
+  try{
+    const myEmail=currentUserFJ?.email||(user?.username||user?.preferredUsername||'').toLowerCase();
+    if(myEmail){const uid=await getSpUID(myEmail);if(uid)body.InseridoPorId=uid;}
+  }catch(e){/* não bloqueia o registo se falhar a resolução do utilizador */}
+  try{
+    if(existing)await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_KPI_Registos')/items(${existing.id})`,body,'MERGE','*');
+    else await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_KPI_Registos')/items`,body,'POST');
+    await loadKPIRegs();renderKregs();renderDash();showNotif('Registo guardado!','success');
+  }catch(e){showNotif('Erro: '+e.message,'error');}
 }
 async function delKreg(id){
   if(!confirm('Eliminar este registo?'))return;
   try{await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_KPI_Registos')/items(${id})`,null,'DELETE');await loadKPIRegs();renderKregs();renderDash();showNotif('Eliminado.','success');}
   catch(e){showNotif('Erro: '+e.message,'error');}
-}
-function openKregForm(){
-  el('frm-kreg-ov').classList.add('open');
-  el('fr-kpi').innerHTML='<option value="">Selecionar KPI...</option>'+plKpdefs.filter(k=>k.ativo).map(k=>`<option value="${k.id}">${k.nome}</option>`).join('');
-  sv2('fr-valor',0);sv2('fr-sem',plViewWeek);sv2('fr-data',today());sv2('fr-notas','');
-}
-function closeKregForm(){el('frm-kreg-ov').classList.remove('open');}
-async function saveKreg(){
-  const kpiId=gv('fr-kpi');if(!kpiId){alert('Seleciona um KPI.');return;}
-  const btn=el('save-kreg-btn');btn.textContent='A guardar...';btn.disabled=true;
-  try{
-    const trim=gv('fr-trim'),ano=parseInt(gv('fr-ano')||new Date().getFullYear()),sem=parseInt(gv('fr-sem'));
-    const periodo=sem?`${ano}-W${String(sem).padStart(2,'0')}`:`${ano}-${trim}`;
-    const body={__metadata:{type:'SP.Data.FJ_x005f_KPI_x005f_RegistosListItem'},Title:periodo,KPIId:parseInt(kpiId),Trimestre:trim,Notas:gv('fr-notas')};
-    const v=parseFloat(gv('fr-valor'));if(!isNaN(v))body.Valor=v;
-    if(ano)body.AnoFJ=ano;if(sem)body.Semana=sem;
-    if(gv('fr-data'))body.DataRegisto=gv('fr-data')+'T00:00:00Z';
-    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_KPI_Registos')/items`,body,'POST');
-    closeKregForm();await loadKPIRegs();renderKregs();renderDash();showNotif('Registo guardado!','success');
-  }catch(e){showNotif('Erro: '+e.message,'error');}
-  btn.textContent='Guardar';btn.disabled=false;
 }
 
 /* ===== RELATÓRIOS ===== */
@@ -8204,7 +8354,6 @@ document.addEventListener('click',e=>{
   if(e.target===el('frm-tar-ov'))closeRnTarForm();
   if(e.target===el('frm-trim-ov'))closeTrimForm();
   if(e.target===el('frm-kdef-ov'))closeKdefForm();
-  if(e.target===el('frm-kreg-ov'))closeKregForm();
   if(e.target===el('frm-acao-ov'))closeAcaoForm();
 });
 
