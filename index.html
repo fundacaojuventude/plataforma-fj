@@ -2906,6 +2906,11 @@ tr:hover td{background:var(--bg3)}
 const CLIENT_ID='b3a66901-ec96-424b-9bcb-370b39a2a210';
 const TENANT_ID='09ae14e9-8398-4ca0-a5cd-994620a0ab3a';
 const SP='https://fjuventude.sharepoint.com/sites/PlataformasInternasFJ';
+// Apenas o domínio (sem o /sites/...) — usar para prefixar um ServerRelativeUrl, que já vem
+// com o caminho completo a partir da raiz do servidor (ex.: "/sites/PlataformasInternasFJ/Lists/...").
+// Prefixar esses valores com SP (que já inclui "/sites/PlataformasInternasFJ") duplicava o
+// caminho e dava 404 ao abrir anexos.
+const SP_ORIGIN=SP.match(/^https?:\/\/[^/]+/)[0];
 const REDIRECT=window.location.href.split('?')[0].split('#')[0];
 const SCOPES=['https://fjuventude.sharepoint.com/AllSites.Write','https://fjuventude.sharepoint.com/AllSites.Read'];
 const GRAPH_SCOPES=['User.Read','GroupMember.Read.All'];
@@ -7300,7 +7305,7 @@ function renderTrim(){
     const rag=pAcoes.length?calcRag(pAcoes[0].id):'c';
     // Linha do projeto
     rows.push(`<tr style="background:var(--bg3);font-weight:600">
-      <td colspan="2" style="padding:9px 11px">
+      <td colspan="2" style="padding:9px 11px;white-space:normal;overflow:visible;text-overflow:clip;word-break:break-word">
         <span class="rag rag-${rag}" style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle"></span>
         ${p.nome}
       </td>
@@ -7319,7 +7324,7 @@ function renderTrim(){
       const tipoCls=tipo==='INOV'?'b-fin':'b-info';
       rows.push(`<tr>
         <td style="padding:8px 11px 8px 28px;width:4%"><span class="rag rag-${ragA}" style="display:inline-block;width:8px;height:8px;border-radius:50%"></span></td>
-        <td style="padding:8px 4px;font-weight:500;font-size:13px">${a.nome||a.titulo}</td>
+        <td style="padding:8px 4px;font-weight:500;font-size:13px;white-space:normal;overflow:visible;text-overflow:clip;word-break:break-word">${a.nome||a.titulo}</td>
         <td style="padding:8px 4px">${a.dep?`<span class="badge b-info" style="font-size:10px">${a.dep}</span>`:''}</td>
         <td style="padding:8px 4px"><span class="badge ${tipoCls}" style="font-size:10px">${tipo}</span></td>
         <td style="padding:8px 4px;font-size:12px;color:var(--text2)">${a.dataInicio?fd(a.dataInicio):'—'}</td>
@@ -10980,7 +10985,7 @@ function gfLoadSolicitacaoAttachments(solId) {
       const fat = files.filter(f => f.FileName.startsWith('FAT_'));
       const other = files.filter(f => !f.FileName.startsWith('ORC_') && !f.FileName.startsWith('ADJ_') && !f.FileName.startsWith('NE_') && !f.FileName.startsWith('FAT_'));
       const link = (f, prefix) => `<div style="display:inline-flex;align-items:center;gap:4px;margin:2px">
-        <a href="${SP}${f.ServerRelativeUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--blue-l);color:var(--blue-d);border-radius:4px 0 0 4px;font-size:12px;text-decoration:none">📎 ${f.FileName.replace(new RegExp('^'+prefix),'')}</a>
+        <a href="${SP_ORIGIN}${f.ServerRelativeUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--blue-l);color:var(--blue-d);border-radius:4px 0 0 4px;font-size:12px;text-decoration:none">📎 ${f.FileName.replace(new RegExp('^'+prefix),'')}</a>
         <button onclick="removeAttach('FJ_Solicitacoes',${solId},'${f.FileName.replace(/'/g,"\\'")}')" style="padding:4px 8px;background:#fee2e2;color:#b91c1c;border:none;border-radius:0 4px 4px 0;cursor:pointer;font-size:11px;font-weight:600" title="Eliminar anexo">✕</button>
       </div>`;
       if (!files.length) {
