@@ -3199,20 +3199,22 @@ async function downloadSPFile(serverRelUrl,name){
 // Chama esta função e depois acede a _financeRole (role principal) e _financeDepts (depts de aprovação).
 function determinarFinanceRole(u){
   if(!u) return 'worker';
-  
+
   const cargo = u.cargo || '';
   const equipas = u.equipa || [];
-  
-  // Calcular departamentos operacionais onde é Diretor de Área
-  const DEPTS_OPERACIONAIS = ['Op.Norte', 'Op.Sul', 'Impacto', 'INOV', 'Financeiro'];
+
+  // Departamentos onde é Diretor de Área = todas as equipas do utilizador, exceto 'CAdm'
+  // (CAdm tem o seu próprio papel de aprovação — 'pca' — e não é um departamento operacional).
+  // Nota: antes usava-se uma lista fixa de departamentos (Op.Norte/Op.Sul/Impacto/INOV/Financeiro)
+  // que ficava desatualizada sempre que surgia um departamento novo (ex.: "Projetos"), impedindo
+  // o respetivo Diretor de Área de aprovar solicitações — mesmo aparecendo corretamente identificado
+  // no Fluxo de Aprovação (gfGetDiretorArea usa exatamente o mesmo critério: equipa inclui o
+  // departamento, excluindo CAdm). Manter os dois critérios alinhados.
   _financeDepts = [];
-  
   if(cargo === 'Diretor'){
-    for(const dept of DEPTS_OPERACIONAIS){
-      if(equipas.includes(dept)) _financeDepts.push(dept);
-    }
+    _financeDepts = equipas.filter(e => e && e !== 'CAdm');
   }
-  
+
   // Role principal (por ordem de prioridade)
   if(cargo === 'Presidente Executivo') return 'pe';
   if(equipas.includes('CAdm') && cargo === 'Diretor') return 'pca';
