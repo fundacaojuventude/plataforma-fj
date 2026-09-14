@@ -1847,29 +1847,14 @@ tr:hover td{background:var(--bg3)}
             <option value="trimestral">Trimestral</option>
             <option value="anual">Anual</option>
           </select>
-          <select class="flt" id="rp-ano" onchange="renderRelatorio();renderRelNota()"><option>2024</option><option>2025</option><option selected>2026</option><option>2027</option><option>2028</option><option>2029</option><option>2030</option></select>
-          <select class="flt" id="rp-trim" onchange="renderRelatorio();renderRelNota()"><option>Q1</option><option>Q2</option><option>Q3</option><option>Q4</option></select>
+          <select class="flt" id="rp-ano" onchange="renderRelatorio()"><option>2024</option><option>2025</option><option selected>2026</option><option>2027</option><option>2028</option><option>2029</option><option>2030</option></select>
+          <select class="flt" id="rp-trim" onchange="renderRelatorio()"><option>Q1</option><option>Q2</option><option>Q3</option><option>Q4</option></select>
           <select class="flt" id="rp-dep" onchange="populateRelFiltros();renderRelatorio()"><option value="">Todos os departamentos</option></select>
           <select class="flt" id="rp-proj" onchange="renderRelatorio()"><option value="">Todos os projetos</option></select>
           <button class="btn btn-primary" onclick="exportRelatorioXLSX()">⬇️ Exportar Excel</button>
         </div>
         <div id="rel-content">
           <div class="empty" style="padding:2rem;text-align:center">A carregar relatório...</div>
-        </div>
-        <div id="rel-notas-box" style="margin-top:1.5rem;border:1px solid var(--border2);border-radius:var(--r);padding:14px 16px;background:var(--bg3)">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            <span style="font-size:13px;font-weight:600">Notas</span>
-            <span id="rel-nota-meta" style="font-size:11px;color:var(--text3)"></span>
-            <button class="btn btn-sm" id="rel-nota-edit-btn" style="margin-left:auto" onclick="toggleRelNotaEdit()">Editar</button>
-          </div>
-          <div id="rel-nota-view" style="font-size:13px;color:var(--text2);white-space:pre-wrap">—</div>
-          <div id="rel-nota-edit" class="hidden">
-            <textarea id="rel-nota-textarea" style="width:100%;min-height:100px;padding:8px;border:1px solid var(--border2);border-radius:6px;font-family:inherit;font-size:13px;box-sizing:border-box"></textarea>
-            <div style="margin-top:8px;display:flex;gap:8px">
-              <button class="btn btn-primary btn-sm" onclick="saveRelNota()">Guardar</button>
-              <button class="btn btn-sm" onclick="cancelRelNotaEdit()">Cancelar</button>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -5599,7 +5584,7 @@ function plShowPage(p){
   document.getElementById('pl-page-'+p)?.classList.add('active');
   document.getElementById('pl-nav-'+p)?.classList.add('active');
   if(p==='gantt') renderGantt();
-  if(p==='relatorios'){populateRelFiltros();renderRelatorio();renderRelNota();}
+  if(p==='relatorios'){populateRelFiltros();renderRelatorio();}
   if(p==='reg-horas'){rhInit().then(()=>rhInitForm());}
   if(p==='ver-reg-horas'){rhInit().then(()=>{rhPopulateVerFiltros();rhRenderVerRegistos();});}
   if(p==='analise-horas'){rhInit().then(()=>{rhPopulateAnaliseFilters();rhRenderAnalise();});}
@@ -6117,7 +6102,7 @@ function rhRenderAnalise(){
 // ══ FIM MÓDULO REGISTO HORAS ═══════════════════════════════════════
 /* ===== STATE ===== */
 
-let plProjetos=[],plAcoes=[],plTarefas=[],plKpdefs=[],plKpregs=[],plPlanoTrim=[],plDepartamentos=[],plRelNotas=[];
+let plProjetos=[],plAcoes=[],plTarefas=[],plKpdefs=[],plKpregs=[],plPlanoTrim=[],plDepartamentos=[];
 let plSemView='pessoal',plViewWeek,plViewYear;
 let plSemMyTasks=true; // true = mostrar só tarefas do utilizador; false = filtros dept/colab
 let plEditTrimId=null,plEditKdefId=null,plEditKregId=null,plEditTarId=null;
@@ -6136,8 +6121,8 @@ async function plLoadAll(){
   showNotif('A carregar dados...','info');
   try{
 
-    await Promise.all([loadProjetos(),loadAcoes(),loadTarefas(),loadKPIDefs(),loadKPIRegs(),loadPlanoTrim(),loadDepartamentos(),loadGruposAcoes(),loadRelNotas()]);
-    renderDash();renderHier();renderTrim();renderSem();renderKdefs();renderKregs();populateDrops();populateRelFiltros();renderRelatorio();renderRelNota();
+    await Promise.all([loadProjetos(),loadAcoes(),loadTarefas(),loadKPIDefs(),loadKPIRegs(),loadPlanoTrim(),loadDepartamentos(),loadGruposAcoes()]);
+    renderDash();renderHier();renderTrim();renderSem();renderKdefs();renderKregs();populateDrops();populateRelFiltros();renderRelatorio();
     showNotif(`Dados carregados! ${plTarefas.length} tarefas · ${plProjetos.length} projetos · ${plAcoes.length} ações`,'success');
   }catch(e){showNotif('Erro ao carregar: '+e.message,'error');console.error(e);}
 }
@@ -8289,7 +8274,7 @@ function onRelPeriodoChange(){
   const periodo=gv('rp-periodo');
   const trimSel=el('rp-trim');
   if(trimSel)trimSel.style.display=periodo==='anual'?'none':'';
-  renderRelatorio();renderRelNota();
+  renderRelatorio();
 }
 function populateRelFiltros(){
   const depSel=el('rp-dep');
@@ -8333,6 +8318,45 @@ function relAcoesFiltradas(periodo,ano,trim,depFlt,projFlt){
   if(depFlt)acoes=acoes.filter(a=>a.dep===depFlt);
   if(projFlt)acoes=acoes.filter(a=>String(a.projetoId)===projFlt);
   return acoes;
+}
+// Renderiza um grupo de Ações/Marcos (Inovação ou Recorrente) como uma caixa com a sua própria tabela
+function relAcoesGroupHTML(labelTipo,badgeCls,acoesGrupo,ano,trim,periodo){
+  const rows=acoesGrupo.map(a=>{
+    const ts=plTarefas.filter(t=>String(t.acaoId)===String(a.id));
+    const concA=ts.filter(t=>t.estado==='Concluída').length;
+    const pctA=ts.length?Math.round(concA/ts.length*100):null;
+    const corA=pctA===null?'var(--text3)':pctA>=80?'var(--green-mid)':pctA>=40?'var(--amber)':'var(--red)';
+    const kpisAcao=plKpdefs.filter(k=>k.ativo&&String(k.acaoId)===String(a.id));
+    const kpisTxt=kpisAcao.map(k=>{
+      const reg=kpiValorPeriodo(k,ano,trim,periodo);
+      const pctK=reg&&k.meta?Math.round((reg.valor/k.meta)*100):null;
+      return`${k.nome}: ${reg?reg.valor+(k.uni?' '+k.uni:''):'—'}${k.meta?'/'+k.meta:''}${pctK!==null?' ('+pctK+'%)':''}`;
+    }).join(' · ')||'—';
+    return`<tr>
+      <td style="font-weight:500;white-space:normal;overflow:visible;text-overflow:clip;word-break:break-word">${a.nome||a.titulo}</td>
+      <td style="white-space:normal;word-break:break-word">${a.dep?`<span class="badge b-info" style="font-size:10px">${a.dep}</span>`:'—'}</td>
+      <td style="font-size:12px">${fd(a.dataInicio)}</td>
+      <td style="font-size:12px">${fd(a.dataFim)}</td>
+      <td style="text-align:center">${ts.length}</td>
+      <td style="text-align:center;color:var(--green-mid);font-weight:600">${concA}</td>
+      <td style="text-align:center;font-weight:700;color:${corA}">${pctA!==null?pctA+'%':'—'}</td>
+      <td style="font-size:11px;color:var(--text2);white-space:normal;word-break:break-word">${kpisTxt}</td>
+      <td style="font-size:11px;color:var(--text2);white-space:normal;word-break:break-word">
+        <span>${a.notas?a.notas:'—'}</span>
+        <button class="btn btn-sm" style="display:block;margin-top:4px" onclick="toggleAcaoNotaEdit(this,${a.id})">Editar</button>
+      </td>
+    </tr>`;
+  }).join('');
+  return`<div class="kpi-acao-block">
+    <div class="kpi-acao-title"><span class="badge ${badgeCls}" style="font-size:10px">${labelTipo}</span> <span style="margin-left:6px">${acoesGrupo.length} ${labelTipo==='Inovação'?'ação(ões)':'ação(ões)'}</span></div>
+    <div class="table-wrap" style="border-top:none">
+      <table style="table-layout:fixed">
+        <colgroup><col style="width:19%"><col style="width:9%"><col style="width:8%"><col style="width:8%"><col style="width:6%"><col style="width:7%"><col style="width:6%"><col style="width:18%"><col style="width:19%"></colgroup>
+        <thead><tr><th>Ação/Marco</th><th>Departamento</th><th>Início</th><th>Fim</th><th>Tarefas</th><th>Concluídas</th><th>%</th><th>KPIs da Ação</th><th>Notas</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>`;
 }
 function renderRelatorio(){
   const container=el('rel-content');
@@ -8400,38 +8424,12 @@ function renderRelatorio(){
       html+=`</div>`;
     }
 
-    html+=`<div class="table-wrap" style="border-top:none">
-      <table style="table-layout:fixed">
-        <colgroup><col style="width:22%"><col style="width:9%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:7%"><col style="width:7%"><col style="width:6%"><col style="width:25%"></colgroup>
-        <thead><tr><th>Ação/Marco</th><th>Departamento</th><th>Tipo</th><th>Início</th><th>Fim</th><th>Tarefas</th><th>Concluídas</th><th>%</th><th>KPIs da Ação</th></tr></thead>
-        <tbody>${pAcoes.map(a=>{
-          const ts=plTarefas.filter(t=>String(t.acaoId)===String(a.id));
-          const concA=ts.filter(t=>t.estado==='Concluída').length;
-          const pctA=ts.length?Math.round(concA/ts.length*100):null;
-          const corA=pctA===null?'var(--text3)':pctA>=80?'var(--green-mid)':pctA>=40?'var(--amber)':'var(--red)';
-          const tipo=a.tipoFJ||'Recorrente';
-          const tipoLbl=tipo==='INOV'?'Inovação':'Recorrente';
-          const tipoCls=tipo==='INOV'?'b-fin':'b-info';
-          const kpisAcao=plKpdefs.filter(k=>k.ativo&&String(k.acaoId)===String(a.id));
-          const kpisTxt=kpisAcao.map(k=>{
-            const reg=kpiValorPeriodo(k,ano,trim,periodo);
-            const pctK=reg&&k.meta?Math.round((reg.valor/k.meta)*100):null;
-            return`${k.nome}: ${reg?reg.valor+(k.uni?' '+k.uni:''):'—'}${k.meta?'/'+k.meta:''}${pctK!==null?' ('+pctK+'%)':''}`;
-          }).join(' · ')||'—';
-          return`<tr>
-            <td style="font-weight:500;white-space:normal;overflow:visible;text-overflow:clip;word-break:break-word">${a.nome||a.titulo}</td>
-            <td style="white-space:normal;word-break:break-word">${a.dep?`<span class="badge b-info" style="font-size:10px">${a.dep}</span>`:'—'}</td>
-            <td><span class="badge ${tipoCls}" style="font-size:10px">${tipoLbl}</span></td>
-            <td style="font-size:12px">${fd(a.dataInicio)}</td>
-            <td style="font-size:12px">${fd(a.dataFim)}</td>
-            <td style="text-align:center">${ts.length}</td>
-            <td style="text-align:center;color:var(--green-mid);font-weight:600">${concA}</td>
-            <td style="text-align:center;font-weight:700;color:${corA}">${pctA!==null?pctA+'%':'—'}</td>
-            <td style="font-size:11px;color:var(--text2);white-space:normal;word-break:break-word">${kpisTxt}</td>
-          </tr>`;
-        }).join('')}</tbody>
-      </table>
-    </div></div>`;
+    const inovAcoes=pAcoes.filter(a=>(a.tipoFJ||'Recorrente')==='INOV');
+    const recAcoes=pAcoes.filter(a=>(a.tipoFJ||'Recorrente')!=='INOV');
+    if(inovAcoes.length)html+=relAcoesGroupHTML('Inovação','b-fin',inovAcoes,ano,trim,periodo);
+    if(recAcoes.length)html+=relAcoesGroupHTML('Recorrente','b-info',recAcoes,ano,trim,periodo);
+
+    html+=`</div>`;
   });
 
   container.innerHTML=html;
@@ -8502,49 +8500,25 @@ function exportRelatorioXLSX(){
   XLSX.writeFile(wb,fname);
 }
 
-/* ===== NOTAS DO RELATÓRIO (partilhadas via SharePoint, uma por período) ===== */
-function relCurrentPeriodKey(){
-  const periodo=gv('rp-periodo')||'trimestral';
-  const ano=gv('rp-ano')||new Date().getFullYear();
-  const trim=gv('rp-trim')||'Q1';
-  return periodo==='anual'?`ANUAL-${ano}`:`${trim}-${ano}`;
-}
-async function loadRelNotas(){
+/* ===== NOTAS DE ÁÇÃO/MARCO (campo Notas já existente em FJ_Acoes, editável inline no relatório) ===== */
+async function saveAcaoNotaInline(acaoId,textareaId){
+  const texto=gv(textareaId);
   try{
-    const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_RelatorioNotas')/items?$select=*,Editor/Title&$expand=Editor&$top=500`);
-    plRelNotas=d.d.results.map(r=>({id:r.Id,periodo:r.Title||'',notas:r.Notas||'',editadoPor:r.Editor?.Title||'',editadoEm:r.Modified?r.Modified.split('T')[0]:''}));
-  }catch(e){console.warn('FJ_RelatorioNotas: lista pode ainda não existir no SharePoint —',e.message);plRelNotas=[];}
-}
-function renderRelNota(){
-  const viewEl=el('rel-nota-view'),metaEl=el('rel-nota-meta');
-  if(!viewEl)return;
-  const key=relCurrentPeriodKey();
-  const nota=plRelNotas.find(n=>n.periodo===key);
-  viewEl.textContent=nota&&nota.notas?nota.notas:'Sem notas para este período.';
-  if(metaEl)metaEl.textContent=nota&&nota.editadoPor?`(editado por ${nota.editadoPor}${nota.editadoEm?' em '+fd(nota.editadoEm):''})`:'';
-  cancelRelNotaEdit();
-}
-function toggleRelNotaEdit(){
-  const key=relCurrentPeriodKey();
-  const nota=plRelNotas.find(n=>n.periodo===key);
-  const ta=el('rel-nota-textarea');if(ta)ta.value=nota?nota.notas:'';
-  el('rel-nota-view')?.classList.add('hidden');
-  el('rel-nota-edit')?.classList.remove('hidden');
-}
-function cancelRelNotaEdit(){
-  el('rel-nota-view')?.classList.remove('hidden');
-  el('rel-nota-edit')?.classList.add('hidden');
-}
-async function saveRelNota(){
-  const key=relCurrentPeriodKey();
-  const texto=gv('rel-nota-textarea');
-  const existing=plRelNotas.find(n=>n.periodo===key);
-  try{
-    const body={__metadata:{type:'SP.Data.FJ_x005f_RelatorioNotasListItem'},Title:key,Notas:texto};
-    if(existing)await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_RelatorioNotas')/items(${existing.id})`,body,'MERGE','*');
-    else await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_RelatorioNotas')/items`,body,'POST');
-    await loadRelNotas();renderRelNota();showNotif('Nota guardada!','success');
+    const body={__metadata:{type:'SP.Data.FJ_x005f_AcoesListItem'},Notas:texto};
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Acoes')/items(${acaoId})`,body,'MERGE','*');
+    const a=plAcoes.find(x=>x.id===acaoId);if(a)a.notas=texto;
+    renderRelatorio();showNotif('Nota guardada!','success');
   }catch(e){showNotif('Erro ao guardar nota: '+e.message,'error');}
+}
+function toggleAcaoNotaEdit(btn,acaoId){
+  const td=btn.closest('td');if(!td)return;
+  const a=plAcoes.find(x=>x.id===acaoId);
+  const taId=`acao-nota-ta-${acaoId}`;
+  td.innerHTML=`<textarea id="${taId}" style="width:100%;min-height:60px;padding:6px;border:1px solid var(--border2);border-radius:6px;font-family:inherit;font-size:12px;box-sizing:border-box">${a?.notas||''}</textarea>
+    <div style="margin-top:4px;display:flex;gap:6px">
+      <button class="btn btn-sm btn-primary" onclick="saveAcaoNotaInline(${acaoId},'${taId}')">Guardar</button>
+      <button class="btn btn-sm" onclick="renderRelatorio()">Cancelar</button>
+    </div>`;
 }
 
 /* ===== PEOPLE SEARCH ===== */
