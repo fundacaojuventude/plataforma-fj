@@ -1844,6 +1844,14 @@ tr:hover td{background:var(--bg3)}
           <div class="toolbar">
             <select class="flt" id="ff-kr-kpi" onchange="renderKregs()"><option value="">Todos os KPIs</option></select>
             <select class="flt" id="ff-kr-ano" onchange="renderKregs()"><option value="">Todos os anos</option><option>2025</option><option>2026</option><option>2027</option><option>2028</option><option>2029</option><option>2030</option></select>
+            <button class="btn btn-primary" onclick="openKregForm()">+ Novo Registo</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <colgroup><col style="width:20%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:8%"><col style="width:10%"><col style="width:10%"><col style="width:4%"></colgroup>
+              <thead><tr><th>KPI</th><th>Período</th><th>Valor</th><th>Objetivo</th><th>Estado</th><th>%</th><th>Data</th><th>Inserido por</th><th></th></tr></thead>
+              <tbody id="tbody-kreg"><tr><td colspan="9"><div class="empty" style="padding:2rem;text-align:center">A carregar registos...</div></td></tr></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -8059,8 +8067,14 @@ function renderKregs(){
       <td style="font-weight:700;color:${c}">${pct!==null?pct+'%':'—'}</td>
       <td style="font-size:12px">${fd(r.dataReg)}</td>
       <td style="font-size:12px">${r.inseridoPor||'—'}</td>
+      <td><button class="btn btn-sm btn-danger" title="Eliminar" onclick="delKreg(${r.id})">✕</button></td>
     </tr>`;
-  }).join('')||`<tr><td colspan="8"><div class="empty">Sem registos.</div></td></tr>`;
+  }).join('')||`<tr><td colspan="9"><div class="empty">Sem registos.</div></td></tr>`;
+}
+async function delKreg(id){
+  if(!confirm('Eliminar este registo?'))return;
+  try{await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_KPI_Registos')/items(${id})`,null,'DELETE');await loadKPIRegs();renderKregs();renderDash();showNotif('Eliminado.','success');}
+  catch(e){showNotif('Erro: '+e.message,'error');}
 }
 function openKregForm(){
   el('frm-kreg-ov').classList.add('open');
