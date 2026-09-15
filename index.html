@@ -168,10 +168,12 @@ tr:hover td{background:var(--bg3)}
 .empty{padding:3rem;text-align:center;color:var(--text2)}
 
 /* FORM */
-.overlay{background:rgba(0,0,0,.25);border-radius:var(--r-lg);padding:1.5rem;margin-bottom:1.5rem;display:none}
-.overlay.open{display:block}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;display:none;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
+.overlay.open{display:flex}
 .panel{background:var(--bg2);border-radius:var(--r-lg);padding:1.5rem;max-width:860px;margin:0 auto}
+.panel-float{width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);position:relative;box-sizing:border-box}
 .panel-title{font-size:16px;font-weight:600;margin-bottom:1.25rem}
+.panel-close{position:absolute;top:20px;right:20px;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1}
 .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .fg{display:flex;flex-direction:column;gap:5px}
 .fg label{font-size:12px;color:var(--text2);font-weight:500}
@@ -1322,8 +1324,9 @@ tr:hover td{background:var(--bg3)}
 
         <!-- Modal editar/criar utilizador -->
         <div class="overlay" id="admin-modal-ov">
-          <div class="panel" style="max-width:550px">
-            <div class="panel-title" id="admin-modal-title">Novo Utilizador</div>
+          <div class="panel panel-float" style="max-width:550px">
+            <button class="panel-close" onclick="closeAdminModal()">×</button>
+            <div class="panel-title" id="admin-modal-title" style="padding-bottom:1rem;padding-right:28px;border-bottom:1px solid var(--border)">Novo Utilizador</div>
             <input type="hidden" id="admin-edit-id">
             <div class="fgrid">
               <div class="fg">
@@ -1610,8 +1613,9 @@ tr:hover td{background:var(--bg3)}
         <div class="page-title">Plano Trimestral</div>
         <!-- Form -->
         <div id="frm-trim-ov" class="overlay">
-          <div class="panel">
-            <div class="panel-title" id="frm-trim-title">Novo compromisso trimestral</div>
+          <div class="panel panel-float">
+            <button class="panel-close" onclick="closeTrimForm()">×</button>
+            <div class="panel-title" id="frm-trim-title" style="padding-bottom:1rem;padding-right:28px;border-bottom:1px solid var(--border)">Novo compromisso trimestral</div>
             <div class="fgrid">
               <div class="fg"><label>Projeto *</label><select id="ft-proj" onchange="loadAcoesForProj(this.value,'ft-acao');genTrimTit()"><option value="">Selecionar...</option></select></div>
               <div class="fg"><label>Ação</label><select id="ft-acao" onchange="genTrimTit()"><option value="">Nenhuma</option></select></div>
@@ -1785,8 +1789,9 @@ tr:hover td{background:var(--bg3)}
         </div>
         <div id="kp-def" class="tab-panel active">
           <div id="frm-kdef-ov" class="overlay">
-            <div class="panel">
-              <div class="panel-title" id="frm-kdef-title">Novo KPI</div>
+            <div class="panel panel-float">
+              <button class="panel-close" onclick="closeKdefForm()">×</button>
+              <div class="panel-title" id="frm-kdef-title" style="padding-bottom:1rem;padding-right:28px;border-bottom:1px solid var(--border)">Novo KPI</div>
               <div class="fgrid">
                 <div class="fg" style="grid-column:span 2"><label>Nome *</label><input id="fk-nome" placeholder="Ex: Taxa de cumprimento Q1"></div>
                 <div class="fg"><label>Projeto</label><select id="fk-proj" onchange="loadAcoesForProj(this.value,'fk-acao')"><option value="">Nenhum</option></select></div>
@@ -1842,15 +1847,19 @@ tr:hover td{background:var(--bg3)}
       <!-- RELATÓRIOS -->
       <div id="pl-page-relatorios" class="page">
         <div class="page-title">Relatórios</div>
-        <div id="frm-relnota-ov" class="overlay">
-          <div class="panel">
-            <div class="panel-title" id="relnota-modal-title">Nota do Relatório</div>
-            <div class="fgrid">
-              <div class="fg" style="grid-column:span 2">
-                <textarea id="relnota-textarea" style="width:100%;min-height:160px;padding:10px;border:1px solid var(--border2);border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box"></textarea>
+        <div id="frm-relnota-ov" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center" onclick="if(event.target===this)closeRelNotaModal()">
+          <div style="background:#fff;border-radius:14px;width:100%;max-width:720px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);margin:1rem">
+            <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <div style="font-size:16px;font-weight:600">📝 Nota do Relatório</div>
+                <div id="relnota-modal-title" style="font-size:12px;color:var(--text3);margin-top:2px"></div>
               </div>
+              <button onclick="closeRelNotaModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">×</button>
             </div>
-            <div class="panel-footer">
+            <div style="padding:20px 24px">
+              <textarea id="relnota-textarea" style="width:100%;min-height:160px;padding:10px;border:1px solid var(--border2);border-radius:8px;font-family:inherit;font-size:13px;box-sizing:border-box"></textarea>
+            </div>
+            <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
               <button class="btn" onclick="closeRelNotaModal()">Cancelar</button>
               <button class="btn btn-primary" onclick="saveRelNotaModal()">Guardar</button>
             </div>
@@ -1984,8 +1993,9 @@ tr:hover td{background:var(--bg3)}
 
   <!-- FORM OVERLAY -->
   <div class="overlay" id="au-form-ov">
-    <div class="panel" style="max-width:780px">
-      <div class="panel-title" id="au-form-title">Novo pedido de ausência</div>
+    <div class="panel panel-float" style="max-width:780px">
+      <button class="panel-close" onclick="auCloseForm()">×</button>
+      <div class="panel-title" id="au-form-title" style="padding-bottom:1rem;padding-right:28px;border-bottom:1px solid var(--border)">Novo pedido de ausência</div>
       <div class="fgrid">
         <div class="fg"><label>Tipo de ausência *</label>
           <select id="au-f-tipo">
@@ -2122,9 +2132,10 @@ tr:hover td{background:var(--bg3)}
       <button class="btn btn-primary" onclick="auOpenSaldoForm()">+ Gerir saldo</button>
     </div>
     <!-- Saldo modal inline -->
-    <div id="au-saldo-form-wrap" class="overlay" style="margin-bottom:1rem">
-      <div class="panel" style="max-width:520px">
-        <div class="panel-title">Gerir saldo de férias</div>
+    <div id="au-saldo-form-wrap" class="overlay">
+      <div class="panel panel-float" style="max-width:520px">
+        <button class="panel-close" onclick="auCloseSaldoForm()">×</button>
+        <div class="panel-title" style="padding-bottom:1rem;padding-right:28px;border-bottom:1px solid var(--border)">Gerir saldo de férias</div>
         <div class="fgrid">
           <div class="fg">
             <label>Colaborador *</label>
@@ -2854,8 +2865,9 @@ tr:hover td{background:var(--bg3)}
 
 <!-- Overlay global de novo projeto (acessível de qualquer módulo) -->
 <div id="frm-proj-ov-global" class="overlay">
-  <div class="panel">
-    <div class="panel-title" id="frm-proj-title-global">Novo projeto</div>
+  <div class="panel panel-float">
+    <button class="panel-close" onclick="closeProjetoFormGlobal()">×</button>
+    <div class="panel-title" id="frm-proj-title-global" style="padding-bottom:1rem;padding-right:28px;border-bottom:1px solid var(--border)">Novo projeto</div>
     <div class="fgrid">
       <div class="fg" style="grid-column:span 2"><label>Nome do projeto *</label><input id="fp-nome-g" placeholder="Nome do projeto"></div>
       <div class="fg"><label>Código</label><input id="fp-codigo-g" placeholder="Ex: PROJ-001"></div>
@@ -2890,8 +2902,9 @@ tr:hover td{background:var(--bg3)}
 
 <!-- Modal Banco Global (Exclusivo Diretora Financeira) -->
 <div id="banco-global-modal" class="overlay">
-  <div class="panel" style="max-width:500px">
-    <div class="panel-title">💰 Adicionar Fundos ao Banco Global</div>
+  <div class="panel panel-float" style="max-width:500px">
+    <button class="panel-close" onclick="closeBancoGlobalModal()">×</button>
+    <div class="panel-title" style="padding-bottom:1rem;padding-right:28px;border-bottom:1px solid var(--border)">💰 Adicionar Fundos ao Banco Global</div>
     <div class="fgrid">
       <div class="fg">
         <label>Tipo de Movimento *</label>
@@ -6218,7 +6231,7 @@ async function loadAcoes(){
   // Acoes = lista manual criada na plataforma, filho de Factorial_Projetos
   try{
     const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Acoes')/items?$select=*,ProjetoId/Id,Departamento/Title&$expand=ProjetoId,Departamento&$orderby=Title asc&$top=1000`);
-    plAcoes=d.d.results.map(r=>({id:r.Id,nome:r.Title||'',estado:r.Estado||'Ativo',dataInicio:r.DataInicio?r.DataInicio.split('T')[0]:'',dataFim:r.DataFim?r.DataFim.split('T')[0]:'',projetoId:r.ProjetoId?.Id||r.ProjetoIdId||null,dep:normalizeDep(r.Departamento?.Title||''),responsavel:'',notas:r.Notas||''}));
+    plAcoes=d.d.results.map(r=>({id:r.Id,nome:r.Title||'',estado:r.Estado||'Ativo',dataInicio:r.DataInicio?r.DataInicio.split('T')[0]:'',dataFim:r.DataFim?r.DataFim.split('T')[0]:'',projetoId:r.ProjetoId?.Id||r.ProjetoIdId||null,dep:normalizeDep(r.Departamento?.Title||''),responsavel:'',notas:r.Notas||'',tipoFJ:r.TipoAcao||'Recorrente'}));
     console.log('Ações carregadas:', plAcoes, 'Projetos IDs:', plProjetos.map(p=>p.id));
   }catch(e){console.warn('Acoes list error:',e.message);plAcoes=[];}
 }
@@ -8352,11 +8365,11 @@ function openRelNotaModal(acaoId,periodKey){
   const acao=plAcoes.find(a=>String(a.id)===String(acaoId));
   const ta=el('relnota-textarea');if(ta)ta.value=nota?.notas||'';
   const title=el('relnota-modal-title');
-  if(title)title.textContent=`Nota do Relatório · ${relPeriodoLabel(periodKey)}${acao?' · '+(acao.nome||acao.titulo):''}`;
-  el('frm-relnota-ov').classList.add('open');
+  if(title)title.textContent=`${relPeriodoLabel(periodKey)}${acao?' · '+(acao.nome||acao.titulo):''}`;
+  el('frm-relnota-ov').style.display='flex';
 }
 function closeRelNotaModal(){
-  const ov=el('frm-relnota-ov');if(ov)ov.classList.remove('open');
+  const ov=el('frm-relnota-ov');if(ov)ov.style.display='none';
   relNotaEditAcaoId=null;relNotaEditPeriodKey=null;
 }
 async function saveRelNotaModal(){
@@ -8597,6 +8610,11 @@ document.addEventListener('click',e=>{
   if(e.target===el('frm-kdef-ov'))closeKdefForm();
   if(e.target===el('frm-acao-ov'))closeAcaoForm();
   if(e.target===el('frm-relnota-ov'))closeRelNotaModal();
+  if(e.target===el('admin-modal-ov'))closeAdminModal();
+  if(e.target===el('au-form-ov'))auCloseForm();
+  if(e.target===el('au-saldo-form-wrap'))auCloseSaldoForm();
+  if(e.target===el('frm-proj-ov-global'))closeProjetoFormGlobal();
+  if(e.target===el('banco-global-modal'))closeBancoGlobalModal();
 });
 
 /* ===== BOOT ===== */
