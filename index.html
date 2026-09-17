@@ -6223,15 +6223,15 @@ function populateDeptSelects(){
 }
 async function loadProjetos(){
   // Factorial_Projetos = plProjetos top-level (vindos do Factorial)
-  const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Projetos')/items?$select=*,Departamento/Title,MembrosAfetos/Id,MembrosAfetos/Title,MembrosAfetos/EMail&$expand=Departamento,MembrosAfetos&$orderby=Title asc&$top=1000`);
-  plProjetos=d.d.results.map(r=>({id:r.Id,nome:r.Title||'',dep:normalizeDep(r.Departamento?.Title||''),estado:r.Estado||'active',dataInicio:r.DataInicio?r.DataInicio.split('T')[0]:'',dataFim:r.DataFim?r.DataFim.split('T')[0]:'',notas:r.Notas||'',responsavel:r.Responsavel?.Title||'',membrosAfetos:(r.MembrosAfetos?.results||[]).map(m=>({id:m.Id,nome:m.Title,email:(m.EMail||'').toLowerCase()}))}));
+  const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Projetos')/items?$select=*,Departamento/Title,MembrosAfetos/Id,MembrosAfetos/Title,MembrosAfetos/EMail,Responsavel/Title,Responsavel/EMail&$expand=Departamento,MembrosAfetos,Responsavel&$orderby=Title asc&$top=1000`);
+  plProjetos=d.d.results.map(r=>({id:r.Id,nome:r.Title||'',codigo:r.Codigo||'',dep:normalizeDep(r.Departamento?.Title||''),estado:r.Estado||'active',dataInicio:r.DataInicio?r.DataInicio.split('T')[0]:'',dataFim:r.DataFim?r.DataFim.split('T')[0]:'',anoOrcamental:r.AnoOrcamental||new Date().getFullYear(),notas:r.Notas||'',responsavel:r.Responsavel?.Title||'',respEmail:(r.Responsavel?.EMail||'').toLowerCase(),membrosAfetos:(r.MembrosAfetos?.results||[]).map(m=>({id:m.Id,nome:m.Title,email:(m.EMail||'').toLowerCase()}))}));
   console.log('Projetos carregados:', plProjetos);
 }
 async function loadAcoes(){
   // Acoes = lista manual criada na plataforma, filho de Factorial_Projetos
   try{
-    const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Acoes')/items?$select=*,ProjetoId/Id,Departamento/Title&$expand=ProjetoId,Departamento&$orderby=Title asc&$top=1000`);
-    plAcoes=d.d.results.map(r=>({id:r.Id,nome:r.Title||'',estado:r.Estado||'Ativo',dataInicio:r.DataInicio?r.DataInicio.split('T')[0]:'',dataFim:r.DataFim?r.DataFim.split('T')[0]:'',projetoId:r.ProjetoId?.Id||r.ProjetoIdId||null,dep:normalizeDep(r.Departamento?.Title||''),responsavel:'',notas:r.Notas||'',tipoFJ:r.TipoAcao||'Recorrente'}));
+    const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Acoes')/items?$select=*,ProjetoId/Id,Departamento/Title,Responsavel/Title,Responsavel/EMail&$expand=ProjetoId,Departamento,Responsavel&$orderby=Title asc&$top=1000`);
+    plAcoes=d.d.results.map(r=>({id:r.Id,nome:r.Title||'',estado:r.Estado||'Ativo',dataInicio:r.DataInicio?r.DataInicio.split('T')[0]:'',dataFim:r.DataFim?r.DataFim.split('T')[0]:'',projetoId:r.ProjetoId?.Id||r.ProjetoIdId||null,dep:normalizeDep(r.Departamento?.Title||''),responsavel:r.Responsavel?.Title||'',respEmail:(r.Responsavel?.EMail||'').toLowerCase(),notas:r.Notas||'',tipoFJ:r.TipoAcao||'Recorrente'}));
     console.log('Ações carregadas:', plAcoes, 'Projetos IDs:', plProjetos.map(p=>p.id));
   }catch(e){console.warn('Acoes list error:',e.message);plAcoes=[];}
 }
@@ -6991,7 +6991,7 @@ function openAcaoForm(projId,acaoId){
     sv2('fa-nome',a.nome);sv2('fa-proj',a.projetoId||'');sv2('fa-tipo',a.tipoFJ||'Recorrente');
     sv2('fa-dep',a.dep||'');sv2('fa-estado',a.estado||'Ativo');
     sv2('fa-inicio',a.dataInicio||'');sv2('fa-fim',a.dataFim||'');
-    sv2('fa-resp',a.responsavel||'');sv2('fa-notas',a.notas||'');
+    sv2('fa-resp',a.responsavel||'');el('fa-resp-email').value=a.respEmail||'';sv2('fa-notas',a.notas||'');
   }else{
     const proj=plProjetos.find(p=>String(p.id)===String(projId));
     el('fa-proj').innerHTML=proj?`<option value="${proj.id}">${proj.nome}</option>`:'<option value="">Selecionar...</option>'+plProjetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
@@ -7061,7 +7061,7 @@ function openProjetoForm(projId){
     sv2('fp-nome',p.nome||'');sv2('fp-codigo',p.codigo||'');sv2('fp-dep',p.dep||'');
     sv2('fp-estado',p.estado||'active');sv2('fp-ano',p.anoOrcamental||2026);
     sv2('fp-inicio',p.dataInicio||'');sv2('fp-fim',p.dataFim||'');
-    sv2('fp-resp',p.responsavel||'');sv2('fp-notas',p.notas||'');
+    sv2('fp-resp',p.responsavel||'');el('fp-resp-email').value=p.respEmail||'';sv2('fp-notas',p.notas||'');
     plBuildMembrosCheckboxes((p.membrosAfetos||[]).map(m=>m.email));
   }else{
     el('frm-proj-title').textContent='Novo projeto';
@@ -7097,7 +7097,7 @@ function openProjetoFormGlobal(projId){
     sv2('fp-nome-g',p.nome||p.Title||'');sv2('fp-codigo-g',p.codigo||'');sv2('fp-dep-g',p.dep||'');
     sv2('fp-estado-g',p.estado||'active');sv2('fp-ano-g',p.anoOrcamental||2026);
     sv2('fp-inicio-g',p.dataInicio||'');sv2('fp-fim-g',p.dataFim||'');
-    sv2('fp-resp-g',p.responsavel||'');sv2('fp-notas-g',p.notas||'');
+    sv2('fp-resp-g',p.responsavel||'');el('fp-resp-email-g').value=p.respEmail||'';sv2('fp-notas-g',p.notas||'');
   }else{
     el('frm-proj-title-global').textContent='Novo projeto';
     sv2('fp-nome-g','');sv2('fp-codigo-g','');sv2('fp-dep-g','');
@@ -10383,7 +10383,17 @@ function gfRenderRubricas() {
               ` : linhasFaturas.length > 0 ? `
                 <div style="margin-bottom:16px">
                   <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px">FATURAS / SOLICITAÇÕES (${linhasFaturas.length})</div>
-                  <table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:6px;overflow:hidden">
+                  <table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:6px;overflow:hidden;table-layout:fixed">
+                    <colgroup>
+                      <col style="width:9%">
+                      <col style="width:30%">
+                      <col style="width:13%">
+                      <col style="width:9%">
+                      <col style="width:8%">
+                      <col style="width:10%">
+                      <col style="width:12%">
+                      ${gfCanProcessar() ? `<col style="width:9%">` : ''}
+                    </colgroup>
                     <thead>
                       <tr style="background:var(--bg)">
                         <th style="padding:8px 12px;text-align:left;font-weight:500;color:#2563EB">Cód. encomenda</th>
@@ -10399,13 +10409,13 @@ function gfRenderRubricas() {
                     <tbody>
                       ${linhasFaturas.map(s => `
                         <tr style="border-top:1px solid var(--border)">
-                          <td style="padding:8px 12px;color:#2563EB">${s.codigo || '—'}</td>
-                          <td style="padding:8px 12px;font-weight:500">${s.titulo || '—'}${s.nota ? `<div style="font-size:10px;color:var(--text3);font-weight:400;margin-top:2px">${s.nota}</div>` : ''}</td>
-                          <td style="padding:8px 12px">${s.fornecedor || '—'}</td>
-                          <td style="padding:8px 12px">${s.data ? new Date(s.data).toLocaleDateString('pt-PT') : '—'}</td>
+                          <td style="padding:8px 12px;color:#2563EB;white-space:normal;overflow:visible;text-overflow:clip;word-break:break-word">${s.codigo || '—'}</td>
+                          <td style="padding:8px 12px;font-weight:500;font-size:11px;white-space:normal;overflow:visible;text-overflow:clip;word-break:break-word;line-height:1.35">${s.titulo || '—'}${s.nota ? `<div style="font-size:10px;color:var(--text3);font-weight:400;margin-top:2px">${s.nota}</div>` : ''}</td>
+                          <td style="padding:8px 12px;white-space:normal;overflow:visible;text-overflow:clip;word-break:break-word">${s.fornecedor || '—'}</td>
+                          <td style="padding:8px 12px;white-space:normal;overflow:visible;text-overflow:clip">${s.data ? new Date(s.data).toLocaleDateString('pt-PT') : '—'}</td>
                           <td style="padding:8px 12px;text-align:center"><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:${s.tipo === 'Receita' ? '#FFF7ED' : '#EFF6FF'};color:${s.tipo === 'Receita' ? '#F97316' : '#2563EB'}">${s.tipo}</span></td>
-                          <td style="padding:8px 12px;text-align:right;font-weight:500">${gfFmt(s.valor)}</td>
-                          <td style="padding:8px 12px">${s.estadoHtml}</td>
+                          <td style="padding:8px 12px;text-align:right;font-weight:500;white-space:normal;overflow:visible;text-overflow:clip">${gfFmt(s.valor)}</td>
+                          <td style="padding:8px 12px;white-space:normal;overflow:visible;text-overflow:clip">${s.estadoHtml}</td>
                           ${gfCanProcessar() ? `<td style="padding:8px 12px;text-align:center">${s.movExecId ? `<button class="btn btn-sm" style="font-size:11px;color:#DC2626;border-color:#FCA5A5" title="Reverter esta afetação — o movimento volta para Pendentes" onclick="gfReverterMovExecutado(${s.movExecId})">↩ Reverter</button>` : ''}</td>` : ''}
                         </tr>
                       `).join('')}
