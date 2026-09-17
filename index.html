@@ -8409,7 +8409,10 @@ function relAcoesGroupHTML(labelTipo,badgeCls,acoesGrupo,ano,trim,periodo){
     const kpisTxt=kpisAcao.map(k=>{
       const reg=kpiValorPeriodo(k,ano,trim,periodo);
       const pctK=reg&&k.meta?Math.round((reg.valor/k.meta)*100):null;
-      return`${k.nome}: ${reg?reg.valor+(k.uni?' '+k.uni:''):'—'}${k.meta?'/'+k.meta:''}${pctK!==null?' ('+pctK+'%)':''}`;
+      const valorStr=reg?reg.valor:'—';
+      const metaStr=k.meta?'/'+k.meta:'';
+      const uniStr=k.uni?' '+k.uni:'';
+      return`${k.nome}: ${valorStr}${metaStr}${uniStr}${pctK!==null?' ('+pctK+'%)':''}`;
     }).join(' · ')||'—';
     const notaRel=findRelNotaAcao(a.id,periodKey);
     return`<tr>
@@ -8554,19 +8557,19 @@ function exportRelatorioXLSX(){
   });
 
   // Folha 3: KPIs (projeto e ação, sem repetir colunas de tarefas)
-  const kpisRows=[['Projeto','Ação/Marco','KPI','Nível','Frequência','Valor','Objetivo','% Cumprimento','Estado','Responsável']];
+  const kpisRows=[['Projeto','Ação/Marco','KPI','Nível','Frequência','Valor','Objetivo','Unidade','% Cumprimento','Estado','Responsável']];
   projetos.forEach(p=>{
     const pAcoes=acoes.filter(a=>String(a.projetoId)===String(p.id));
     plKpdefs.filter(k=>k.ativo&&String(k.projetoId)===String(p.id)&&!k.acaoId).forEach(k=>{
       const reg=kpiValorPeriodo(k,ano,trim,periodo);
       const pctK=reg&&k.meta?Math.round((reg.valor/k.meta)*100):'';
-      kpisRows.push([p.nome,'',k.nome,'Projeto',k.freq,reg?reg.valor:'',k.meta||'',pctK!==''?pctK+'%':'',pctK!==''?kpiEstado(k,pctK):'',k.resp||'']);
+      kpisRows.push([p.nome,'',k.nome,'Projeto',k.freq,reg?reg.valor:'',k.meta||'',k.uni||'',pctK!==''?pctK+'%':'',pctK!==''?kpiEstado(k,pctK):'',k.resp||'']);
     });
     pAcoes.forEach(a=>{
       plKpdefs.filter(k=>k.ativo&&String(k.acaoId)===String(a.id)).forEach(k=>{
         const reg=kpiValorPeriodo(k,ano,trim,periodo);
         const pctK=reg&&k.meta?Math.round((reg.valor/k.meta)*100):'';
-        kpisRows.push([p.nome,a.nome||a.titulo,k.nome,'Ação',k.freq,reg?reg.valor:'',k.meta||'',pctK!==''?pctK+'%':'',pctK!==''?kpiEstado(k,pctK):'',k.resp||'']);
+        kpisRows.push([p.nome,a.nome||a.titulo,k.nome,'Ação',k.freq,reg?reg.valor:'',k.meta||'',k.uni||'',pctK!==''?pctK+'%':'',pctK!==''?kpiEstado(k,pctK):'',k.resp||'']);
       });
     });
   });
@@ -10219,7 +10222,8 @@ function gfRenderRubricas() {
             const solLigada = m.solicitacaoId ? GF_SOLICITACOES.find(s => s.id === m.solicitacaoId) : null;
             return {
               codigo: solLigada ? solLigada.codigo : null,
-              titulo: m.descricao || solLigada?.titulo || '(movimento bancário)',
+              titulo: solLigada?.titulo || m.descricao || '(movimento bancário)',
+              nota: solLigada && m.descricao ? m.descricao : null,
               fornecedor: solLigada ? solLigada.fornecedor : null,
               data: m.dataMovimento, valor: m.valor, tipo: m.tipo || 'Despesa',
               estadoHtml: `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:#DCFCE7;color:#166534">Pago${solLigada ? '' : ' (banco)'}</span>`,
