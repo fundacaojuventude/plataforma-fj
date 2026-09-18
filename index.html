@@ -8865,7 +8865,7 @@ async function gfLoadAll() {
         id: r.Id,
         dataMovimento: r.DataMovimento || null,
         dataValor: r.DataValor || null,
-        descricao: r.Descricao || r.Title || '',
+        descricao: r.Title || r.Descricao || '',
         observacao: r.Observacao || '',
         recPag: r.RecPag || '',
         importancia: r.Importancia || 0,
@@ -8897,7 +8897,7 @@ async function gfLoadAll() {
         solicitacaoNome: r.SolicitacaoId?.Title || '',
         dataMovimento: r.DataMovimento || null,
         ano: r.Ano || (r.DataMovimento ? new Date(r.DataMovimento).getFullYear() : GF.year),
-        descricao: r.Descricao || r.Title || '',
+        descricao: r.Title || r.Descricao || '',
         observacao: r.Observacao || ''
       }));
     } catch (e) {
