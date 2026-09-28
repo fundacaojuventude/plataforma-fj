@@ -15089,8 +15089,17 @@ function gfPodeVerDetalheSensivel() {
   return userCargo() === 'Presidente Executivo' || isFinanceiroEquipa();
 }
 
+// Rúbricas de RH/Pessoal Interno são confidenciais por defeito, independentemente
+// de terem sido explicitamente marcadas em FJ_Configuracoes.
+function gfRubricaTituloForcaSensivel(titulo) {
+  if (!titulo) return false;
+  const t = titulo.toLowerCase();
+  return t.includes('afetação rh') || t.includes('afetacao rh') || t.includes('pessoal interno');
+}
+
 function gfRubricaEhSensivel(r) {
   if (!r) return false;
+  if (gfRubricaTituloForcaSensivel(r.titulo)) return true;
   return GF_RUBRICAS_SENSIVEIS.some(x => x.projetoId === r.projetoId && x.rubricaTitulo === r.titulo);
 }
 
