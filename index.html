@@ -2454,14 +2454,6 @@ tr:hover td{background:var(--bg3)}
             <textarea id="de-f-comunicacao" placeholder="Indica o tipo e conteúdo proposto para comunicação..." style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);min-height:70px;resize:vertical"></textarea>
           </div>
 
-          <div id="de-resposta-wrap" style="grid-column:1/-1;display:none">
-            <div style="background:#FEF3C7;border-left:3px solid #F59E0B;border-radius:0 6px 6px 0;padding:10px 14px;font-size:13px;color:#92400E;line-height:1.5;margin-bottom:10px">
-              <strong>Nota do PE:</strong> <span id="de-f-nota-pe-view"></span>
-            </div>
-            <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Resposta à nota do PE</label>
-            <textarea id="de-f-resposta" placeholder="Responde às questões colocadas pelo PE (visível para o PE quando voltares a submeter)..." style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);min-height:80px;resize:vertical"></textarea>
-          </div>
-
           <div style="grid-column:1/-1">
             <div style="background:var(--bg3);border:1.5px dashed var(--border2);border-radius:8px;padding:14px 16px">
               <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">📎 Anexos</label>
@@ -10889,6 +10881,7 @@ function gfRenderSolicitacoes() {
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary" style="background:var(--mod-financeiro);border-color:var(--mod-financeiro)" onclick="GF.solicitacao=null;gfNav('solicitacao-form')">+ Nova Solicitação</button>
         ${gfCanProcessar() ? '<button class="btn" style="background:#10B981;color:#fff;border-color:#10B981" onclick="gfOpenProcessadoModal()">+ Processado</button>' : ''}
+        ${gfCanProcessar() ? '<button class="btn" style="background:#6366F1;color:#fff;border-color:#6366F1" onclick="gfOpenPagoModal()">+ Pago</button>' : ''}
       </div>
     </div>
 
@@ -14276,7 +14269,6 @@ const DE_LIST = 'FJ_Despachos';
 let DE_ITEMS = [];
 let _deEditId = null;
 let _deSelectedFiles = [];
-function deEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 // ── Navegação ──
 function deNav(page) {
@@ -14329,7 +14321,6 @@ async function deLoadAll() {
       estado:       r.Estado || 'Pendente',
       decisaoPE:    r.DecisaoPE || '',
       notasPE:      r.NotasPE || '',
-      respostaRemetente: r.RespostaRemetente || '',
       dataDecisao:  r.DataDecisao ? r.DataDecisao.split('T')[0] : '',
       autorNome:    r.Author?.Title || '',
       autorEmail:   (r.Author?.EMail || '').toLowerCase(),
@@ -14450,15 +14441,12 @@ function deOpenForm(id) {
          <button class="attach-remove" onclick="deRemoveAttach(${id},'${a.name.replace(/'/g,"\\'")}')">✕</button></div>`
       ).join('');
     }
-    // Nota do PE + resposta do diretor
-    const wrap = document.getElementById('de-resposta-wrap');
+    // Mostrar notas PE se existirem
     if (d.notasPE) {
-      document.getElementById('de-f-nota-pe-view').innerHTML = deEsc(d.notasPE).replace(/\n/g,'<br>');
-      sv2('de-f-resposta', d.respostaRemetente);
-      wrap.style.display = 'block';
-    } else {
-      sv2('de-f-resposta', '');
-      wrap.style.display = 'none';
+      document.getElementById('de-existing-attachments').innerHTML +=
+        `<div style="margin-top:12px;padding:10px 14px;background:#FEF3C7;border-left:3px solid #F59E0B;border-radius:0 6px 6px 0;font-size:12px;color:#92400E">
+          <strong>Nota do PE:</strong> ${d.notasPE}
+        </div>`;
     }
   } else {
     document.getElementById('de-form-title').textContent    = 'Novo Despacho';
@@ -14466,8 +14454,6 @@ function deOpenForm(id) {
     ['de-f-assunto','de-f-contexto','de-f-proposta','de-f-topicos','de-f-comunicacao'].forEach(id => sv2(id,''));
     sv2('de-f-data', today());
     sv2('de-f-para', '');
-    sv2('de-f-resposta', '');
-    document.getElementById('de-resposta-wrap').style.display = 'none';
   }
 }
 
@@ -14508,11 +14494,6 @@ async function deSave() {
       Comunicacao:  comunicacao || null,
       Estado:       'Pendente'
     };
-    // Resposta à nota do PE: só é enviada quando existe nota do PE (bloco visível),
-    // para não depender da coluna RespostaRemetente nos restantes despachos
-    if (document.getElementById('de-resposta-wrap').style.display !== 'none') {
-      body.RespostaRemetente = document.getElementById('de-f-resposta').value.trim() || null;
-    }
 
     let itemId = _deEditId;
     if (_deEditId) {
@@ -14619,7 +14600,6 @@ function deOpenDetalhe(id) {
       <div style="padding:20px 24px">
         ${d.decisaoPE ? `<div style="margin-bottom:10px"><span style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Decisão: </span><span class="badge ${d.decisaoPE==='Aprovado'?'b-aprov':d.decisaoPE==='Não aprovado'?'b-nap':'b-processo'}">${d.decisaoPE}</span>${d.dataDecisao?`<span style="font-size:11px;color:var(--text3);margin-left:8px">${fd(d.dataDecisao)}</span>`:''}</div>` : ''}
         ${d.notasPE ? `<div style="background:#FEF3C7;border-left:3px solid #F59E0B;border-radius:0 6px 6px 0;padding:10px 14px;font-size:13px;color:#92400E">${d.notasPE.replace(/\n/g,'<br>')}</div>` : ''}
-        ${d.respostaRemetente ? `<div style="margin-top:10px;background:var(--blue-l);border-left:3px solid var(--blue-d);border-radius:0 6px 6px 0;padding:10px 14px;font-size:13px;color:var(--blue-d)"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Resposta de ${deEsc(d.autorNome)}</div>${deEsc(d.respostaRemetente).replace(/\n/g,'<br>')}</div>` : ''}
       </div>
     </div>` : ''}
 
@@ -14676,9 +14656,6 @@ async function deGuardarDecisao(id) {
       DataDecisao: new Date().toISOString(),
       Estado:      _deDecisaoSel === 'A rever' ? 'A rever' : _deDecisaoSel
     };
-    // A resposta anterior respondia à nota anterior; só se limpa se existir (implica coluna criada)
-    const atual = DE_ITEMS.find(x => x.id === id);
-    if (atual && atual.respostaRemetente) body.RespostaRemetente = null;
     await spWrite(`${SP}/_api/web/lists/getbytitle('${DE_LIST}')/items(${id})`, body, 'MERGE');
     showNotif('Decisão guardada!', 'success');
     _deDecisaoSel = '';
@@ -14703,7 +14680,7 @@ function deRenderDecisao() {
     <div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);padding:16px 20px;margin-bottom:10px;cursor:pointer" onclick="deOpenDetalhe(${d.id})">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <div style="font-size:12px;font-weight:700;color:var(--fj-blue)">${d.numero}</div>
-        <span style="display:flex;gap:6px;align-items:center">${d.respostaRemetente ? '<span class="badge b-processo" style="font-size:10px">💬 Com resposta</span>' : ''}<span class="badge b-pend">Pendente</span></span>
+        <span class="badge b-pend">Pendente</span>
       </div>
       <div style="font-size:14px;font-weight:600;margin-bottom:4px">${d.assunto}</div>
       <div style="font-size:12px;color:var(--text3)">${d.autorNome} · ${fd(d.data)} · Para: ${d.para}</div>
@@ -14801,6 +14778,103 @@ async function gfSubmitProcessado() {
     );
     showNotif('Solicitação marcada como Processada e nota de encomenda anexada! ✓', 'success');
     gfCloseProcModal();
+    await gfLoadAll();
+    gfRender();
+  } catch(e) {
+    showNotif('Erro: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// MODAL — MARCAR COMO PAGO (manual, para quando não há movimento bancário a
+// fechar automaticamente o saldo). Exige anexar a fatura e/ou o comprovativo
+// de pagamento, tal como o "Marcar como Processado" exige a nota de encomenda.
+// ══════════════════════════════════════════════════════════════
+let _pagoSelectedFiles = [];
+
+function gfOpenPagoModal() {
+  _pagoSelectedFiles = [];
+  gfRenderPagoFileList();
+  const dataEl = document.getElementById('gf-pago-data');
+  if (dataEl) dataEl.value = new Date().toISOString().slice(0, 10);
+  // Preencher select com solicitações já Processadas (falta só o comprovativo de pagamento)
+  const processadas = GF_SOLICITACOES.filter(s =>
+    canViewFinanceProject(s.projetoId) && s.estado === 'Processado'
+  );
+  const sel = document.getElementById('gf-pago-sol-select');
+  sel.innerHTML = '<option value="">— Selecionar solicitação —</option>' +
+    processadas.map(s => `<option value="${s.id}">[${s.codigo}] ${s.titulo} — ${gfFmt(s.valor)}</option>`).join('');
+  document.getElementById('gf-pago-modal').style.display = 'flex';
+}
+
+function gfClosePagoModal() {
+  document.getElementById('gf-pago-modal').style.display = 'none';
+  _pagoSelectedFiles = [];
+}
+
+function gfPagoAddFiles(input) {
+  for (const f of input.files) {
+    if (!_pagoSelectedFiles.find(x => x.name === f.name && x.size === f.size)) {
+      _pagoSelectedFiles.push(f);
+    }
+  }
+  input.value = '';
+  gfRenderPagoFileList();
+}
+
+function gfPagoRemoveFile(idx) {
+  _pagoSelectedFiles.splice(idx, 1);
+  gfRenderPagoFileList();
+}
+
+function gfRenderPagoFileList() {
+  const wrap = document.getElementById('gf-pago-file-list');
+  if (!wrap) return;
+  if (!_pagoSelectedFiles.length) {
+    wrap.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">Nenhum ficheiro selecionado</div>';
+    return;
+  }
+  wrap.innerHTML = _pagoSelectedFiles.map((f, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border:0.5px solid var(--border);border-radius:6px;margin-bottom:4px">
+      <span style="font-size:14px">💶</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div>
+        <div style="font-size:11px;color:var(--text3)">${(f.size/1024).toFixed(1)} KB</div>
+      </div>
+      <button onclick="gfPagoRemoveFile(${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0 4px" title="Remover">×</button>
+    </div>`).join('');
+}
+
+async function gfSubmitPago() {
+  const solId = parseInt(document.getElementById('gf-pago-sol-select').value);
+  if (!solId) { showNotif('Seleciona uma solicitação', 'error'); return; }
+  if (!_pagoSelectedFiles.length) { showNotif('Anexa pelo menos um ficheiro (fatura e/ou comprovativo de pagamento)', 'error'); return; }
+
+  const dataPagamento = document.getElementById('gf-pago-data')?.value || null;
+
+  const btn = document.getElementById('gf-pago-submit-btn');
+  btn.disabled = true; btn.textContent = 'A guardar...';
+  try {
+    // Upload dos ficheiros com prefixo PAG_ (fatura e/ou comprovativo de pagamento)
+    for (const f of _pagoSelectedFiles) {
+      const renamed = new File([f], 'PAG_' + f.name, { type: f.type });
+      await uploadAttachment('FJ_Solicitacoes', solId, renamed);
+    }
+    // Mudar estado para Pago
+    const body = {
+      __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' },
+      Estado: 'Pago',
+      DataPago: dataPagamento ? new Date(dataPagamento).toISOString() : new Date().toISOString()
+    };
+    await spWrite(
+      `${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${solId})`,
+      body,
+      'MERGE'
+    );
+    showNotif('Solicitação marcada como Paga e comprovativo anexado! ✓', 'success');
+    gfClosePagoModal();
     await gfLoadAll();
     gfRender();
   } catch(e) {
@@ -16723,6 +16797,46 @@ init();
     <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
       <button class="btn" onclick="gfCloseProcModal()">Cancelar</button>
       <button id="gf-proc-submit-btn" class="btn" style="background:#10B981;color:#fff;border-color:#10B981" onclick="gfSubmitProcessado()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL + PAGO ════════════════════════════════════════════ -->
+<div id="gf-pago-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);margin:1rem">
+    <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:16px;font-weight:600">💶 Marcar como Pago</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">Anexar fatura e/ou comprovativo de pagamento e alterar estado</div>
+      </div>
+      <button onclick="gfClosePagoModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">×</button>
+    </div>
+    <div style="padding:20px 24px">
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Solicitação processada *</label>
+        <select id="gf-pago-sol-select" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;color:var(--text);background:#fff">
+          <option value="">— Selecionar —</option>
+        </select>
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">📅 Data de Pagamento</label>
+        <input type="date" id="gf-pago-data" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;color:var(--text)">
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Fatura e/ou comprovativo de pagamento *</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px dashed var(--border2);border-radius:8px;cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.borderColor='#6366F1'" onmouseout="this.style.borderColor='var(--border2)'">
+          <span style="font-size:18px">📎</span>
+          <span>Clica para adicionar ficheiros</span>
+          <input type="file" multiple style="display:none" onchange="gfPagoAddFiles(this)">
+        </label>
+        <div id="gf-pago-file-list" style="margin-top:8px">
+          <div style="color:var(--text3);font-size:12px;padding:8px 0">Nenhum ficheiro selecionado</div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn" onclick="gfClosePagoModal()">Cancelar</button>
+      <button id="gf-pago-submit-btn" class="btn" style="background:#6366F1;color:#fff;border-color:#6366F1" onclick="gfSubmitPago()">Guardar</button>
     </div>
   </div>
 </div>
