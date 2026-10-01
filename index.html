@@ -81,6 +81,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;fo
 /* STATS */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.5rem}
 .stat{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r);padding:14px 16px}
+.stat-click{cursor:pointer;transition:box-shadow .15s,border-color .15s,background .15s}
+.stat-click:hover{border-color:var(--fj-blue);box-shadow:0 1px 6px rgba(0,0,0,.1)}
+.stat-active{border-color:var(--fj-blue)!important;box-shadow:0 0 0 2px rgba(12,68,124,.18) inset;background:var(--blue-l)}
 .stat-n{font-size:22px;font-weight:600;display:block;margin-bottom:2px}
 .stat-l{font-size:11px;color:var(--text2)}
 
@@ -1724,12 +1727,18 @@ tr:hover td{background:var(--bg3)}
               </div>
 
               <!-- Link de documento -->
-              <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;margin-bottom:8px">
+              <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;margin-bottom:16px">
                 <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🔗 Link de Documento</label>
                 <input type="url" id="ftar-link-doc" placeholder="https://..." style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
                 <div style="margin-top:6px;padding:7px 10px;background:#E6F1FB;border-left:3px solid #0C447C;border-radius:0 6px 6px 0;font-size:11px;color:#0C447C">
                   📝 Para documentos em desenvolvimento (ex: rascunhos no SharePoint, Word Online, etc.)
                 </div>
+              </div>
+
+              <!-- Anexos -->
+              <div style="background:var(--bg3);border:1.5px dashed var(--border2);border-radius:8px;padding:14px 16px;margin-bottom:8px">
+                <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">📎 Anexos</label>
+                <input type="file" id="ftar-file" multiple style="font-size:13px;font-family:inherit;color:var(--text);width:100%">
                 <div id="ftar-existing-attach" class="attach-list" style="margin-top:8px"></div>
               </div>
             </div>
@@ -6135,6 +6144,7 @@ function rhRenderAnalise(){
 let plProjetos=[],plAcoes=[],plTarefas=[],plKpdefs=[],plKpregs=[],plPlanoTrim=[],plDepartamentos=[],plRelNotasAcao=[];
 let plSemView='pessoal',plViewWeek,plViewYear;
 let plSemMyTasks=true; // true = mostrar só tarefas do utilizador; false = filtros dept/colab
+let plSemStatusFilter=null; // null|'emcurso'|'pfazer'|'atrasadas' — filtro ativo ao clicar nos cartões de estatística
 let plEditTrimId=null,plEditKdefId=null,plEditKregId=null,plEditTarId=null;
 let plHierOpen={};
 
@@ -6411,6 +6421,7 @@ async function loadTarefas(){
       projetoId:r.ProjetoIdId||null, acaoId:r.AcaoIdId||null,
       responsavel:r.Responsavel||'', responsavelEmail:'',
       dep:normalizeDep(r.Departamento||''),
+      linkDocumento:r.LinkDocumento||'',
       attachments:(r.AttachmentFiles?.results||[]).map(a=>({name:a.FileName,url:a.ServerRelativeUrl}))
     }));
     all=[...all,...ft];
@@ -6431,6 +6442,7 @@ async function loadTarefas(){
       responsavel:r.Responsavel||'', responsavelEmail:'',
       dep:normalizeDep(r.Departamento||''),
       contexto:r.ReunioExternaId?.Title||'',
+      linkDocumento:r.LinkDocumento||'',
       attachments:(r.AttachmentFiles?.results||[]).map(a=>({name:a.FileName,url:a.ServerRelativeUrl}))
     }));
     all=[...all,...rt];
@@ -6451,6 +6463,7 @@ async function loadTarefas(){
       responsavel:r.ResponsavelNome||'', responsavelEmail:(r.ResponsavelEmail||'').toLowerCase(),
       dep:'',
       contexto:r.CorreioId?.Title||'',
+      linkDocumento:r.LinkDocumento||'',
       attachments:[]
     }));
     all=[...all,...ct];
@@ -7530,6 +7543,10 @@ function setView(v){ renderSem(); } // stub legacy
 
 function chgWeek(d){plViewWeek+=d;if(plViewWeek<1){plViewWeek=52;plViewYear--;}else if(plViewWeek>52){plViewWeek=1;plViewYear++;}renderSem();}
 
+function plSetSemStatusFilter(f){
+  plSemStatusFilter=(plSemStatusFilter===f)?null:f;
+  renderSem();
+}
 function renderSem(){
   const elWl=el('week-label'),elStats=el('stats-sem'),tbody=el('tbody-sem');
   if(!elWl||!elStats||!tbody)return;
@@ -7573,7 +7590,7 @@ function renderSem(){
   };
 
   // Inclui tarefas NÃO concluídas cuja dataLimite <= fim desta semana
-  const list=plTarefas.filter(t=>{
+  let list=plTarefas.filter(t=>{
     if(t.estado==='Concluída') return false;
     if(!t.dataLimite) return false;
     const dl=new Date(t.dataLimite+'T23:59:59');
@@ -7615,14 +7632,19 @@ function renderSem(){
   const emcurso=list.filter(t=>t.estado==='Em curso').length;
   const pfazer=list.filter(t=>t.estado!=='Em curso'&&t.estado!=='Concluída').length;
   const atrasadas=list.filter(t=>new Date(t.dataLimite+'T23:59:59')<hoje).length;
+  const sf=plSemStatusFilter;
   elStats.innerHTML=`
-    <div class="stat"><span class="stat-n">${total}</span><span class="stat-l">Total</span></div>
-    <div class="stat"><span class="stat-n" style="color:var(--green-mid)">${emcurso}</span><span class="stat-l">Em curso</span></div>
-    <div class="stat"><span class="stat-n">${pfazer}</span><span class="stat-l">Por fazer</span></div>
-    <div class="stat"><span class="stat-n" style="color:var(--red)">${atrasadas}</span><span class="stat-l">Atrasadas</span></div>`;
+    <div class="stat stat-click${sf===null?' stat-active':''}" onclick="plSetSemStatusFilter(null)"><span class="stat-n">${total}</span><span class="stat-l">Total</span></div>
+    <div class="stat stat-click${sf==='emcurso'?' stat-active':''}" onclick="plSetSemStatusFilter('emcurso')"><span class="stat-n" style="color:var(--green-mid)">${emcurso}</span><span class="stat-l">Em curso</span></div>
+    <div class="stat stat-click${sf==='pfazer'?' stat-active':''}" onclick="plSetSemStatusFilter('pfazer')"><span class="stat-n">${pfazer}</span><span class="stat-l">Por fazer</span></div>
+    <div class="stat stat-click${sf==='atrasadas'?' stat-active':''}" onclick="plSetSemStatusFilter('atrasadas')"><span class="stat-n" style="color:var(--red)">${atrasadas}</span><span class="stat-l">Atrasadas</span></div>`;
+
+  if(sf==='emcurso') list=list.filter(t=>t.estado==='Em curso');
+  else if(sf==='pfazer') list=list.filter(t=>t.estado!=='Em curso'&&t.estado!=='Concluída');
+  else if(sf==='atrasadas') list=list.filter(t=>new Date(t.dataLimite+'T23:59:59')<hoje);
 
   if(!list.length){
-    tbody.innerHTML=`<tr><td colspan="8"><div class="empty">Sem tarefas pendentes até esta semana. 🎉</div></td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="8"><div class="empty">${sf?'Sem tarefas para este filtro.':'Sem tarefas pendentes até esta semana. 🎉'}</div></td></tr>`;
     const ec=el('tcount-sem');if(ec)ec.textContent='';
     return;
   }
@@ -7722,7 +7744,7 @@ function renderSem(){
 
   tbody.innerHTML=html;
   const elCount=el('tcount-sem');
-  if(elCount)elCount.textContent=`${total} tarefa${total!==1?'s':''} pendente${total!==1?'s':''}`;
+  if(elCount)elCount.textContent=`${list.length} tarefa${list.length!==1?'s':''}${sf?' (filtradas)':' pendente'+(list.length!==1?'s':'')}`;
 }
 
 function _semTarefaRow(t,hoje,isDir){
@@ -7783,6 +7805,7 @@ function openTarForm(){
   sv2('ftar-resp','');sv2('ftar-email','');sv2('ftar-inicio','');sv2('ftar-data','');
   sv2('ftar-prior','Média');sv2('ftar-estado','todo');sv2('ftar-notas','');sv2('ftar-link-doc','');
   el('ftar-existing-attach').innerHTML='';
+  if(el('ftar-file')) el('ftar-file').value='';
   lockRespSelectToSelf('ftar-resp','ftar-email');
 }
 function openTarFormEdit(compId){
@@ -7801,7 +7824,8 @@ function openTarFormEdit(compId){
   sv2('ftar-resp',t.responsavel||'');sv2('ftar-email',t.responsavelEmail||'');
   lockRespSelectToSelf('ftar-resp','ftar-email');
   sv2('ftar-inicio',t.dataInicio||'');sv2('ftar-data',t.dataLimite||'');sv2('ftar-prior',t.prioridade||'Média');sv2('ftar-estado',t.estado||'todo');sv2('ftar-notas',t.notas||'');sv2('ftar-link-doc',t.linkDocumento||'');
-  el('ftar-existing-attach').innerHTML='';
+  if(el('ftar-file')) el('ftar-file').value='';
+  el('ftar-existing-attach').innerHTML=(t.attachments&&t.attachments.length)?t.attachments.map(a=>`<div class="attach-item"><a href="https://fjuventude.sharepoint.com${a.url}" target="_blank">📄 ${a.name}</a><button class="attach-remove" onclick="removeAttach('${t.lista}',${t.spId},'${a.name.replace(/'/g,"\\'")}')">✕</button></div>`).join(''):'';
 }
 function openTarView(compId){
   openTarFormEdit(compId);
@@ -7809,7 +7833,7 @@ function openTarView(compId){
   plTarSetReadOnly(true);
 }
 function plTarSetReadOnly(readOnly){
-  ['ftar-desc','ftar-origem','ftar-proj','ftar-acao','ftar-resp','ftar-inicio','ftar-data','ftar-prior','ftar-estado','ftar-notas','ftar-link-doc'].forEach(id=>{
+  ['ftar-desc','ftar-origem','ftar-proj','ftar-acao','ftar-resp','ftar-inicio','ftar-data','ftar-prior','ftar-estado','ftar-notas','ftar-link-doc','ftar-file'].forEach(id=>{
     const e=el(id); if(e) e.disabled=readOnly;
   });
   const saveBtn=el('save-tar-btn');
@@ -7906,13 +7930,20 @@ async function plSaveTarefa(){
     const pid=gv('ftar-proj');if(pid)body.ProjetoIdId=parseInt(pid);
     const aid=gv('ftar-acao');if(aid)body.AcaoIdId=parseInt(aid);
     const linkDoc=gv('ftar-link-doc').trim();if(linkDoc)body.LinkDocumento=linkDoc;
-    let itemId=null;
+    let itemId=null,listaDestino='FJ_Tarefas';
     if(plEditTarId){
       const t=plTarefas.find(x=>x.id===plEditTarId);
-      if(t){await spWrite(`${SP}/_api/web/lists/getbytitle('${t.lista}')/items(${t.spId})`,body,'MERGE','*');itemId=t.spId;}
+      if(t){await spWrite(`${SP}/_api/web/lists/getbytitle('${t.lista}')/items(${t.spId})`,body,'MERGE','*');itemId=t.spId;listaDestino=t.lista;}
     }else{
       const r=await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tarefas')/items`,body,'POST');
       try{const d=await r.json();itemId=d.d?.Id;}catch(e){}
+    }
+    // Upload de anexos selecionados
+    const filesInput=el('ftar-file');
+    if(itemId&&filesInput&&filesInput.files&&filesInput.files.length){
+      for(const f of Array.from(filesInput.files)){
+        try{await uploadAttachment(listaDestino,itemId,f);}catch(e){console.warn('Attach error',e);}
+      }
     }
     closeTarForm();await loadTarefas();renderSem();renderHier();renderDash();showNotif('Tarefa guardada!','success');
   }catch(e){showNotif('Erro: '+e.message,'error');console.error(e);}
