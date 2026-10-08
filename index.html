@@ -15721,8 +15721,11 @@ function gfConfirmarRubricaSemValor(rubricaId, tipo) {
 
 // Solicitações aprovadas dessa rúbrica que ainda têm saldo por pagar (associação é sempre opcional)
 function gfAfetarSolOptions(rubricaId, selectedId) {
-  const APROVADAS = ['Aprovado Dir.', 'Aprovado DF', 'Aprovado'];
-  const sols = GF_SOLICITACOES.filter(s => s.rubricaId === rubricaId && APROVADAS.includes(s.estado) &&
+  // Usa o tier canónico (inclui "Processado" e "Pago"): uma solicitação já Processada
+  // continua a precisar de ser associada ao movimento bancário que a paga — antes só
+  // ficavam disponíveis até "Aprovado", pelo que uma solicitação Processada desaparecia
+  // deste dropdown e não era possível afetar-lhe o pagamento.
+  const sols = GF_SOLICITACOES.filter(s => s.rubricaId === rubricaId && GF_ESTADOS_APROVADA_TIER.includes(s.estado) &&
     (s.id === selectedId || gfSolicitacaoSaldoPorPagar(s) > 0.005));
   return '<option value="">— Sem solicitação —</option>' +
     sols.map(s => `<option value="${s.id}" ${selectedId === s.id ? 'selected' : ''}>[${s.codigo}] ${s.titulo} — falta ${gfFmt(gfSolicitacaoSaldoPorPagar(s))}</option>`).join('');
