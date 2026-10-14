@@ -8994,7 +8994,11 @@ function gfCalcAvulsoRubrica(rubricaId, tipo) {
 
 // Saldo por pagar de uma Solicitação (valor aprovado menos o que já foi ligado em Movimentos Executados)
 function gfSolicitacaoSaldoPorPagar(sol) {
-  return Math.max(0, (sol.valor || 0) - gfCalcMovLigados(sol.id));
+  // Arredonda ao cêntimo antes de subtrair — evita que ruído de vírgula flutuante
+  // (ex.: 17.219999999999999) deixe um saldo residual que nunca bate certo com 0.
+  const valor = Math.round((sol.valor || 0) * 100) / 100;
+  const ligado = Math.round(gfCalcMovLigados(sol.id) * 100) / 100;
+  return Math.max(0, Math.round((valor - ligado) * 100) / 100);
 }
 
 // Estados de solicitação que já contam como "aprovada" / "processada" (por ordem do fluxo)
@@ -15931,18 +15935,26 @@ async function gfSubmitAfetar() {
     await gfLoadAll();
 
     // Solicitações cujo saldo por pagar chegou a 0 → passam a "Pago"
+    // (try/catch por solicitação: uma falha aqui não pode impedir o resto do fluxo
+    // de terminar nem ficar silenciosa — antes não havia tratamento de erro nesta parte)
+    let erroPago = false;
     for (const solId of solicitacoesTocadas) {
       const sol = GF_SOLICITACOES.find(s => s.id === solId);
       if (sol && sol.estado !== 'Pago' && gfSolicitacaoSaldoPorPagar(sol) <= 0.005) {
-        await spWrite(
-          `${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${sol.id})`,
-          { __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' }, Estado: 'Pago', DataPago: new Date().toISOString() },
-          'MERGE'
-        );
+        try {
+          await spWrite(
+            `${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${sol.id})`,
+            { __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' }, Estado: 'Pago', DataPago: new Date().toISOString() },
+            'MERGE'
+          );
+        } catch (e) {
+          erroPago = true;
+          console.error('Erro ao marcar solicitação como Paga', sol.id, e);
+        }
       }
     }
 
-    showNotif('Movimento afeto com sucesso! ✓', 'success');
+    showNotif(erroPago ? 'Movimento afeto, mas houve um erro ao marcar a solicitação como Paga — verifica e marca manualmente com "+ Pago".' : 'Movimento afeto com sucesso! ✓', erroPago ? 'error' : 'success');
     gfCloseAfetarModal();
     await gfLoadAll();
     gfRender();
@@ -16240,18 +16252,26 @@ async function gfPendConfirmarSelecionados() {
   await gfLoadAll();
 
   // Solicitações cujo saldo por pagar chegou a 0 → passam a "Pago"
+  // (try/catch por solicitação: uma falha aqui não pode impedir o resto do fluxo
+  // de terminar nem ficar silenciosa — antes não havia tratamento de erro nesta parte)
+  let erroPago = false;
   for (const solId of solicitacoesTocadas) {
     const sol = GF_SOLICITACOES.find(s => s.id === solId);
     if (sol && sol.estado !== 'Pago' && gfSolicitacaoSaldoPorPagar(sol) <= 0.005) {
-      await spWrite(
-        `${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${sol.id})`,
-        { __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' }, Estado: 'Pago', DataPago: new Date().toISOString() },
-        'MERGE'
-      );
+      try {
+        await spWrite(
+          `${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${sol.id})`,
+          { __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' }, Estado: 'Pago', DataPago: new Date().toISOString() },
+          'MERGE'
+        );
+      } catch (e) {
+        erroPago = true;
+        console.error('Erro ao marcar solicitação como Paga', sol.id, e);
+      }
     }
   }
 
-  showNotif(falhas ? `${ok} movimento(s) afeto(s), ${falhas} com erro — verifica e tenta outra vez.` : `${ok} movimento(s) afeto(s) com sucesso! ✓`, falhas ? 'error' : 'success');
+  showNotif(falhas || erroPago ? `${ok} movimento(s) afeto(s), ${falhas} com erro${erroPago ? ' (e falha ao marcar alguma solicitação como Paga — usa "+ Pago" manualmente)' : ''} — verifica.` : `${ok} movimento(s) afeto(s) com sucesso! ✓`, (falhas || erroPago) ? 'error' : 'success');
   await gfLoadAll();
   gfRender();
 }
