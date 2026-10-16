@@ -81,6 +81,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;fo
 /* STATS */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.5rem}
 .stat{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r);padding:14px 16px}
+.stat-click{cursor:pointer;transition:box-shadow .15s,border-color .15s,background .15s}
+.stat-click:hover{border-color:var(--fj-blue);box-shadow:0 1px 6px rgba(0,0,0,.1)}
+.stat-active{border-color:var(--fj-blue)!important;box-shadow:0 0 0 2px rgba(12,68,124,.18) inset;background:var(--blue-l)}
 .stat-n{font-size:22px;font-weight:600;display:block;margin-bottom:2px}
 .stat-l{font-size:11px;color:var(--text2)}
 
@@ -1724,12 +1727,18 @@ tr:hover td{background:var(--bg3)}
               </div>
 
               <!-- Link de documento -->
-              <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;margin-bottom:8px">
+              <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;margin-bottom:16px">
                 <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🔗 Link de Documento</label>
                 <input type="url" id="ftar-link-doc" placeholder="https://..." style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
                 <div style="margin-top:6px;padding:7px 10px;background:#E6F1FB;border-left:3px solid #0C447C;border-radius:0 6px 6px 0;font-size:11px;color:#0C447C">
                   📝 Para documentos em desenvolvimento (ex: rascunhos no SharePoint, Word Online, etc.)
                 </div>
+              </div>
+
+              <!-- Anexos -->
+              <div style="background:var(--bg3);border:1.5px dashed var(--border2);border-radius:8px;padding:14px 16px;margin-bottom:8px">
+                <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">📎 Anexos</label>
+                <input type="file" id="ftar-file" multiple style="font-size:13px;font-family:inherit;color:var(--text);width:100%">
                 <div id="ftar-existing-attach" class="attach-list" style="margin-top:8px"></div>
               </div>
             </div>
@@ -6135,6 +6144,7 @@ function rhRenderAnalise(){
 let plProjetos=[],plAcoes=[],plTarefas=[],plKpdefs=[],plKpregs=[],plPlanoTrim=[],plDepartamentos=[],plRelNotasAcao=[];
 let plSemView='pessoal',plViewWeek,plViewYear;
 let plSemMyTasks=true; // true = mostrar só tarefas do utilizador; false = filtros dept/colab
+let plSemStatusFilter=null; // null|'emcurso'|'pfazer'|'atrasadas' — filtro ativo ao clicar nos cartões de estatística
 let plEditTrimId=null,plEditKdefId=null,plEditKregId=null,plEditTarId=null;
 let plHierOpen={};
 
@@ -6411,6 +6421,7 @@ async function loadTarefas(){
       projetoId:r.ProjetoIdId||null, acaoId:r.AcaoIdId||null,
       responsavel:r.Responsavel||'', responsavelEmail:'',
       dep:normalizeDep(r.Departamento||''),
+      linkDocumento:r.LinkDocumento||'',
       attachments:(r.AttachmentFiles?.results||[]).map(a=>({name:a.FileName,url:a.ServerRelativeUrl}))
     }));
     all=[...all,...ft];
@@ -6431,6 +6442,7 @@ async function loadTarefas(){
       responsavel:r.Responsavel||'', responsavelEmail:'',
       dep:normalizeDep(r.Departamento||''),
       contexto:r.ReunioExternaId?.Title||'',
+      linkDocumento:r.LinkDocumento||'',
       attachments:(r.AttachmentFiles?.results||[]).map(a=>({name:a.FileName,url:a.ServerRelativeUrl}))
     }));
     all=[...all,...rt];
@@ -6451,6 +6463,7 @@ async function loadTarefas(){
       responsavel:r.ResponsavelNome||'', responsavelEmail:(r.ResponsavelEmail||'').toLowerCase(),
       dep:'',
       contexto:r.CorreioId?.Title||'',
+      linkDocumento:r.LinkDocumento||'',
       attachments:[]
     }));
     all=[...all,...ct];
@@ -6765,7 +6778,7 @@ function renderHier(){
               <colgroup><col style="width:3%"><col style="width:32%"><col style="width:15%"><col style="width:16%"><col style="width:8%"><col style="width:9%"><col style="width:17%"></colgroup>
               ${ts.map(t=>`<tr class="hier-task-row${t.estado==='Concluída'?' done-row':''}" style="border-bottom:1.5px dashed #fde68a">
                 <td style="padding:6px 6px"><input type="checkbox" ${t.estado==='Concluída'?'checked':''} onchange="toggleTar('${t.id}',this.checked)" style="cursor:pointer;accent-color:var(--g5);width:14px;height:14px"></td>
-                <td style="font-size:12px;padding:6px 4px;font-weight:500">${t.titulo}${t.attachments?.length?`<div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:4px">${t.attachments.map(a=>`<button onclick="downloadSPFile('${a.url}','${a.name.replace(/'/g,"\\'")}');event.stopPropagation()" style="background:#EEF1F6;border:0.5px solid var(--border);border-radius:4px;padding:2px 7px;font-size:10px;cursor:pointer;color:var(--blue-d);display:flex;align-items:center;gap:3px"><span>📎</span>${a.name}</button>`).join('')}</div>`:''}</td>
+                <td style="font-size:12px;padding:6px 4px;font-weight:500">${t.titulo}${(t.linkDocumento||t.attachments?.length)?`<div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:4px">${t.linkDocumento?`<a href="${t.linkDocumento}" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:3px;background:#E6F1FB;color:#0C447C;border-radius:4px;padding:2px 7px;font-size:10px;text-decoration:none;border:0.5px solid #c3d9f0"><span>🔗</span>Documento</a>`:''}${t.attachments?.length?t.attachments.map(a=>`<button onclick="downloadSPFile('${a.url}','${a.name.replace(/'/g,"\\'")}');event.stopPropagation()" style="background:#EEF1F6;border:0.5px solid var(--border);border-radius:4px;padding:2px 7px;font-size:10px;cursor:pointer;color:var(--blue-d);display:flex;align-items:center;gap:3px"><span>📎</span>${a.name}</button>`).join(''):''}</div>`:''}</td>
                 <td style="font-size:11px;color:var(--tx2);padding:6px 4px">${t.responsavel||'—'}</td>
                 <td style="font-size:11px;padding:6px 4px">${t.dataInicio?`${fd(t.dataInicio)} → `:''}${fd(t.dataLimite)}</td>
                 <td style="padding:6px 4px">${estB(t.prioridade)}</td>
@@ -6955,7 +6968,7 @@ function toggleHierAcao(acaoId){
         <colgroup><col style="width:3%"><col style="width:32%"><col style="width:15%"><col style="width:16%"><col style="width:8%"><col style="width:9%"><col style="width:17%"></colgroup>
         ${ts.map(t=>`<tr class="hier-task-row${t.estado==='Concluída'?' done-row':''}" style="border-bottom:1.5px dashed #fde68a">
           <td style="padding:6px 6px"><input type="checkbox" ${t.estado==='Concluída'?'checked':''} onchange="toggleTar('${t.id}',this.checked)" style="cursor:pointer;accent-color:var(--g5);width:14px;height:14px"></td>
-          <td style="font-size:12px;padding:6px 4px;font-weight:500">${t.titulo}${t.attachments?.length?`<div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:4px">${t.attachments.map(a=>`<button onclick="downloadSPFile('${a.url}','${a.name.replace(/'/g,"\\'")}');event.stopPropagation()" style="background:#EEF1F6;border:0.5px solid var(--border);border-radius:4px;padding:2px 7px;font-size:10px;cursor:pointer;color:var(--blue-d);display:flex;align-items:center;gap:3px"><span>📎</span>${a.name}</button>`).join('')}</div>`:''}${''}</td>
+          <td style="font-size:12px;padding:6px 4px;font-weight:500">${t.titulo}${(t.linkDocumento||t.attachments?.length)?`<div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:4px">${t.linkDocumento?`<a href="${t.linkDocumento}" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:3px;background:#E6F1FB;color:#0C447C;border-radius:4px;padding:2px 7px;font-size:10px;text-decoration:none;border:0.5px solid #c3d9f0"><span>🔗</span>Documento</a>`:''}${t.attachments?.length?t.attachments.map(a=>`<button onclick="downloadSPFile('${a.url}','${a.name.replace(/'/g,"\\'")}');event.stopPropagation()" style="background:#EEF1F6;border:0.5px solid var(--border);border-radius:4px;padding:2px 7px;font-size:10px;cursor:pointer;color:var(--blue-d);display:flex;align-items:center;gap:3px"><span>📎</span>${a.name}</button>`).join(''):''}</div>`:''}${''}</td>
           <td style="font-size:11px;color:var(--tx2);padding:6px 4px">${t.responsavel||'—'}</td>
           <td style="font-size:11px;padding:6px 4px">${t.dataInicio?`${fd(t.dataInicio)} → `:''}${fd(t.dataLimite)}</td>
           <td style="padding:6px 4px">${estB(t.prioridade)}</td>
@@ -7530,6 +7543,10 @@ function setView(v){ renderSem(); } // stub legacy
 
 function chgWeek(d){plViewWeek+=d;if(plViewWeek<1){plViewWeek=52;plViewYear--;}else if(plViewWeek>52){plViewWeek=1;plViewYear++;}renderSem();}
 
+function plSetSemStatusFilter(f){
+  plSemStatusFilter=(plSemStatusFilter===f)?null:f;
+  renderSem();
+}
 function renderSem(){
   const elWl=el('week-label'),elStats=el('stats-sem'),tbody=el('tbody-sem');
   if(!elWl||!elStats||!tbody)return;
@@ -7573,7 +7590,7 @@ function renderSem(){
   };
 
   // Inclui tarefas NÃO concluídas cuja dataLimite <= fim desta semana
-  const list=plTarefas.filter(t=>{
+  let list=plTarefas.filter(t=>{
     if(t.estado==='Concluída') return false;
     if(!t.dataLimite) return false;
     const dl=new Date(t.dataLimite+'T23:59:59');
@@ -7615,14 +7632,19 @@ function renderSem(){
   const emcurso=list.filter(t=>t.estado==='Em curso').length;
   const pfazer=list.filter(t=>t.estado!=='Em curso'&&t.estado!=='Concluída').length;
   const atrasadas=list.filter(t=>new Date(t.dataLimite+'T23:59:59')<hoje).length;
+  const sf=plSemStatusFilter;
   elStats.innerHTML=`
-    <div class="stat"><span class="stat-n">${total}</span><span class="stat-l">Total</span></div>
-    <div class="stat"><span class="stat-n" style="color:var(--green-mid)">${emcurso}</span><span class="stat-l">Em curso</span></div>
-    <div class="stat"><span class="stat-n">${pfazer}</span><span class="stat-l">Por fazer</span></div>
-    <div class="stat"><span class="stat-n" style="color:var(--red)">${atrasadas}</span><span class="stat-l">Atrasadas</span></div>`;
+    <div class="stat stat-click${sf===null?' stat-active':''}" onclick="plSetSemStatusFilter(null)"><span class="stat-n">${total}</span><span class="stat-l">Total</span></div>
+    <div class="stat stat-click${sf==='emcurso'?' stat-active':''}" onclick="plSetSemStatusFilter('emcurso')"><span class="stat-n" style="color:var(--green-mid)">${emcurso}</span><span class="stat-l">Em curso</span></div>
+    <div class="stat stat-click${sf==='pfazer'?' stat-active':''}" onclick="plSetSemStatusFilter('pfazer')"><span class="stat-n">${pfazer}</span><span class="stat-l">Por fazer</span></div>
+    <div class="stat stat-click${sf==='atrasadas'?' stat-active':''}" onclick="plSetSemStatusFilter('atrasadas')"><span class="stat-n" style="color:var(--red)">${atrasadas}</span><span class="stat-l">Atrasadas</span></div>`;
+
+  if(sf==='emcurso') list=list.filter(t=>t.estado==='Em curso');
+  else if(sf==='pfazer') list=list.filter(t=>t.estado!=='Em curso'&&t.estado!=='Concluída');
+  else if(sf==='atrasadas') list=list.filter(t=>new Date(t.dataLimite+'T23:59:59')<hoje);
 
   if(!list.length){
-    tbody.innerHTML=`<tr><td colspan="8"><div class="empty">Sem tarefas pendentes até esta semana. 🎉</div></td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="8"><div class="empty">${sf?'Sem tarefas para este filtro.':'Sem tarefas pendentes até esta semana. 🎉'}</div></td></tr>`;
     const ec=el('tcount-sem');if(ec)ec.textContent='';
     return;
   }
@@ -7722,7 +7744,7 @@ function renderSem(){
 
   tbody.innerHTML=html;
   const elCount=el('tcount-sem');
-  if(elCount)elCount.textContent=`${total} tarefa${total!==1?'s':''} pendente${total!==1?'s':''}`;
+  if(elCount)elCount.textContent=`${list.length} tarefa${list.length!==1?'s':''}${sf?' (filtradas)':' pendente'+(list.length!==1?'s':'')}`;
 }
 
 function _semTarefaRow(t,hoje,isDir){
@@ -7783,6 +7805,7 @@ function openTarForm(){
   sv2('ftar-resp','');sv2('ftar-email','');sv2('ftar-inicio','');sv2('ftar-data','');
   sv2('ftar-prior','Média');sv2('ftar-estado','todo');sv2('ftar-notas','');sv2('ftar-link-doc','');
   el('ftar-existing-attach').innerHTML='';
+  if(el('ftar-file')) el('ftar-file').value='';
   lockRespSelectToSelf('ftar-resp','ftar-email');
 }
 function openTarFormEdit(compId){
@@ -7801,7 +7824,8 @@ function openTarFormEdit(compId){
   sv2('ftar-resp',t.responsavel||'');sv2('ftar-email',t.responsavelEmail||'');
   lockRespSelectToSelf('ftar-resp','ftar-email');
   sv2('ftar-inicio',t.dataInicio||'');sv2('ftar-data',t.dataLimite||'');sv2('ftar-prior',t.prioridade||'Média');sv2('ftar-estado',t.estado||'todo');sv2('ftar-notas',t.notas||'');sv2('ftar-link-doc',t.linkDocumento||'');
-  el('ftar-existing-attach').innerHTML='';
+  if(el('ftar-file')) el('ftar-file').value='';
+  el('ftar-existing-attach').innerHTML=(t.attachments&&t.attachments.length)?t.attachments.map(a=>`<div class="attach-item"><a href="https://fjuventude.sharepoint.com${a.url}" target="_blank">📄 ${a.name}</a><button class="attach-remove" onclick="removeAttach('${t.lista}',${t.spId},'${a.name.replace(/'/g,"\\'")}')">✕</button></div>`).join(''):'';
 }
 function openTarView(compId){
   openTarFormEdit(compId);
@@ -7809,7 +7833,7 @@ function openTarView(compId){
   plTarSetReadOnly(true);
 }
 function plTarSetReadOnly(readOnly){
-  ['ftar-desc','ftar-origem','ftar-proj','ftar-acao','ftar-resp','ftar-inicio','ftar-data','ftar-prior','ftar-estado','ftar-notas','ftar-link-doc'].forEach(id=>{
+  ['ftar-desc','ftar-origem','ftar-proj','ftar-acao','ftar-resp','ftar-inicio','ftar-data','ftar-prior','ftar-estado','ftar-notas','ftar-link-doc','ftar-file'].forEach(id=>{
     const e=el(id); if(e) e.disabled=readOnly;
   });
   const saveBtn=el('save-tar-btn');
@@ -7906,13 +7930,20 @@ async function plSaveTarefa(){
     const pid=gv('ftar-proj');if(pid)body.ProjetoIdId=parseInt(pid);
     const aid=gv('ftar-acao');if(aid)body.AcaoIdId=parseInt(aid);
     const linkDoc=gv('ftar-link-doc').trim();if(linkDoc)body.LinkDocumento=linkDoc;
-    let itemId=null;
+    let itemId=null,listaDestino='FJ_Tarefas';
     if(plEditTarId){
       const t=plTarefas.find(x=>x.id===plEditTarId);
-      if(t){await spWrite(`${SP}/_api/web/lists/getbytitle('${t.lista}')/items(${t.spId})`,body,'MERGE','*');itemId=t.spId;}
+      if(t){await spWrite(`${SP}/_api/web/lists/getbytitle('${t.lista}')/items(${t.spId})`,body,'MERGE','*');itemId=t.spId;listaDestino=t.lista;}
     }else{
       const r=await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tarefas')/items`,body,'POST');
       try{const d=await r.json();itemId=d.d?.Id;}catch(e){}
+    }
+    // Upload de anexos selecionados
+    const filesInput=el('ftar-file');
+    if(itemId&&filesInput&&filesInput.files&&filesInput.files.length){
+      for(const f of Array.from(filesInput.files)){
+        try{await uploadAttachment(listaDestino,itemId,f);}catch(e){console.warn('Attach error',e);}
+      }
     }
     closeTarForm();await loadTarefas();renderSem();renderHier();renderDash();showNotif('Tarefa guardada!','success');
   }catch(e){showNotif('Erro: '+e.message,'error');console.error(e);}
@@ -8662,6 +8693,7 @@ let GF_ALTERACOES_ORIGENS = [];
 let GF_FATURAS = [];
 let GF_MOV_PENDENTES = [];   // FJ_MovimentosBancarios — importação do Excel do banco, ainda por afetar
 let GF_MOV_EXECUTADOS = [];  // FJ_MovimentosExecutados — ledger final, um registo por rúbrica afetada
+let GF_MOV_EXECUTADOS_ERRO = null; // mensagem de erro se a lista acima falhar ao carregar — ver aviso em gfRenderOrcamento()
 let GF_AFETAR = { movimento: null, repartida: false, linhas: [] }; // estado do modal "Afetar movimento" (repartição por várias rúbricas)
 let GF_MODELOS_REPARTICAO = []; // modelos de repartição fixa (ex.: salários) guardados em FJ_Configuracoes: [{id, nome, linhas:[{projetoId, projetoNome, rubricaTitulo, percentagem}]}]
 let GF_MODELO_EDIT = null; // modelo em edição no modal "Modelos de Repartição" (objeto ou null)
@@ -8881,8 +8913,15 @@ async function gfLoadAll() {
     }
 
     // Movimentos Executados (ledger final por rúbrica, gerado ao afetar um movimento pendente)
+    GF_MOV_EXECUTADOS_ERRO = null;
     try {
-      const dme = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosExecutados')/items?$select=*,ProjetoId/Title,RubricaId/Title,SolicitacaoId/Title,MovimentoPendenteId/Id&$expand=ProjetoId,RubricaId,SolicitacaoId,MovimentoPendenteId&$orderby=DataMovimento desc&$top=5000`);
+      // SEM $orderby nem $top=5000: a lista já passou o limiar de vista do SharePoint (5000 itens)
+      // e $orderby num campo não indexado (DataMovimento) força uma ordenação da lista inteira,
+      // o que o SharePoint recusa acima do limiar — era isto que fazia a chamada falhar e o
+      // "Pago" aparecer a 0,00€ em todo o lado. Sem $orderby, o spReadAll pagina sozinho (via
+      // $top mais pequeno + __next) e consegue trazer tudo mesmo acima do limiar; ordenamos por
+      // data do lado do cliente depois de carregado.
+      const dme = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosExecutados')/items?$select=*,ProjetoId/Title,RubricaId/Title,SolicitacaoId/Title,MovimentoPendenteId/Id&$expand=ProjetoId,RubricaId,SolicitacaoId,MovimentoPendenteId&$top=2000`);
       GF_MOV_EXECUTADOS = (dme.d?.results || []).map(r => ({
         id: r.Id,
         movimentoPendenteId: r.MovimentoPendenteId?.Id || r.MovimentoPendenteIdId || null,
@@ -8899,10 +8938,11 @@ async function gfLoadAll() {
         ano: r.Ano || (r.DataMovimento ? new Date(r.DataMovimento).getFullYear() : GF.year),
         descricao: r.Title || r.Descricao || '',
         observacao: r.Observacao || ''
-      }));
+      })).sort((a, b) => new Date(b.dataMovimento || 0) - new Date(a.dataMovimento || 0));
     } catch (e) {
       console.warn('Lista FJ_MovimentosExecutados indisponível:', e.message);
       GF_MOV_EXECUTADOS = [];
+      GF_MOV_EXECUTADOS_ERRO = e.message || String(e);
     }
 
     console.log('GF Data loaded:', { projetos: GF_PROJETOS.length, rubricas: GF_RUBRICAS.length, solicitacoes: GF_SOLICITACOES.length, movPendentes: GF_MOV_PENDENTES.length, movExecutados: GF_MOV_EXECUTADOS.length });
@@ -8963,7 +9003,11 @@ function gfCalcAvulsoRubrica(rubricaId, tipo) {
 
 // Saldo por pagar de uma Solicitação (valor aprovado menos o que já foi ligado em Movimentos Executados)
 function gfSolicitacaoSaldoPorPagar(sol) {
-  return Math.max(0, (sol.valor || 0) - gfCalcMovLigados(sol.id));
+  // Arredonda ao cêntimo antes de subtrair — evita que ruído de vírgula flutuante
+  // (ex.: 17.219999999999999) deixe um saldo residual que nunca bate certo com 0.
+  const valor = Math.round((sol.valor || 0) * 100) / 100;
+  const ligado = Math.round(gfCalcMovLigados(sol.id) * 100) / 100;
+  return Math.max(0, Math.round((valor - ligado) * 100) / 100);
 }
 
 // Estados de solicitação que já contam como "aprovada" / "processada" (por ordem do fluxo)
@@ -9923,6 +9967,7 @@ function gfRenderOrcamento() {
         <div style="font-size:20px;font-weight:600">Orçamento ${GF.year}</div>
         <div style="font-size:13px;color:var(--text3)">${projs.length} projetos · ${GF_RUBRICAS.filter(r => r.ano === GF.year).length} rúbricas</div>
       </div>
+      ${GF_MOV_EXECUTADOS_ERRO ? `<div style="flex:1;margin-left:16px;padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;font-size:12px;color:#991B1B">⚠️ Não foi possível carregar os Movimentos Executados — os valores de "Pago" abaixo estão incompletos (0,00€ em todo o lado). Erro: ${GF_MOV_EXECUTADOS_ERRO}</div>` : `<div style="flex:1;margin-left:16px;padding:6px 14px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;font-size:11px;color:#64748B">🔍 Diagnóstico: ${GF_MOV_EXECUTADOS.length} Movimentos Executados carregados · ${GF_SOLICITACOES.length} Solicitações carregadas</div>`}
       <div style="display:flex;gap:8px;align-items:center">
         ${_financeRole === 'df' ? `
           <button class="btn" style="background:${GF.bloqueado ? 'var(--red)' : 'var(--green)'};color:#fff;border:none" onclick="toggleBloqueioOrcamento()">
@@ -10881,6 +10926,7 @@ function gfRenderSolicitacoes() {
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary" style="background:var(--mod-financeiro);border-color:var(--mod-financeiro)" onclick="GF.solicitacao=null;gfNav('solicitacao-form')">+ Nova Solicitação</button>
         ${gfCanProcessar() ? '<button class="btn" style="background:#10B981;color:#fff;border-color:#10B981" onclick="gfOpenProcessadoModal()">+ Processado</button>' : ''}
+        ${gfCanProcessar() ? '<button class="btn" style="background:#6366F1;color:#fff;border-color:#6366F1" onclick="gfOpenPagoModal()">+ Pago</button>' : ''}
       </div>
     </div>
 
@@ -14787,6 +14833,103 @@ async function gfSubmitProcessado() {
 }
 
 // ══════════════════════════════════════════════════════════════
+// MODAL — MARCAR COMO PAGO (manual, para quando não há movimento bancário a
+// fechar automaticamente o saldo). Exige anexar a fatura e/ou o comprovativo
+// de pagamento, tal como o "Marcar como Processado" exige a nota de encomenda.
+// ══════════════════════════════════════════════════════════════
+let _pagoSelectedFiles = [];
+
+function gfOpenPagoModal() {
+  _pagoSelectedFiles = [];
+  gfRenderPagoFileList();
+  const dataEl = document.getElementById('gf-pago-data');
+  if (dataEl) dataEl.value = new Date().toISOString().slice(0, 10);
+  // Preencher select com solicitações já Processadas (falta só o comprovativo de pagamento)
+  const processadas = GF_SOLICITACOES.filter(s =>
+    canViewFinanceProject(s.projetoId) && s.estado === 'Processado'
+  );
+  const sel = document.getElementById('gf-pago-sol-select');
+  sel.innerHTML = '<option value="">— Selecionar solicitação —</option>' +
+    processadas.map(s => `<option value="${s.id}">[${s.codigo}] ${s.titulo} — ${gfFmt(s.valor)}</option>`).join('');
+  document.getElementById('gf-pago-modal').style.display = 'flex';
+}
+
+function gfClosePagoModal() {
+  document.getElementById('gf-pago-modal').style.display = 'none';
+  _pagoSelectedFiles = [];
+}
+
+function gfPagoAddFiles(input) {
+  for (const f of input.files) {
+    if (!_pagoSelectedFiles.find(x => x.name === f.name && x.size === f.size)) {
+      _pagoSelectedFiles.push(f);
+    }
+  }
+  input.value = '';
+  gfRenderPagoFileList();
+}
+
+function gfPagoRemoveFile(idx) {
+  _pagoSelectedFiles.splice(idx, 1);
+  gfRenderPagoFileList();
+}
+
+function gfRenderPagoFileList() {
+  const wrap = document.getElementById('gf-pago-file-list');
+  if (!wrap) return;
+  if (!_pagoSelectedFiles.length) {
+    wrap.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">Nenhum ficheiro selecionado</div>';
+    return;
+  }
+  wrap.innerHTML = _pagoSelectedFiles.map((f, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border:0.5px solid var(--border);border-radius:6px;margin-bottom:4px">
+      <span style="font-size:14px">💶</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div>
+        <div style="font-size:11px;color:var(--text3)">${(f.size/1024).toFixed(1)} KB</div>
+      </div>
+      <button onclick="gfPagoRemoveFile(${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0 4px" title="Remover">×</button>
+    </div>`).join('');
+}
+
+async function gfSubmitPago() {
+  const solId = parseInt(document.getElementById('gf-pago-sol-select').value);
+  if (!solId) { showNotif('Seleciona uma solicitação', 'error'); return; }
+  if (!_pagoSelectedFiles.length) { showNotif('Anexa pelo menos um ficheiro (fatura e/ou comprovativo de pagamento)', 'error'); return; }
+
+  const dataPagamento = document.getElementById('gf-pago-data')?.value || null;
+
+  const btn = document.getElementById('gf-pago-submit-btn');
+  btn.disabled = true; btn.textContent = 'A guardar...';
+  try {
+    // Upload dos ficheiros com prefixo PAG_ (fatura e/ou comprovativo de pagamento)
+    for (const f of _pagoSelectedFiles) {
+      const renamed = new File([f], 'PAG_' + f.name, { type: f.type });
+      await uploadAttachment('FJ_Solicitacoes', solId, renamed);
+    }
+    // Mudar estado para Pago
+    const body = {
+      __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' },
+      Estado: 'Pago',
+      DataPago: dataPagamento ? new Date(dataPagamento).toISOString() : new Date().toISOString()
+    };
+    await spWrite(
+      `${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${solId})`,
+      body,
+      'MERGE'
+    );
+    showNotif('Solicitação marcada como Paga e comprovativo anexado! ✓', 'success');
+    gfClosePagoModal();
+    await gfLoadAll();
+    gfRender();
+  } catch(e) {
+    showNotif('Erro: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
 // MODELOS DE REPARTIÇÃO — repartições fixas por várias rúbricas (ex.: salários,
 // repartidos por 15+ combinações Projeto/Rúbrica) que a equipa pode aplicar num
 // clique dentro do "Repartir", em vez de preencher linha a linha todos os meses.
@@ -15592,8 +15735,11 @@ function gfConfirmarRubricaSemValor(rubricaId, tipo) {
 
 // Solicitações aprovadas dessa rúbrica que ainda têm saldo por pagar (associação é sempre opcional)
 function gfAfetarSolOptions(rubricaId, selectedId) {
-  const APROVADAS = ['Aprovado Dir.', 'Aprovado DF', 'Aprovado'];
-  const sols = GF_SOLICITACOES.filter(s => s.rubricaId === rubricaId && APROVADAS.includes(s.estado) &&
+  // Usa o tier canónico (inclui "Processado" e "Pago"): uma solicitação já Processada
+  // continua a precisar de ser associada ao movimento bancário que a paga — antes só
+  // ficavam disponíveis até "Aprovado", pelo que uma solicitação Processada desaparecia
+  // deste dropdown e não era possível afetar-lhe o pagamento.
+  const sols = GF_SOLICITACOES.filter(s => s.rubricaId === rubricaId && GF_ESTADOS_APROVADA_TIER.includes(s.estado) &&
     (s.id === selectedId || gfSolicitacaoSaldoPorPagar(s) > 0.005));
   return '<option value="">— Sem solicitação —</option>' +
     sols.map(s => `<option value="${s.id}" ${selectedId === s.id ? 'selected' : ''}>[${s.codigo}] ${s.titulo} — falta ${gfFmt(gfSolicitacaoSaldoPorPagar(s))}</option>`).join('');
@@ -15799,18 +15945,26 @@ async function gfSubmitAfetar() {
     await gfLoadAll();
 
     // Solicitações cujo saldo por pagar chegou a 0 → passam a "Pago"
+    // (try/catch por solicitação: uma falha aqui não pode impedir o resto do fluxo
+    // de terminar nem ficar silenciosa — antes não havia tratamento de erro nesta parte)
+    let erroPago = false;
     for (const solId of solicitacoesTocadas) {
       const sol = GF_SOLICITACOES.find(s => s.id === solId);
       if (sol && sol.estado !== 'Pago' && gfSolicitacaoSaldoPorPagar(sol) <= 0.005) {
-        await spWrite(
-          `${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${sol.id})`,
-          { __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' }, Estado: 'Pago', DataPago: new Date().toISOString() },
-          'MERGE'
-        );
+        try {
+          await spWrite(
+            `${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${sol.id})`,
+            { __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' }, Estado: 'Pago', DataPago: new Date().toISOString() },
+            'MERGE'
+          );
+        } catch (e) {
+          erroPago = true;
+          console.error('Erro ao marcar solicitação como Paga', sol.id, e);
+        }
       }
     }
 
-    showNotif('Movimento afeto com sucesso! ✓', 'success');
+    showNotif(erroPago ? 'Movimento afeto, mas houve um erro ao marcar a solicitação como Paga — verifica e marca manualmente com "+ Pago".' : 'Movimento afeto com sucesso! ✓', erroPago ? 'error' : 'success');
     gfCloseAfetarModal();
     await gfLoadAll();
     gfRender();
@@ -16108,18 +16262,26 @@ async function gfPendConfirmarSelecionados() {
   await gfLoadAll();
 
   // Solicitações cujo saldo por pagar chegou a 0 → passam a "Pago"
+  // (try/catch por solicitação: uma falha aqui não pode impedir o resto do fluxo
+  // de terminar nem ficar silenciosa — antes não havia tratamento de erro nesta parte)
+  let erroPago = false;
   for (const solId of solicitacoesTocadas) {
     const sol = GF_SOLICITACOES.find(s => s.id === solId);
     if (sol && sol.estado !== 'Pago' && gfSolicitacaoSaldoPorPagar(sol) <= 0.005) {
-      await spWrite(
-        `${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${sol.id})`,
-        { __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' }, Estado: 'Pago', DataPago: new Date().toISOString() },
-        'MERGE'
-      );
+      try {
+        await spWrite(
+          `${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${sol.id})`,
+          { __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' }, Estado: 'Pago', DataPago: new Date().toISOString() },
+          'MERGE'
+        );
+      } catch (e) {
+        erroPago = true;
+        console.error('Erro ao marcar solicitação como Paga', sol.id, e);
+      }
     }
   }
 
-  showNotif(falhas ? `${ok} movimento(s) afeto(s), ${falhas} com erro — verifica e tenta outra vez.` : `${ok} movimento(s) afeto(s) com sucesso! ✓`, falhas ? 'error' : 'success');
+  showNotif(falhas || erroPago ? `${ok} movimento(s) afeto(s), ${falhas} com erro${erroPago ? ' (e falha ao marcar alguma solicitação como Paga — usa "+ Pago" manualmente)' : ''} — verifica.` : `${ok} movimento(s) afeto(s) com sucesso! ✓`, (falhas || erroPago) ? 'error' : 'success');
   await gfLoadAll();
   gfRender();
 }
@@ -16699,6 +16861,46 @@ init();
     <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
       <button class="btn" onclick="gfCloseProcModal()">Cancelar</button>
       <button id="gf-proc-submit-btn" class="btn" style="background:#10B981;color:#fff;border-color:#10B981" onclick="gfSubmitProcessado()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL + PAGO ════════════════════════════════════════════ -->
+<div id="gf-pago-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);margin:1rem">
+    <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:16px;font-weight:600">💶 Marcar como Pago</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">Anexar fatura e/ou comprovativo de pagamento e alterar estado</div>
+      </div>
+      <button onclick="gfClosePagoModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">×</button>
+    </div>
+    <div style="padding:20px 24px">
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Solicitação processada *</label>
+        <select id="gf-pago-sol-select" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;color:var(--text);background:#fff">
+          <option value="">— Selecionar —</option>
+        </select>
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">📅 Data de Pagamento</label>
+        <input type="date" id="gf-pago-data" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;color:var(--text)">
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Fatura e/ou comprovativo de pagamento *</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px dashed var(--border2);border-radius:8px;cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.borderColor='#6366F1'" onmouseout="this.style.borderColor='var(--border2)'">
+          <span style="font-size:18px">📎</span>
+          <span>Clica para adicionar ficheiros</span>
+          <input type="file" multiple style="display:none" onchange="gfPagoAddFiles(this)">
+        </label>
+        <div id="gf-pago-file-list" style="margin-top:8px">
+          <div style="color:var(--text3);font-size:12px;padding:8px 0">Nenhum ficheiro selecionado</div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn" onclick="gfClosePagoModal()">Cancelar</button>
+      <button id="gf-pago-submit-btn" class="btn" style="background:#6366F1;color:#fff;border-color:#6366F1" onclick="gfSubmitPago()">Guardar</button>
     </div>
   </div>
 </div>
