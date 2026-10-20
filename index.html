@@ -9672,7 +9672,10 @@ function gfRenderTesourariaDivida() {
         </div>
       </td>
       <td>${prazoBadge}</td>
-      <td><button class="btn btn-sm" onclick="GF.solicitacao=${s.id};gfNav('solicitacao-view')">Ver</button></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" onclick="GF.solicitacao=${s.id};gfNav('solicitacao-view')">Ver</button>
+        <button class="btn btn-sm" onclick="gfOpenPlanoPagamentoModal(${s.id})" title="Parcelar / editar datas de pagamento" style="margin-left:4px">📅</button>
+      </td>
     </tr>`;
   }).join('') : `<tr><td colspan="9"><div class="empty" style="padding:2rem">Não existem solicitações aprovadas e por pagar.</div></td></tr>`;
 
@@ -12043,6 +12046,9 @@ function gfRefreshRubricaForm() {
 // (gfSaveParcelaCampo / gfEliminarParcela), chamadas tanto a partir do Calendário de
 // Parcelas (form de Rúbrica, Fase 2) como do Plano de Pagamento (form de Solicitação, Fase 3).
 function gfRefreshCurrentForm() {
+  // Se o modal de Plano de Pagamento (Fase 9) estiver aberto, é ele que se refresca —
+  // não a página de fundo (evita reiniciar o loading assíncrono das Previsões, etc.).
+  if (_gfPlanoPagModalSolId) { gfRenderPlanoPagamentoModalBody(); return; }
   const app = gfEl('gf-app');
   if (!app) return;
   if (GF.screen === 'orcamento-rubrica-form') app.innerHTML = gfRenderRubricaForm();
@@ -12320,6 +12326,38 @@ function gfSomaParcelasSolicitacao(solicitacaoId) {
   return gfParcelasDaSolicitacao(solicitacaoId).reduce((s, p) => s + (p.valorConfirmado || p.valorPrevisto || 0), 0);
 }
 
+// ── Modal reutilizável de Plano de Pagamento (Fase 9) — acionável a partir da
+// Dívida a Fornecedores (Previsões de Tesouraria), sem saltar da lista para a
+// vista da Solicitação. Reaproveita gfRenderPlanoPagamento(sol) tal e qual.
+let _gfPlanoPagModalSolId = null;
+
+function gfOpenPlanoPagamentoModal(solId) {
+  _gfPlanoPagModalSolId = solId;
+  gfRenderPlanoPagamentoModalBody();
+  const modal = gfEl('gf-plano-pag-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function gfClosePlanoPagamentoModal() {
+  _gfPlanoPagModalSolId = null;
+  const modal = gfEl('gf-plano-pag-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function gfRenderPlanoPagamentoModalBody() {
+  const body = gfEl('gf-plano-pag-modal-body');
+  if (!body) return;
+  const sol = GF_SOLICITACOES.find(s => s.id === _gfPlanoPagModalSolId);
+  if (!sol) { body.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text3);font-size:13px">Solicitação não encontrada.</div>'; return; }
+  body.innerHTML = `
+    <div style="margin-bottom:4px">
+      <div style="font-size:15px;font-weight:600">${sol.titulo}</div>
+      <div style="font-size:12px;color:var(--text3);font-family:monospace">${sol.codigo} · ${sol.fornecedor || sol.projetoNome || ''}</div>
+    </div>
+    ${gfRenderPlanoPagamento(sol)}
+  `.replace('margin-top:20px', 'margin-top:12px');
+}
+
 // Estado efémero do formulário de plano de pagamento, guardado em _gfParcCalc com
 // chave de texto 'sol_<id>' para não colidir com as chaves numéricas das rúbricas (Fase 2).
 function gfGetPlanoPagamentoState(sol) {
@@ -12341,16 +12379,31 @@ function gfSetNumParcelasSplit(solId, valor) {
   if (st) st.numParcelasSplit = Math.max(2, parseInt(valor) || 2);
 }
 
+// Parcelas já executadas (reconciliadas com um movimento bancário real) — deixam
+// de poder ser editadas ou eliminadas a partir daqui; só as "Prevista" continuam
+// livres, exatamente como pedido: "a não ser que tivessem pagas desse para editar
+// o valor que ainda não está pago, desse para parcelar e dar datas".
+const GF_PARCELAS_REALIZADAS = ['Confirmada', 'Paga', 'Recebida'];
+
 function gfRenderPlanoPagamento(sol) {
   const st = gfGetPlanoPagamentoState(sol);
   const parcelas = gfParcelasDaSolicitacao(sol.id);
   const soma = gfSomaParcelasSolicitacao(sol.id);
   const dif = (sol.valor || 0) - soma;
+  // Solicitação já paga/recebida por inteiro — bloqueia todo o plano, não só as parcelas.
+  const solFechada = sol.estado === 'Pago' || sol.estado === 'Recebido';
+  const somaPaga = parcelas.filter(p => GF_PARCELAS_REALIZADAS.includes(p.estado)).reduce((s, p) => s + (p.valorConfirmado || p.valorPrevisto || 0), 0);
+  const somaPorPagar = soma - somaPaga;
 
   return `
     <div class="card" style="margin-top:20px">
       <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">Plano de Pagamento</div>
 
+      ${solFechada ? `
+        <div style="font-size:12px;padding:8px 10px;border-radius:6px;background:var(--green-bg);color:#065F46;margin-bottom:14px">
+          ✓ Solicitação já ${sol.tipoSolicitacao === 'Receita' ? 'recebida' : 'paga'} por inteiro — plano de pagamento bloqueado.
+        </div>
+      ` : `
       <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
         <div>
           <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Método</label>
@@ -12375,9 +12428,11 @@ function gfRenderPlanoPagamento(sol) {
           <button class="btn btn-primary" onclick="gfAdicionarParcelaPagamentoManual(${sol.id})">+ Adicionar parcela</button>
         `}
       </div>
+      `}
 
       <div style="font-size:12px;padding:8px 10px;border-radius:6px;background:${Math.abs(dif) < 0.01 ? 'var(--green-bg)' : '#FEF3C7'};color:${Math.abs(dif) < 0.01 ? '#065F46' : '#92400E'};margin-bottom:8px">
         Parcelas somam ${soma.toFixed(2)}€ de ${(sol.valor || 0).toFixed(2)}€ solicitados${Math.abs(dif) < 0.01 ? ' ✓' : ` (${dif > 0 ? 'faltam' : 'excesso de'} ${Math.abs(dif).toFixed(2)}€)`}
+        ${somaPaga > 0 ? ` · já ${sol.tipoSolicitacao === 'Receita' ? 'recebido' : 'pago'}: ${somaPaga.toFixed(2)}€ · por ${sol.tipoSolicitacao === 'Receita' ? 'receber' : 'pagar'}: ${somaPorPagar.toFixed(2)}€` : ''}
       </div>
 
       ${parcelas.length ? `
@@ -12388,15 +12443,25 @@ function gfRenderPlanoPagamento(sol) {
             </tr>
           </thead>
           <tbody>
-            ${parcelas.map(p => `
-              <tr style="border-bottom:1px solid var(--border)">
+            ${parcelas.map(p => {
+              const realizada = GF_PARCELAS_REALIZADAS.includes(p.estado);
+              const bloqueada = realizada || solFechada;
+              return `
+              <tr style="border-bottom:1px solid var(--border);${realizada ? 'background:var(--green-bg)' : ''}">
                 <td style="padding:6px 4px">${p.titulo}</td>
-                <td style="padding:6px 4px"><input type="date" value="${p.dataPrevista ? p.dataPrevista.split('T')[0] : ''}" onchange="gfSaveParcelaCampo(${p.id},'DataPrevista',this.value)" style="border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:12px"></td>
-                <td style="padding:6px 4px;text-align:right"><input type="number" step="0.01" value="${p.valorPrevisto}" onchange="gfSaveParcelaCampo(${p.id},'ValorPrevisto',this.value)" style="width:90px;border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:12px;text-align:right"></td>
-                <td style="padding:6px 4px">${p.estado}</td>
-                <td style="padding:6px 4px;text-align:right"><a onclick="gfEliminarParcela(${p.id})" style="color:#EF4444;cursor:pointer">✕</a></td>
+                <td style="padding:6px 4px">${bloqueada
+                  ? `<span style="font-size:12px">${p.dataPrevista ? gfDate(p.dataPrevista) : '—'}</span>`
+                  : `<input type="date" value="${p.dataPrevista ? p.dataPrevista.split('T')[0] : ''}" onchange="gfSaveParcelaCampo(${p.id},'DataPrevista',this.value)" style="border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:12px">`
+                }</td>
+                <td style="padding:6px 4px;text-align:right">${bloqueada
+                  ? `<span style="font-size:12px">${(p.valorConfirmado || p.valorPrevisto).toFixed(2)}€</span>`
+                  : `<input type="number" step="0.01" value="${p.valorPrevisto}" onchange="gfSaveParcelaCampo(${p.id},'ValorPrevisto',this.value)" style="width:90px;border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:12px;text-align:right">`
+                }</td>
+                <td style="padding:6px 4px">${realizada ? '🔒 ' : ''}${p.estado}</td>
+                <td style="padding:6px 4px;text-align:right">${bloqueada ? '' : `<a onclick="gfEliminarParcela(${p.id})" style="color:#EF4444;cursor:pointer">✕</a>`}</td>
               </tr>
-            `).join('')}
+            `;
+            }).join('')}
           </tbody>
         </table>
       ` : `<div style="font-size:12px;color:var(--text3);margin-top:8px">Ainda sem parcelas definidas.</div>`}
@@ -13419,6 +13484,8 @@ function gfRenderSolicitacaoView() {
           </div>
         </div>
         ` : ''}
+
+        ${gfCanViewTesouraria() ? gfRenderPlanoPagamento(sol) : ''}
       </div>
       
       <div>
@@ -19032,6 +19099,25 @@ init();
     <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
       <button class="btn" onclick="gfCloseRecebidoModal()">Cancelar</button>
       <button id="gf-rec-submit-btn" class="btn" style="background:#F97316;color:#fff;border-color:#F97316" onclick="gfSubmitRecebido()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL PLANO DE PAGAMENTO (Fase 9) ══════════════════════════ -->
+<div id="gf-plano-pag-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);margin:1rem">
+    <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:16px;font-weight:600">📅 Plano de Pagamento</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">Datas, valores por pagar e parcelamento desta solicitação</div>
+      </div>
+      <button onclick="gfClosePlanoPagamentoModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">×</button>
+    </div>
+    <div id="gf-plano-pag-modal-body" style="padding:20px 24px">
+      <div style="color:var(--text3);font-size:13px">A carregar...</div>
+    </div>
+    <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn" onclick="gfClosePlanoPagamentoModal()">Fechar</button>
     </div>
   </div>
 </div>
