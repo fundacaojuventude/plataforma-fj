@@ -9755,29 +9755,17 @@ async function gfRenderTesourariaPrevisoes() {
     if (app) app.innerHTML = `<div style="max-width:1200px;margin:0 auto;padding-top:12px"><div style="padding:2rem;text-align:center;color:var(--text3)">Não tem permissão para aceder a esta secção.</div></div>`;
     return;
   }
-  // Saldo de caixa (Fase 1 do módulo de Tesouraria): lido automaticamente do
-  // SaldoContabilistico do movimento bancário mais recente em FJ_MovimentosBancarios
-  // (já carregado em GF_MOV_PENDENTES, importado do extrato via Power Automate) —
-  // é a fonte real do banco, sempre atualizada, sem ninguém ter de a escrever à mão.
-  // O valor manual em FJ_Configuracoes (SaldoCaixa) só é usado como reserva, para
-  // quando ainda não existe nenhum movimento bancário importado.
+  // Saldo de caixa — sempre manual (Fase 16, a pedido do Rui). Deixou de se ler
+  // automaticamente do último movimento bancário importado (FJ_MovimentosBancarios); lê-se
+  // sempre o valor guardado em FJ_Configuracoes (SaldoCaixa), editável neste mesmo ecrã.
   let saldoAtual = 0;
-  let saldoFonte = 'manual';
-  let saldoData = null;
-  const movComSaldo = GF_MOV_PENDENTES
-    .filter(m => m.dataMovimento)
-    .sort((a, b) => new Date(b.dataMovimento) - new Date(a.dataMovimento))[0];
-  if (movComSaldo) {
-    saldoAtual = movComSaldo.saldoContabilistico || 0;
-    saldoFonte = 'banco';
-    saldoData = movComSaldo.dataMovimento;
-  } else {
-    try {
-      const dc = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$filter=Title eq 'SaldoCaixa'&$select=Id,Valor&$top=1`);
-      const cfg = dc.d?.results?.[0];
-      if (cfg) { saldoAtual = parseFloat(cfg.Valor) || 0; _gfSaldoCaixaId = cfg.Id; }
-    } catch(e) { /* lista pode não existir */ }
-  }
+  const saldoFonte = 'manual';
+  const saldoData = null;
+  try {
+    const dc = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$filter=Title eq 'SaldoCaixa'&$select=Id,Valor&$top=1`);
+    const cfg = dc.d?.results?.[0];
+    if (cfg) { saldoAtual = parseFloat(cfg.Valor) || 0; _gfSaldoCaixaId = cfg.Id; }
+  } catch(e) { /* lista pode não existir */ }
   _gfSaldoFonteCache = saldoFonte;
   _gfSaldoDataCache = saldoData;
 
@@ -9851,42 +9839,47 @@ function _gfGetPagamentosMensaisRH() {
   const ativos = GF_COLABORADORES.filter(c => c.ativo);
   if (!ativos.length) return [];
   const pagamentos = [];
-  for (let mes = 1; mes <= 12; mes++) {
-    const decomposicoes = ativos.map(c => _gfDecomporCustoColaboradorMes(c, anoAtual, mes - 1));
-    const totalLiquido = decomposicoes.reduce((s, d) => s + d.liquido, 0);
-    const totalContribuicoes = decomposicoes.reduce((s, d) => s + d.contribuicoes, 0);
+  // Gera para o ano atual E o seguinte — cobre com folga os 12 meses de lookahead máximo
+  // (usados pela vista Trimestral/Anual); só com anoAtual, qualquer trimestre/mês que caísse
+  // já no ano seguinte ficava sem nenhuma linha de RH.
+  for (const ano of [anoAtual, anoAtual + 1]) {
+    for (let mes = 1; mes <= 12; mes++) {
+      const decomposicoes = ativos.map(c => _gfDecomporCustoColaboradorMes(c, ano, mes - 1));
+      const totalLiquido = decomposicoes.reduce((s, d) => s + d.liquido, 0);
+      const totalContribuicoes = decomposicoes.reduce((s, d) => s + d.contribuicoes, 0);
 
-    if (totalLiquido > 0) {
-      const diaLiq = Math.min(26, new Date(anoAtual, mes, 0).getDate());
-      const dataLiq = new Date(anoAtual, mes - 1, diaLiq);
-      pagamentos.push({
-        data: dataLiq,
-        valor: totalLiquido,
-        titulo: 'Vencimentos líquidos (Quadro de Pessoal)',
-        fornecedor: `${ativos.length} colaborador(es)`,
-        dataLimitePagamento: dataLiq.toISOString().split('T')[0],
-        _isMensal: true,
-        _rubricaId: null
-      });
-    }
+      if (totalLiquido > 0) {
+        const diaLiq = Math.min(26, new Date(ano, mes, 0).getDate());
+        const dataLiq = new Date(ano, mes - 1, diaLiq);
+        pagamentos.push({
+          data: dataLiq,
+          valor: totalLiquido,
+          titulo: 'Vencimentos líquidos (Quadro de Pessoal)',
+          fornecedor: `${ativos.length} colaborador(es)`,
+          dataLimitePagamento: dataLiq.toISOString().split('T')[0],
+          _isMensal: true,
+          _rubricaId: null
+        });
+      }
 
-    if (totalContribuicoes > 0) {
-      // Contribuições sobre o vencimento do mês "mes" entregam-se ao Estado até dia 20 do
-      // mês seguinte (dezembro cai em janeiro do ano seguinte).
-      const mesSeguinte = mes === 12 ? 1 : mes + 1;
-      const anoSeguinte = mes === 12 ? anoAtual + 1 : anoAtual;
-      const diaContrib = Math.min(20, new Date(anoSeguinte, mesSeguinte, 0).getDate());
-      const dataContrib = new Date(anoSeguinte, mesSeguinte - 1, diaContrib);
-      const nomeMes = new Date(anoAtual, mes - 1, 1).toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
-      pagamentos.push({
-        data: dataContrib,
-        valor: totalContribuicoes,
-        titulo: 'Segurança Social + IRS (Quadro de Pessoal)',
-        fornecedor: `Referente a ${nomeMes}`,
-        dataLimitePagamento: dataContrib.toISOString().split('T')[0],
-        _isMensal: true,
-        _rubricaId: null
-      });
+      if (totalContribuicoes > 0) {
+        // Contribuições sobre o vencimento do mês "mes" entregam-se ao Estado até dia 20 do
+        // mês seguinte (dezembro cai em janeiro do ano seguinte).
+        const mesSeguinte = mes === 12 ? 1 : mes + 1;
+        const anoSeguinte = mes === 12 ? ano + 1 : ano;
+        const diaContrib = Math.min(20, new Date(anoSeguinte, mesSeguinte, 0).getDate());
+        const dataContrib = new Date(anoSeguinte, mesSeguinte - 1, diaContrib);
+        const nomeMes = new Date(ano, mes - 1, 1).toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
+        pagamentos.push({
+          data: dataContrib,
+          valor: totalContribuicoes,
+          titulo: 'Segurança Social + IRS (Quadro de Pessoal)',
+          fornecedor: `Referente a ${nomeMes}`,
+          dataLimitePagamento: dataContrib.toISOString().split('T')[0],
+          _isMensal: true,
+          _rubricaId: null
+        });
+      }
     }
   }
   return pagamentos;
@@ -9905,19 +9898,22 @@ function _gfGetPagamentosMensais() {
     .forEach(r => {
       const valorBase = r.despOrc / 12;
 
-      for (let mes = 1; mes <= 12; mes++) {
-        const valor = valorBase;
-        const dia = Math.min(r.diaPagamento, new Date(anoAtual, mes, 0).getDate()); // ajusta ao último dia do mês
-        const data = new Date(anoAtual, mes - 1, dia);
-        pagamentos.push({
-          data,
-          valor,
-          titulo: r.titulo,
-          fornecedor: r.projetoNome || '—',
-          dataLimitePagamento: data.toISOString().split('T')[0],
-          _isMensal: true,
-          _rubricaId: r.id
-        });
+      // Gera para o ano atual e o seguinte — mesma razão da Fase 15 em _gfGetPagamentosMensaisRH.
+      for (const ano of [anoAtual, anoAtual + 1]) {
+        for (let mes = 1; mes <= 12; mes++) {
+          const valor = valorBase;
+          const dia = Math.min(r.diaPagamento, new Date(ano, mes, 0).getDate()); // ajusta ao último dia do mês
+          const data = new Date(ano, mes - 1, dia);
+          pagamentos.push({
+            data,
+            valor,
+            titulo: r.titulo,
+            fornecedor: r.projetoNome || '—',
+            dataLimitePagamento: data.toISOString().split('T')[0],
+            _isMensal: true,
+            _rubricaId: r.id
+          });
+        }
       }
     });
 
@@ -10793,7 +10789,7 @@ function _gfBuildAlertasTesouraria() {
     alertas.push({ cor: '#633806', bg: '#FAEEDA', bd: '#F9CA8B', texto: `⏰ ${vencidas.length} parcela(s) com data prevista já passada e ainda por confirmar — reveja em <a href="javascript:void(0)" onclick="gfNav('tesouraria-operacional')" style="color:#003087;font-weight:600">Operacional</a>.` });
   }
   if (semRubrica.length) {
-    alertas.push({ cor: '#633806', bg: '#FAEEDA', bd: '#F9CA8B', texto: `ℹ️ ${semRubrica.length} parcela(s) sem rúbrica nem solicitação associada — não entram na vista Anual (mapa) por categoria.` });
+    alertas.push({ cor: '#633806', bg: '#FAEEDA', bd: '#F9CA8B', texto: `ℹ️ ${semRubrica.length} parcela(s) sem rúbrica nem solicitação associada — não entram nos totais por categoria desta previsão.` });
   }
 
   if (!alertas.length) return '';
@@ -11007,7 +11003,6 @@ function _gfBuildPrevisoes(saldoAtual) {
   // ── Gerar períodos consoante o modo ──────────────────────────
   const periodos = [];
   const periodo = _gfPrevPeriodo;
-  const isAnual = periodo === 'anual'; // vista "Anual (mapa)", Fase 4 — tabela à parte, ver _gfBuildTesourariaAnualTabela
 
   if (periodo === 'semanal') {
     const dow = hoje.getDay() === 0 ? 6 : hoje.getDay() - 1;
@@ -11025,7 +11020,7 @@ function _gfBuildPrevisoes(saldoAtual) {
       const nome = ini.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
       periodos.push({ ini, fim, label: nome.charAt(0).toUpperCase() + nome.slice(1), sublabel: null });
     }
-  } else { // trimestral
+  } else if (periodo === 'trimestral') {
     const anoAtual = hoje.getFullYear();
     const trimestreAtual = Math.floor(hoje.getMonth() / 3);
     for (let q = 0; q < 4; q++) {
@@ -11034,6 +11029,15 @@ function _gfBuildPrevisoes(saldoAtual) {
       const ini = new Date(ano, tIdx * 3, 1);
       const fim = new Date(ano, tIdx * 3 + 3, 0);
       periodos.push({ ini, fim, label: `Q${tIdx+1} ${ano}`, sublabel: null });
+    }
+  } else if (periodo === 'anual') {
+    // Fase 15 — a mesma vista de "Mensal", só que com os próximos 12 meses em vez de 6.
+    for (let m = 0; m < 12; m++) {
+      const d = new Date(hoje.getFullYear(), hoje.getMonth() + m, 1);
+      const ini = new Date(d.getFullYear(), d.getMonth(), 1);
+      const fim = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      const nome = ini.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
+      periodos.push({ ini, fim, label: nome.charAt(0).toUpperCase() + nome.slice(1), sublabel: null });
     }
   }
 
@@ -11180,7 +11184,7 @@ function _gfBuildPrevisoes(saldoAtual) {
         <button style="${btnStyle('semanal')}" onclick="gfSetPrevPeriodo('semanal')">Semanal</button>
         <button style="${btnStyle('mensal')}" onclick="gfSetPrevPeriodo('mensal')">Mensal</button>
         <button style="${btnStyle('trimestral')}" onclick="gfSetPrevPeriodo('trimestral')">Trimestral</button>
-        <button style="${btnStyle('anual')}" onclick="gfSetPrevPeriodo('anual')">Anual (mapa)</button>
+        <button style="${btnStyle('anual')}" onclick="gfSetPrevPeriodo('anual')">Anual</button>
         <button style="${btnStyle('realizado')}" onclick="gfSetPrevPeriodo('realizado')">Previsto vs Realizado</button>
       </div>
     </div>
@@ -11198,7 +11202,7 @@ function _gfBuildPrevisoes(saldoAtual) {
           <div style="font-size:11px;color:var(--text3);margin-top:2px">
             ${_gfSaldoFonteCache === 'banco'
               ? `Último movimento bancário importado (FJ_MovimentosBancarios)${_gfSaldoDataCache ? ' · ' + fmtDate(new Date(_gfSaldoDataCache)) : ''}`
-              : 'Guardado em FJ_Configuracoes · ainda sem movimentos bancários importados'}
+              : 'Guardado em FJ_Configuracoes · atualiza sempre que guardares um novo valor'}
           </div>
         </div>
         ${_gfSaldoFonteCache !== 'banco' ? `
@@ -11218,7 +11222,7 @@ function _gfBuildPrevisoes(saldoAtual) {
       <a href="javascript:void(0)" onclick="gfNav('tesouraria-divida')" style="color:#003087;font-weight:600;margin-left:8px">Ver Dívida a Fornecedores →</a>
     </div>` : ''}
 
-    ${isAnual ? _gfBuildTesourariaAnualTabela(saldoAtual) : periodo === 'realizado' ? _gfBuildPrevistoRealizado() : `
+    ${periodo === 'realizado' ? _gfBuildPrevistoRealizado() : `
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px">${cardsHtml}</div>
 
     <div style="margin-bottom:8px;font-size:13px;font-weight:600;color:var(--text2)">
