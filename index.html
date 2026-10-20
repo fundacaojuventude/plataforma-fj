@@ -825,6 +825,10 @@ tr:hover td{background:var(--bg3)}
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="1,12 5,7 9,9 15,3"/><line x1="1" y1="15" x2="15" y2="15"/></svg>
         Previsões de Tesouraria
       </div>
+      <div class="nav-item" id="gf-nav-operacional" onclick="gfNav('tesouraria-operacional')" style="color:rgba(255,255,255,.75);padding-left:1.25rem;display:none">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="2" width="4" height="12" rx="1"/><rect x="6" y="2" width="4" height="8" rx="1"/><rect x="11" y="2" width="4" height="10" rx="1"/></svg>
+        Operacional
+      </div>
 
       <div class="nav-item" id="gf-nav-direcao" onclick="gfNav('direcao')" style="color:rgba(255,255,255,.75);display:none">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12l4-8 4 4 4-6"/></svg>
@@ -8713,6 +8717,138 @@ const GF_CATEGORIAS_TESOURARIA = [
   { grupo: 'Despesa', nome: 'Outros Pagamentos a Fornecedores' }
 ];
 const GF_PADROES_TESOURARIA = ['Fixa mensal', 'Recorrente variável', 'Sazonal', 'Pontual'];
+
+// Classificação migrada do Excel "Plano_de_Tesouraria_Semanal_FJ" (folhas "Base - Despesas"
+// e "Base - Receitas") — usada só uma vez por gfImportarRubricasTesouraria() para criar as
+// rúbricas correspondentes no projeto virtual "Banco Global" (ver secção 9 da especificação).
+// O "total" é a soma dos valores mensais Set-Jun do Excel: uma estimativa de arranque, não um
+// valor orçamentado oficial — o DF pode ajustá-lo depois normalmente, como em qualquer rúbrica.
+const GF_TESOURARIA_IMPORT_RUBRICAS = [
+  { tipo: 'Despesa', categoria: 'Rendas (Lisboa, Condomínios, Espaços)', rubrica: 'DELEGAÇÃO LISBOA', padrao: 'Fixa mensal', dia: 8, total: 57209.60 },
+  { tipo: 'Despesa', categoria: 'Rendas (Lisboa, Condomínios, Espaços)', rubrica: 'CONDOMÍNIO EDIFICIO LX', padrao: 'Fixa mensal', dia: 8, total: 6228.46 },
+  { tipo: 'Despesa', categoria: 'Escolas/Projetos - Formandos (estagiários)', rubrica: 'FORMANDOS LISBOA', padrao: 'Recorrente variável', dia: 5, total: 61500.00 },
+  { tipo: 'Despesa', categoria: 'Escolas/Projetos - Formadores/Gabinetes Psicologia', rubrica: 'FORMADORES INFORMAT', padrao: 'Recorrente variável', dia: 15, total: 46019.39 },
+  { tipo: 'Despesa', categoria: 'Escolas/Projetos - Formadores/Gabinetes Psicologia', rubrica: 'GABINETE DE PSICOLOGIA ALIADOS (INSIDE ART)', padrao: 'Recorrente variável', dia: 15, total: 40967.24 },
+  { tipo: 'Despesa', categoria: 'Escolas/Projetos - Formadores/Gabinetes Psicologia', rubrica: 'GABINETE DE PSICOLOGIA ALIADOS (INFORMAT)', padrao: 'Sazonal', dia: 15, total: 5535.00 },
+  { tipo: 'Despesa', categoria: 'Escolas/Projetos - Formadores/Gabinetes Psicologia', rubrica: 'FORMADORES APRENDIZAGEM LISBOA', padrao: 'Sazonal', dia: 15, total: 102000.00 },
+  { tipo: 'Despesa', categoria: 'Escolas/Projetos - Formadores/Gabinetes Psicologia', rubrica: 'SIAC Execução', padrao: 'Pontual', dia: 15, total: 91848.80 },
+  { tipo: 'Despesa', categoria: 'Escolas/Projetos - Formadores/Gabinetes Psicologia', rubrica: 'FORMADORES', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Despesa', categoria: 'Escolas/Projetos - PE MAAT + PE Artes (Gulbenkian) - estagiários', rubrica: 'PE_MAAT (EDP)', padrao: 'Fixa mensal', dia: 5, total: 97037.50 },
+  { tipo: 'Despesa', categoria: 'Escolas/Projetos - PE MAAT + PE Artes (Gulbenkian) - estagiários', rubrica: 'PE_ARTE (GULBENKIAN)', padrao: 'Recorrente variável', dia: 5, total: 236874.50 },
+  { tipo: 'Despesa', categoria: 'Recursos Humanos - Vencimentos', rubrica: 'VENCIMENTOS', padrao: 'Recorrente variável', dia: 28, total: 150000.00 },
+  { tipo: 'Despesa', categoria: 'Recursos Humanos - SS / IRS / Seguros / Entidade Contratante', rubrica: 'SEGURANÇA SOCIAL', padrao: 'Recorrente variável', dia: 20, total: 52000.00 },
+  { tipo: 'Despesa', categoria: 'Recursos Humanos - SS / IRS / Seguros / Entidade Contratante', rubrica: 'IRS', padrao: 'Recorrente variável', dia: 20, total: 26100.00 },
+  { tipo: 'Despesa', categoria: 'Recursos Humanos - SS / IRS / Seguros / Entidade Contratante', rubrica: 'SEGURO ACID. TRAB', padrao: 'Fixa mensal', dia: 20, total: 2100.00 },
+  { tipo: 'Despesa', categoria: 'Recursos Humanos - SS / IRS / Seguros / Entidade Contratante', rubrica: 'SEGURO SAÚDE', padrao: 'Fixa mensal', dia: 20, total: 3500.00 },
+  { tipo: 'Despesa', categoria: 'Recursos Humanos - SS / IRS / Seguros / Entidade Contratante', rubrica: 'ENTIDADE CONTRATANTE', padrao: 'Pontual', dia: 20, total: 4500.00 },
+  { tipo: 'Despesa', categoria: 'Responsabilidades de Crédito - IHRU', rubrica: 'IHRU (MÊS CORRENTE)', padrao: 'Fixa mensal', dia: 8, total: 50462.23 },
+  { tipo: 'Despesa', categoria: 'Responsabilidades de Crédito - IHRU', rubrica: 'IHRU (MESES ANTERIORES)', padrao: 'Pontual', dia: 8, total: 0.00 },
+  { tipo: 'Despesa', categoria: 'Responsabilidades de Crédito - CGD / Millennium CC / Montepio CC', rubrica: 'CGD (MÊS CORRENTE)', padrao: 'Fixa mensal', dia: 22, total: 35587.09 },
+  { tipo: 'Despesa', categoria: 'Responsabilidades de Crédito - CGD / Millennium CC / Montepio CC', rubrica: 'MILLENIUM CC', padrao: 'Fixa mensal', dia: 22, total: 13300.00 },
+  { tipo: 'Despesa', categoria: 'Responsabilidades de Crédito - Montepio (contrato mútuo)', rubrica: 'MONTEPIO (CONTRATO MÚTUO)', padrao: 'Fixa mensal', dia: 17, total: 12285.00 },
+  { tipo: 'Despesa', categoria: 'Responsabilidades de Crédito - CGD / Millennium CC / Montepio CC', rubrica: 'MONTEPIO CM (JUROS)', padrao: 'Fixa mensal', dia: 22, total: 18247.88 },
+  { tipo: 'Despesa', categoria: 'Responsabilidades de Crédito - AT', rubrica: 'AT', padrao: 'Fixa mensal', dia: 20, total: 11785.76 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'ELETRICIDADE PORTO', padrao: 'Fixa mensal', dia: 15, total: 7174.79 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'ELETRICIDADE LX', padrao: 'Fixa mensal', dia: 15, total: 6826.89 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'ELETRICIDADE ALGARVE', padrao: 'Fixa mensal', dia: 15, total: 645.40 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'VIGILÂNCIA', padrao: 'Fixa mensal', dia: 15, total: 623.21 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'LIMPEZA PORTO', padrao: 'Recorrente variável', dia: 15, total: 2550.00 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'LIMPEZA LX', padrao: 'Fixa mensal', dia: 15, total: 7700.00 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'CONSUMÍVEIS', padrao: 'Fixa mensal', dia: 15, total: 2751.07 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'TELECOMUNICAÇÕES', padrao: 'Fixa mensal', dia: 15, total: 9240.00 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'ÁGUA', padrao: 'Fixa mensal', dia: 15, total: 2270.45 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'RENTING VIATURA', padrao: 'Fixa mensal', dia: 15, total: 4072.04 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'COMBUSTIVEIS E PORTAGENS', padrao: 'Fixa mensal', dia: 15, total: 2680.23 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'SEGURO MAAT', padrao: 'Sazonal', dia: 15, total: 1500.00 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'SEGUROS FCG', padrao: 'Sazonal', dia: 15, total: 2476.00 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'MANUTENÇÃO (ELEVADORES)', padrao: 'Pontual', dia: 15, total: 399.66 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'ASSESSORIA JURÍDICA', padrao: 'Fixa mensal', dia: 15, total: 6543.60 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'ASSESSORIA CONTABILIDADE', padrao: 'Fixa mensal', dia: 15, total: 7318.50 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'ASSESSORIA INFORMÁTICA', padrao: 'Sazonal', dia: 15, total: 848.70 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'CISION', padrao: 'Fixa mensal', dia: 15, total: 1291.50 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'SAGE', padrao: 'Fixa mensal', dia: 15, total: 525.35 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'MICROSOFT', padrao: 'Fixa mensal', dia: 15, total: 302.40 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'PARQUE ESTACIONAMENTO', padrao: 'Fixa mensal', dia: 15, total: 4053.35 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'DOMÍNIO FJ', padrao: 'Fixa mensal', dia: 15, total: 1179.99 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'ALUGUER DE COMPUTADORES LX', padrao: 'Sazonal', dia: 15, total: 3000.00 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'CARTÃO COVER - SUBSCRIÇÃO', padrao: 'Fixa mensal', dia: 15, total: 279.86 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'CONTROLO DO ASSIDUIDADE GULBENKIAN', padrao: 'Sazonal', dia: 15, total: 258.30 },
+  { tipo: 'Despesa', categoria: 'Despesas de Funcionamento', rubrica: 'ALUGUER DE ESPAÇO PARA STANDS (NOVVE)', padrao: 'Fixa mensal', dia: 15, total: 1004.78 },
+  { tipo: 'Despesa', categoria: 'Despesas com as Mostras', rubrica: 'Produção', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Despesa', categoria: 'Despesas com as Mostras', rubrica: 'Alojamento Oradores', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Despesa', categoria: 'Despesas com as Mostras', rubrica: 'Transfers', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Despesa', categoria: 'Despesas com as Mostras', rubrica: 'Catering Mostras', padrao: 'Fixa mensal', dia: 15, total: 9122.61 },
+  { tipo: 'Despesa', categoria: 'Despesas com as Mostras', rubrica: 'Audiovisuais', padrao: 'Recorrente variável', dia: 15, total: 11284.90 },
+  { tipo: 'Despesa', categoria: 'Despesas com as Mostras', rubrica: 'Fotografia e video', padrao: 'Pontual', dia: 15, total: 4428.00 },
+  { tipo: 'Despesa', categoria: 'Despesas com as Mostras', rubrica: 'Prémios', padrao: 'Pontual', dia: 15, total: 7000.00 },
+  { tipo: 'Despesa', categoria: 'Despesas com as Mostras', rubrica: 'Participações Internacionais', padrao: 'Pontual', dia: 15, total: 3500.00 },
+  { tipo: 'Despesa', categoria: 'Despesas com as Mostras', rubrica: 'DESPESAS DIVERSAS', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Despesa', categoria: 'Despesas com as Mostras', rubrica: 'Lego', padrao: 'Pontual', dia: 15, total: 2949.65 },
+  { tipo: 'Despesa', categoria: 'Obras', rubrica: 'OBRAS EDIFÍCIO PAFT (adiantamento)', padrao: 'Sazonal', dia: 8, total: 29913.74 },
+  { tipo: 'Despesa', categoria: 'Obras', rubrica: 'OBRAS EDIFÍCIO PAFT (saldo)', padrao: 'Pontual', dia: 25, total: 0.00 },
+  { tipo: 'Despesa', categoria: 'Outros Pagamentos a Fornecedores', rubrica: 'IMPRESA', padrao: 'Pontual', dia: 10, total: 0.00 },
+  { tipo: 'Despesa', categoria: 'Outros Pagamentos a Fornecedores', rubrica: 'NOS', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Despesa', categoria: 'Outros Pagamentos a Fornecedores', rubrica: 'Condomínio Edificio Campo Grande', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Despesa', categoria: 'Outros Pagamentos a Fornecedores', rubrica: 'Cision', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Despesa', categoria: 'Outros Pagamentos a Fornecedores', rubrica: 'VLV', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Despesa', categoria: 'Outros Pagamentos a Fornecedores', rubrica: 'IPP', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Despesa', categoria: 'Outros Pagamentos a Fornecedores', rubrica: 'movijovem', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Despesa', categoria: 'Outros Pagamentos a Fornecedores', rubrica: 'ACORDOS PAG. FORNECEDORES', padrao: 'Pontual', dia: 10, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Projeto Sistema Aprendizagem Lisboa (37/DL/2025)', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Projeto Sistema Aprendizagem Lisboa (18/DL/2025)', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Projeto Sistema Aprendizagem Lisboa (11/DL/2026) (1º pedido reembolso)', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Projeto Sistema Aprendizagem Lisboa (11/DL/2026) (2º pedido reembolso)', padrao: 'Pontual', dia: 2, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Projeto Sistema Aprendizagem Lisboa (11/DL/2026) (3º pedido reembolso)', padrao: 'Pontual', dia: 15, total: 110000.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Projeto Sistema Aprendizagem Lisboa (Adiantamento 15%)', padrao: 'Pontual', dia: 15, total: 70000.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Projeto Sistema Aprendizagem Lisboa (11/DL/2027) (1º PR', padrao: 'Pontual', dia: 15, total: 90000.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Projeto Sistema Aprendizagem Lisboa (11/DL/2026) (3º pedido reembolso) 2', padrao: 'Pontual', dia: 15, total: 7500.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Projeto Sistema Aprendizagem Lisboa (11/DL/2026) (4º pedido reembolso)', padrao: 'Pontual', dia: 15, total: 85000.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Projeto InformaT Centro (maio)', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Projeto InformaT Norte /InsideArte (validado)', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Projeto InsideArte', padrao: 'Pontual', dia: 15, total: 44054.57 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Projeto InformaT Algarve', padrao: 'Pontual', dia: 15, total: 32558.39 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Projeto InformaT Alentejo', padrao: 'Pontual', dia: 15, total: 29199.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Projeto INCORPORA', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Native Scientists 30%', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Comic Com 2026 SMF 30% restante', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Formação Privado Para Onde 35% adiantamento', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Prestação Final GreenShift', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'SIAC - FJ+ANJE', padrao: 'Pontual', dia: 15, total: 70341.33 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'ARI Cultural Tavira', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Fundação  Jornada - Inside Arte', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Investidor social SIAC', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Investidor social InsideArte CIMAT', padrao: 'Pontual', dia: 15, total: 8000.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Know Lisboa 2030', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'IN:FORMAT ALGARVE - NOS', padrao: 'Pontual', dia: 15, total: 20000.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'Reembolso IN:FORMAT', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Financiamento de Projetos (subsídios e reembolsos)', rubrica: 'PEJENE', padrao: 'Pontual', dia: 15, total: 30000.00 },
+  { tipo: 'Receita', categoria: 'Rendas de Espaços e Imóveis (incl. NIDE)', rubrica: 'PortoCartoon', padrao: 'Fixa mensal', dia: 8, total: 73612.80 },
+  { tipo: 'Receita', categoria: 'Rendas de Espaços e Imóveis (incl. NIDE)', rubrica: 'Castelbel', padrao: 'Fixa mensal', dia: 8, total: 72000.00 },
+  { tipo: 'Receita', categoria: 'Rendas de Espaços e Imóveis (incl. NIDE)', rubrica: 'ArisDouro (Restaurante DOP)', padrao: 'Fixa mensal', dia: 8, total: 54000.00 },
+  { tipo: 'Receita', categoria: 'Rendas de Espaços e Imóveis (incl. NIDE)', rubrica: 'Busilis (Loja das Tábuas)', padrao: 'Fixa mensal', dia: 8, total: 31500.00 },
+  { tipo: 'Receita', categoria: 'Rendas de Espaços e Imóveis (incl. NIDE)', rubrica: 'Busilis (Loja das Tábuas) - rendas atrasadas', padrao: 'Pontual', dia: 8, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Rendas de Espaços e Imóveis (incl. NIDE)', rubrica: 'Gabinetes', padrao: 'Fixa mensal', dia: 8, total: 10184.40 },
+  { tipo: 'Receita', categoria: 'Rendas de Espaços e Imóveis (incl. NIDE)', rubrica: 'Cowork', padrao: 'Fixa mensal', dia: 8, total: 3985.20 },
+  { tipo: 'Receita', categoria: 'Rendas de Espaços e Imóveis (incl. NIDE)', rubrica: 'Morada Virtual', padrao: 'Fixa mensal', dia: 8, total: 1660.50 },
+  { tipo: 'Receita', categoria: 'Contratos de Formação (Prestação de Serviços PE)', rubrica: 'PE MAAT 2026 (contrato mensal)', padrao: 'Sazonal', dia: 8, total: 64002.00 },
+  { tipo: 'Receita', categoria: 'Contratos de Formação (Prestação de Serviços PE)', rubrica: 'PE Artes 2026 Gulbenkian (contrato mensal)', padrao: 'Recorrente variável', dia: 8, total: 289238.15 },
+  { tipo: 'Receita', categoria: 'Contratos de Formação (Prestação de Serviços PE)', rubrica: 'PE Artes 2026 Gulbenkian (adicionais)', padrao: 'Pontual', dia: 8, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Apoios a Mostras', rubrica: 'Ciênca Viva', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Apoios a Mostras', rubrica: 'Delta', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Apoios a Mostras', rubrica: 'Lusoponte', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Apoios a Mostras', rubrica: 'IPDJ', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Apoios a Mostras', rubrica: 'Rockefeller', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Apoios a Mostras', rubrica: 'Brisa', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Apoios a Mostras', rubrica: 'EDP', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Apoios a Mostras', rubrica: 'Century 21', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Apoios a Mostras', rubrica: 'Hovionne - donativo', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Apoios a Mostras', rubrica: 'Douro Interior', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Apoios a Mostras', rubrica: 'LIPOR - donativo', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Apoios a Mostras', rubrica: 'Banco do Fomento', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Apoios a Mostras', rubrica: 'Portugal Venture', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Apoios a Mostras', rubrica: 'Mobisciences', padrao: 'Pontual', dia: 15, total: 0.00 },
+  { tipo: 'Receita', categoria: 'Formação Privada', rubrica: 'Formações Privadas', padrao: 'Pontual', dia: 15, total: 0.00 }
+];
 let GF_SOLICITACOES = [];
 let GF_ALTERACOES = [];
 let GF_ALTERACOES_ORIGENS = [];
@@ -8720,6 +8856,9 @@ let GF_FATURAS = [];
 let GF_MOV_PENDENTES = [];   // FJ_MovimentosBancarios — importação do Excel do banco, ainda por afetar
 let GF_MOV_EXECUTADOS = [];  // FJ_MovimentosExecutados — ledger final, um registo por rúbrica afetada
 let GF_MOV_EXECUTADOS_ERRO = null; // mensagem de erro se a lista acima falhar ao carregar — ver aviso em gfRenderOrcamento()
+let GF_TESOURARIA_PARCELAS = []; // FJ_Tesouraria_Parcelas (Fase 2) — calendário de parcelas previstas/confirmadas/efetivas por rúbrica
+let _gfTesourariaParcelasType = null; // cache do ListItemEntityTypeFullName, obtido em runtime
+let _gfParcCalc = {}; // estado efémero do formulário de geração de calendário por rúbrica: { [rubricaId]: { metodo, percentagens, padraoSugerido } }
 let GF_AFETAR = { movimento: null, repartida: false, linhas: [] }; // estado do modal "Afetar movimento" (repartição por várias rúbricas)
 let GF_MODELOS_REPARTICAO = []; // modelos de repartição fixa (ex.: salários) guardados em FJ_Configuracoes: [{id, nome, linhas:[{projetoId, projetoNome, rubricaTitulo, percentagem}]}]
 let GF_MODELO_EDIT = null; // modelo em edição no modal "Modelos de Repartição" (objeto ou null)
@@ -8754,6 +8893,7 @@ const GF_BADGES = {
   'Pendente Informação': '<span class="bdg" style="background:#EDE9FE;color:#5B21B6">Pendente Informação</span>',
   'Processado': '<span class="bdg" style="background:#10B981;color:#fff">Processado</span>',
   'Pago': '<span class="bdg" style="background:#6366F1;color:#fff">Pago</span>',
+  'Recebido': '<span class="bdg" style="background:#FFEDD5;color:#9A3412">Recebido</span>',
   'Rejeitado': '<span class="bdg" style="background:#FEE2E2;color:#991B1B">Rejeitado</span>',
   // Rubricas
   'Ativo': '<span class="bdg" style="background:#D1FAE5;color:#065F46">Ativo</span>',
@@ -8869,7 +9009,12 @@ async function gfLoadAll() {
       dataPago: r.DataPago || null,
       dataLimitePagamento: r.DataLimitePagamento ? r.DataLimitePagamento.split('T')[0] : null,
       motivoRejeicao: r.MotivoRejeicao || '',
-      comentarios: r.Comentarios || '' // Log de comentários de aprovação (um por linha) — ver gfAppendComentario
+      comentarios: r.Comentarios || '', // Log de comentários de aprovação (um por linha) — ver gfAppendComentario
+      // Fase 3 — Recorrência e fluxo de Receita
+      recorrente: !!r.Recorrente,
+      periodicidade: r.Periodicidade || '',
+      numOcorrencias: r.NumOcorrencias || null,
+      dataRecebimento: r.DataRecebimento || null
     }));
 
     // Alterações Orçamentais
@@ -8975,6 +9120,37 @@ async function gfLoadAll() {
       console.warn('Lista FJ_MovimentosExecutados indisponível:', e.message);
       GF_MOV_EXECUTADOS = [];
       GF_MOV_EXECUTADOS_ERRO = e.message || String(e);
+    }
+
+
+    // Calendário de Parcelas de Tesouraria (Fase 2)
+    try {
+      const dtp = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items?$select=*,RubricaId/Id,RubricaId/Title,SolicitacaoId/Id,SolicitacaoId/Title&$expand=RubricaId,SolicitacaoId&$top=3000`);
+      GF_TESOURARIA_PARCELAS = (dtp.d?.results || []).map(r => ({
+        id: r.Id,
+        titulo: r.Title || '',
+        rubricaId: r.RubricaId?.Id || r.RubricaIdId || null,
+        rubricaNome: r.RubricaId?.Title || '',
+        solicitacaoId: r.SolicitacaoId?.Id || r.SolicitacaoIdId || null,
+        solicitacaoNome: r.SolicitacaoId?.Title || '',
+        tipo: r.TipoParcelaTipo || 'Pagamento',
+        valorPrevisto: r.ValorPrevisto || 0,
+        dataPrevista: r.DataPrevista || null,
+        valorConfirmado: r.ValorConfirmado || 0,
+        dataConfirmada: r.DataConfirmada || null,
+        valorEfetivo: r.ValorEfetivo || 0,
+        dataEfetiva: r.DataEfetiva || null,
+        estado: r.EstadoParcela || 'Prevista',
+        origem: r.OrigemParcela || 'Manual',
+        formaPagamento: r.FormaPagamento || '',
+        parcelaPai: r.ParcelaPai || null,
+        numAdiamentos: r.NumAdiamentos || 0,
+        justificacaoDesvio: r.JustificacaoDesvio || '',
+        notas: r.NotasParcela || ''
+      }));
+    } catch (e) {
+      console.warn('Lista FJ_Tesouraria_Parcelas indisponível:', e.message);
+      GF_TESOURARIA_PARCELAS = [];
     }
 
     console.log('GF Data loaded:', { projetos: GF_PROJETOS.length, rubricas: GF_RUBRICAS.length, solicitacoes: GF_SOLICITACOES.length, movPendentes: GF_MOV_PENDENTES.length, movExecutados: GF_MOV_EXECUTADOS.length });
@@ -9158,6 +9334,7 @@ function gfNav(screen, params = {}) {
     'configuracoes':        'gf-nav-configuracoes',
     'tesouraria-divida':    'gf-nav-divida',
     'tesouraria-previsoes': 'gf-nav-previsoes',
+    'tesouraria-operacional': 'gf-nav-operacional',
     'modelos-reparticao':   'gf-nav-modelos-reparticao',
   };
   const navId = NAV_MAP[screen] || NAV_MAP[screen.split('-')[0]];
@@ -9186,7 +9363,7 @@ function gfUpdateSidebarNav() {
   if (cfg) cfg.style.display = _financeRole === 'pe' ? 'flex' : 'none';
   // Tesouraria: apenas Financeiro ou PE
   const canTes = gfCanViewTesouraria();
-  const tesIds = ['gf-nav-tesouraria-lbl', 'gf-nav-divida', 'gf-nav-previsoes'];
+  const tesIds = ['gf-nav-tesouraria-lbl', 'gf-nav-divida', 'gf-nav-previsoes', 'gf-nav-operacional'];
   tesIds.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = canTes ? (id === 'gf-nav-tesouraria-lbl' ? 'block' : 'flex') : 'none';
@@ -9224,6 +9401,7 @@ function gfRender() {
     case 'faturas': html = gfRenderFaturas(); break;
     case 'configuracoes': html = gfRenderConfiguracoes(); break;
     case 'tesouraria-divida': html = gfRenderTesourariaDivida(); break;
+    case 'tesouraria-operacional': html = gfRenderTesourariaOperacional(); break;
     case 'modelos-reparticao': html = gfRenderModelosReparticao(); break;
     default: html = gfRenderHome();
   }
@@ -9606,6 +9784,702 @@ function _gfGetPagamentosMensais() {
   return pagamentos;
 }
 
+// ── Importação única: classificação do Plano de Tesouraria Semanal ──
+// Cria (uma vez, sem duplicar) as rúbricas de GF_TESOURARIA_IMPORT_RUBRICAS no projeto
+// virtual "Banco Global" — criando esse projeto primeiro, se ainda não existir. Idempotente:
+// pode correr-se mais do que uma vez em segurança, salta sempre os títulos já existentes.
+async function gfImportarRubricasTesouraria() {
+  if (!gfCanViewTesouraria()) { showNotif('Sem permissão para esta ação.', 'error'); return; }
+  if (!confirm(`Isto cria até ${GF_TESOURARIA_IMPORT_RUBRICAS.length} rúbricas novas no projeto "Banco Global", classificadas a partir do Plano de Tesouraria Semanal. Rúbricas já existentes com o mesmo título não são duplicadas. Continuar?`)) return;
+
+  const ano = 2026;
+  showNotif('A importar — pode demorar um a dois minutos...', 'success');
+  try {
+    // 1) Garantir que o projeto virtual "Banco Global" existe
+    let bancoProj = GF_PROJETOS.find(p => p.nome === 'Banco Global');
+    if (!bancoProj) {
+      let depId = null;
+      try {
+        const dep = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Departamentos')/items?$filter=Title eq 'Financeiro'&$select=Id&$top=1`);
+        depId = dep.d?.results?.[0]?.Id || null;
+      } catch (e) { /* segue sem departamento, se a lista falhar */ }
+      const projBody = {
+        __metadata: { type: 'SP.Data.FJ_x005f_ProjetosListItem' },
+        Title: 'Banco Global',
+        Estado: 'Ativo',
+        AnoOrcamental: ano,
+        IsBancoGlobal: true,
+        Notas: 'Projeto virtual para gestão de tesouraria e fundos não orçamentados.'
+      };
+      if (depId) projBody.DepartamentoId = depId;
+      const projRes = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Projetos')/items`, projBody, 'POST');
+      bancoProj = { id: projRes.d.Id, nome: 'Banco Global', isBanco: true };
+      GF_PROJETOS.push(bancoProj);
+    }
+
+    // 2) Rúbricas já existentes neste projeto/ano, para a importação ser idempotente
+    const existentes = new Set(
+      GF_RUBRICAS.filter(r => r.projetoId === bancoProj.id && r.ano === ano).map(r => r.titulo)
+    );
+
+    const metaRub = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')?$select=ListItemEntityTypeFullName`);
+    const rubType = metaRub.d.ListItemEntityTypeFullName;
+
+    let criadas = 0, ignoradas = 0, erros = 0;
+    for (const item of GF_TESOURARIA_IMPORT_RUBRICAS) {
+      if (existentes.has(item.rubrica)) { ignoradas++; continue; }
+      const body = {
+        __metadata: { type: rubType },
+        Title: item.rubrica,
+        ProjetoIdId: bancoProj.id,
+        AnoOrcamental: ano,
+        Estado: 'Ativo',
+        DespOrcamentada: item.tipo === 'Despesa' ? item.total : 0,
+        RecOrcamentada: item.tipo === 'Receita' ? item.total : 0,
+        CategoriaTesouraria: item.categoria,
+        PadraoTesouraria: item.padrao,
+        RubricaMensal: item.padrao === 'Fixa mensal',
+        DiaPagamento: item.dia
+      };
+      try {
+        await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items`, body, 'POST');
+        existentes.add(item.rubrica);
+        criadas++;
+      } catch (e) {
+        erros++;
+        console.error('Erro ao importar rúbrica de tesouraria', item.rubrica, e);
+      }
+    }
+
+    showNotif(`Importação concluída: ${criadas} rúbrica(s) criada(s), ${ignoradas} já existiam${erros ? `, ${erros} com erro (ver consola)` : ''}.`, erros ? 'error' : 'success');
+    await gfLoadAll();
+    gfRenderTesourariaPrevisoes();
+  } catch (e) {
+    showNotif('Erro na importação: ' + e.message, 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// TESOURARIA — VISTA ANUAL (MAPA), Fase 4. Réplica do layout do Excel
+// "Plano de Tesouraria": 10 semanas de detalhe + resto do mês + meses
+// seguintes até perfazer ~12 meses, com saldo corrido. Alimentada pelo
+// Calendário de Parcelas (FJ_Tesouraria_Parcelas, Fases 2/3) — não mistura
+// com as dívidas/receitas aprovadas nem os pagamentos mensais sintéticos
+// que o modo Semanal/Mensal/Trimestral usa, para não haver dupla contagem.
+// ══════════════════════════════════════════════════════════════
+
+const MESES_PT_LONGO = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+// Número da semana ISO 8601 (segunda-feira como 1º dia, semana 1 = a que contém a 1ª 5ª-feira do ano)
+function gfSemanaDoAno(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+// Gera os períodos da vista Anual: 10 semanas (seg-dom, a partir da semana atual),
+// o resto do mês em que a 10ª semana termina (se sobrarem dias), e depois meses
+// completos até perfazer ~12 meses a partir de hoje.
+function _gfGerarPeriodosAnual() {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const fmtCurta = d => d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' });
+  const periodos = [];
+
+  const dow = hoje.getDay() === 0 ? 6 : hoje.getDay() - 1;
+  const seg0 = new Date(hoje); seg0.setDate(hoje.getDate() - dow);
+  let fimUltimaSemana = null;
+  for (let w = 0; w < 10; w++) {
+    const ini = new Date(seg0); ini.setDate(seg0.getDate() + w * 7);
+    const fim = new Date(ini); fim.setDate(ini.getDate() + 6);
+    periodos.push({
+      ini, fim, isWeek: true,
+      label: `Semana ${w + 1}`,
+      sublabel: `Semana ${gfSemanaDoAno(ini)}`,
+      datas: `${fmtCurta(ini)} - ${fmtCurta(fim)}`
+    });
+    fimUltimaSemana = fim;
+  }
+
+  const fimMesUltimaSemana = new Date(fimUltimaSemana.getFullYear(), fimUltimaSemana.getMonth() + 1, 0);
+  if (fimUltimaSemana < fimMesUltimaSemana) {
+    const ini = new Date(fimUltimaSemana); ini.setDate(ini.getDate() + 1);
+    periodos.push({
+      ini, fim: fimMesUltimaSemana, isWeek: false,
+      label: `${MESES_PT_LONGO[ini.getMonth()]} (restante)`,
+      sublabel: String(ini.getFullYear()),
+      datas: `${fmtCurta(ini)} - ${fmtCurta(fimMesUltimaSemana)}`
+    });
+  }
+
+  const horizonte = new Date(hoje.getFullYear(), hoje.getMonth() + 12, hoje.getDate());
+  let cursor = new Date(fimMesUltimaSemana.getFullYear(), fimMesUltimaSemana.getMonth() + 1, 1);
+  while (cursor <= horizonte) {
+    const fimMes = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0);
+    periodos.push({
+      ini: new Date(cursor), fim: fimMes, isWeek: false,
+      label: `${MESES_PT_LONGO[cursor.getMonth()]} ${cursor.getFullYear()}`,
+      sublabel: String(cursor.getFullYear()),
+      datas: `${fmtCurta(cursor)} - ${fmtCurta(fimMes)}`
+    });
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+  }
+
+  return periodos;
+}
+
+// Soma, por categoria de tesouraria e por período, os valores das parcelas de
+// FJ_Tesouraria_Parcelas (Fases 2/3) — prioriza valor/data efetiva > confirmada > prevista.
+function _gfCalcularTotaisCategoriasPeriodo(periodos) {
+  const rubCatMap = {};
+  GF_RUBRICAS.forEach(r => { rubCatMap[r.id] = r.categoriaTesouraria || ''; });
+
+  const totais = {};
+  GF_CATEGORIAS_TESOURARIA.forEach(c => { totais[c.nome] = Array(periodos.length).fill(0); });
+
+  GF_TESOURARIA_PARCELAS.forEach(p => {
+    if (p.estado === 'Anulada') return;
+    const categoria = rubCatMap[p.rubricaId];
+    if (!categoria || !totais[categoria]) return; // rúbrica sem categoria de tesouraria definida
+    const dataRef = p.dataEfetiva || p.dataConfirmada || p.dataPrevista;
+    if (!dataRef) return;
+    const d = new Date(dataRef);
+    const valor = p.valorEfetivo || p.valorConfirmado || p.valorPrevisto || 0;
+    const idx = periodos.findIndex(per => d >= per.ini && d <= per.fim);
+    if (idx === -1) return; // fora da janela (passado ou além do horizonte de 12 meses)
+    totais[categoria][idx] += valor;
+  });
+
+  return totais;
+}
+
+function _gfBuildTesourariaAnualTabela(saldoAtual) {
+  const periodos = _gfGerarPeriodosAnual();
+  const totaisCategoria = _gfCalcularTotaisCategoriasPeriodo(periodos);
+  const categoriasReceita = GF_CATEGORIAS_TESOURARIA.filter(c => c.grupo === 'Receita');
+  const categoriasDespesa = GF_CATEGORIAS_TESOURARIA.filter(c => c.grupo === 'Despesa');
+
+  const totalRecebimentos = periodos.map((_, i) => categoriasReceita.reduce((s, c) => s + totaisCategoria[c.nome][i], 0));
+  const totalPagamentos = periodos.map((_, i) => categoriasDespesa.reduce((s, c) => s + totaisCategoria[c.nome][i], 0));
+
+  const saldoIni = [], saldoFim = [];
+  let corrente = saldoAtual;
+  periodos.forEach((_, i) => {
+    saldoIni.push(corrente);
+    corrente = corrente + totalRecebimentos[i] - totalPagamentos[i];
+    saldoFim.push(corrente);
+  });
+
+  const fmt = v => {
+    if (!v) return '-€';
+    const s = new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(v)) + ' €';
+    return v < 0 ? '-' + s : s;
+  };
+
+  const thStyle = 'padding:6px 10px;text-align:right;font-size:11px;font-weight:600;white-space:nowrap;border-bottom:1px solid var(--border)';
+  const tdStyle = 'padding:5px 10px;text-align:right;font-size:11px;white-space:nowrap';
+  const labelStyle = 'padding:6px 10px;font-size:11px;font-weight:500;white-space:nowrap;position:sticky;left:0;background:inherit;z-index:1';
+
+  const headerRow1 = periodos.map(p => `<th style="${thStyle};background:#1E3A5F;color:#fff">${p.label}</th>`).join('');
+  const headerRow2 = periodos.map(p => `<th style="${thStyle};background:#E5EAF0;font-weight:400;font-style:italic">${p.sublabel}</th>`).join('');
+  const headerRow3 = periodos.map(p => `<th style="${thStyle};background:#E5EAF0;font-weight:400;font-style:italic">${p.datas}</th>`).join('');
+
+  const rowGrupo = (titulo, cor) => `<tr><td colspan="${periodos.length + 1}" style="padding:6px 10px;font-size:11px;font-weight:700;color:#fff;background:${cor};position:sticky;left:0">${titulo}</td></tr>`;
+
+  const rowCategoria = (cat, bg) => `<tr style="background:${bg}">
+    <td style="${labelStyle};background:${bg}">${cat.nome}</td>
+    ${periodos.map((_, i) => `<td style="${tdStyle};color:${totaisCategoria[cat.nome][i] < 0 ? '#A32D2D' : 'inherit'}">${fmt(totaisCategoria[cat.nome][i])}</td>`).join('')}
+  </tr>`;
+
+  const rowTotal = (titulo, valores, bg) => `<tr style="background:${bg};font-weight:700">
+    <td style="${labelStyle};background:${bg}">${titulo}</td>
+    ${valores.map(v => `<td style="${tdStyle}">${fmt(v)}</td>`).join('')}
+  </tr>`;
+
+  const rowSaldo = (titulo, valores, bg, corFn) => `<tr style="background:${bg};font-weight:700">
+    <td style="${labelStyle};background:${bg}">${titulo}</td>
+    ${valores.map(v => `<td style="${tdStyle};color:${corFn ? corFn(v) : 'inherit'}">${fmt(v)}</td>`).join('')}
+  </tr>`;
+
+  return `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+      <button class="btn btn-sm" onclick="gfExportTesourariaAnualCSV()">⬇️ Exportar CSV</button>
+    </div>
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px">
+      <table style="border-collapse:collapse;min-width:100%">
+        <thead>
+          <tr>
+            <th style="${thStyle};text-align:left;background:#1E3A5F;color:#fff;position:sticky;left:0;z-index:2">Período</th>
+            ${headerRow1}
+          </tr>
+          <tr>
+            <th style="${thStyle};text-align:left;background:#E5EAF0;position:sticky;left:0;z-index:2">Semana do ano</th>
+            ${headerRow2}
+          </tr>
+          <tr>
+            <th style="${thStyle};text-align:left;background:#E5EAF0;position:sticky;left:0;z-index:2">Datas</th>
+            ${headerRow3}
+          </tr>
+        </thead>
+        <tbody>
+          ${rowGrupo('RECEBIMENTOS', '#2F5233')}
+          ${categoriasReceita.map(c => rowCategoria(c, '#EAF3DE')).join('')}
+          ${rowTotal('Total RECEBIMENTOS', totalRecebimentos, '#D4E6C3')}
+          ${rowGrupo('PAGAMENTOS', '#7A2E2E')}
+          ${categoriasDespesa.map(c => rowCategoria(c, '#FCEBEB')).join('')}
+          ${rowTotal('Total PAGAMENTOS', totalPagamentos, '#F6CFCF')}
+          <tr><td colspan="${periodos.length + 1}" style="padding:4px"></td></tr>
+          ${rowSaldo('Saldo Inicial', saldoIni, '#FFF6D9')}
+          ${rowTotal('(+) Recebimentos', totalRecebimentos, '#F2F2F2')}
+          ${rowTotal('(-) Pagamentos', totalPagamentos, '#F2F2F2')}
+          ${rowSaldo('Saldo Final', saldoFim, '#FFF6D9', v => v < 0 ? '#A32D2D' : '#1E3A5F')}
+        </tbody>
+      </table>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">
+      Baseado no Calendário de Parcelas (Rúbricas e Solicitações — Fases 2/3). Para uma rúbrica ou solicitação aparecer aqui, é preciso ter gerado o respetivo plano de parcelas. Uma categoria de tesouraria sem rúbricas associadas fica a 0,00 €.
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════════════════════════════
+// TESOURARIA — VISTA OPERACIONAL (Fase 5). Quadro de 10 semanas com as
+// parcelas de FJ_Tesouraria_Parcelas como cartões arrastáveis: arrastar para
+// reagendar, dividir, editar valor/data em linha, eliminar. O "histórico"
+// usa os campos ParcelaPai/NumAdiamentos/JustificacaoDesvio já criados no
+// Fase 2 especificamente para isto — mover uma parcela para uma data mais
+// tardia conta como adiamento e pede um motivo opcional, que fica registado.
+// ══════════════════════════════════════════════════════════════
+
+function _gfOpGerarSemanas() {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const fmtCurta = d => d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' });
+  const dow = hoje.getDay() === 0 ? 6 : hoje.getDay() - 1;
+  const seg0 = new Date(hoje); seg0.setDate(hoje.getDate() - dow);
+  const semanas = [];
+  for (let w = 0; w < 10; w++) {
+    const ini = new Date(seg0); ini.setDate(seg0.getDate() + w * 7);
+    const fim = new Date(ini); fim.setDate(ini.getDate() + 6);
+    semanas.push({ ini, fim, label: `Semana ${w + 1}`, datas: `${fmtCurta(ini)} - ${fmtCurta(fim)}` });
+  }
+  return semanas;
+}
+
+function gfOpParcelasDaSemana(semana) {
+  return GF_TESOURARIA_PARCELAS
+    .filter(p => p.estado !== 'Anulada' && p.dataPrevista)
+    .filter(p => { const d = new Date(p.dataPrevista); return d >= semana.ini && d <= semana.fim; })
+    .sort((a, b) => new Date(a.dataPrevista) - new Date(b.dataPrevista));
+}
+
+function gfRefreshOperacional() {
+  const app = gfEl('gf-app');
+  if (app) app.innerHTML = gfRenderTesourariaOperacional();
+}
+
+function _gfOpAppendJustificacao(p, texto) {
+  const quando = new Date().toLocaleString('pt-PT', { dateStyle: 'short', timeStyle: 'short' });
+  const autor = currentUserFJ?.titulo || user?.name || 'Utilizador';
+  const linha = `[${quando}] ${autor}: ${texto}`;
+  return p.justificacaoDesvio ? p.justificacaoDesvio + '\n' + linha : linha;
+}
+
+function _gfOpCardHtml(p) {
+  const isReceb = p.tipo === 'Recebimento';
+  const cor = isReceb ? '#059669' : '#A32D2D';
+  const bg = isReceb ? '#EAF3DE' : '#FCEBEB';
+  const origemIcon = { 'Orçamento': '📋', 'Solicitação': '📝', 'Manual': '✋', 'Recorrência': '🔁' }[p.origem] || '';
+  const adiada = (p.numAdiamentos || 0) > 0;
+  return `
+    <div class="gf-op-card" draggable="true" ondragstart="gfOpDragStart(event,${p.id})"
+         style="background:${bg};border:1px solid ${adiada ? '#F9CA8B' : 'transparent'};border-radius:8px;padding:8px 10px;margin-bottom:8px;cursor:grab">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+        <div style="font-size:11px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.titulo || '').replace(/"/g, '&quot;')}">${origemIcon} ${p.titulo || '—'}</div>
+        <span style="font-size:10px;color:${cor};font-weight:700;flex-shrink:0">${isReceb ? '+' : '-'}</span>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin:2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.rubricaNome || p.solicitacaoNome || '—'}</div>
+      <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
+        <input type="number" step="0.01" value="${p.valorPrevisto}" onchange="gfSaveParcelaCampo(${p.id},'ValorPrevisto',this.value)"
+          style="width:70px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;font-size:11px;text-align:right;background:#fff">
+        <span style="font-size:9px;color:var(--text3)">€</span>
+        <input type="date" value="${p.dataPrevista ? p.dataPrevista.split('T')[0] : ''}" onchange="gfOpEditarData(${p.id},this.value)"
+          style="border:1px solid var(--border);border-radius:4px;padding:2px 3px;font-size:9px;background:#fff;flex:1;min-width:0">
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+        <span style="font-size:9px;color:var(--text3)">${p.estado}</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          ${adiada ? `<span title="${(p.justificacaoDesvio || '').replace(/"/g, '&quot;')}" style="font-size:10px;cursor:help">⏰${p.numAdiamentos}</span>` : ''}
+          <a onclick="gfOpAbrirSplit(${p.id})" title="Dividir" style="font-size:11px;cursor:pointer;color:var(--text3);text-decoration:none">✂️</a>
+          <a onclick="gfEliminarParcela(${p.id})" title="Eliminar" style="font-size:11px;cursor:pointer;color:#EF4444;text-decoration:none">✕</a>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function gfRenderTesourariaOperacional() {
+  if (!gfCanViewTesouraria()) {
+    return `<div style="padding:2rem;text-align:center;color:var(--text3)">Não tem permissão para aceder a esta secção.</div>`;
+  }
+  const semanas = _gfOpGerarSemanas();
+
+  const colunas = semanas.map((s, i) => {
+    const parcelas = gfOpParcelasDaSemana(s);
+    const totalReceb = parcelas.filter(p => p.tipo === 'Recebimento').reduce((a, p) => a + (p.valorConfirmado || p.valorPrevisto || 0), 0);
+    const totalPag = parcelas.filter(p => p.tipo === 'Pagamento').reduce((a, p) => a + (p.valorConfirmado || p.valorPrevisto || 0), 0);
+    const liquido = totalReceb - totalPag;
+    return `
+      <div class="gf-op-coluna" ondragover="gfOpDragOver(event)" ondrop="gfOpDrop(event,${i})"
+           style="min-width:190px;max-width:190px;background:var(--bg3);border-radius:10px;padding:10px;display:flex;flex-direction:column">
+        <div style="font-size:12px;font-weight:700;margin-bottom:2px">${s.label}</div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:8px">${s.datas}</div>
+        <div style="font-size:11px;font-weight:600;color:${liquido < 0 ? '#A32D2D' : '#059669'};margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+          Líquido: ${liquido >= 0 ? '+' : ''}${gfFmt(liquido)}
+        </div>
+        <div style="flex:1;min-height:40px">
+          ${parcelas.length ? parcelas.map(p => _gfOpCardHtml(p)).join('') : `<div style="font-size:10px;color:var(--text3);text-align:center;padding:12px 0">Sem parcelas</div>`}
+        </div>
+        <button class="btn btn-sm" onclick="gfOpAdicionarNaSemana(${i})" style="margin-top:8px;font-size:11px">+ Parcela</button>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="font-size:22px;font-weight:600;margin-bottom:4px">🗂️ Operacional — Calendário de Parcelas</div>
+        <div style="font-size:13px;color:var(--text3)">Arraste uma parcela para outra semana para reagendar · clique nos campos para editar valor/data · ✂️ divide, ✕ elimina</div>
+      </div>
+    </div>
+    <div style="overflow-x:auto;padding-bottom:8px">
+      <div style="display:flex;gap:10px">${colunas}</div>
+    </div>
+  `;
+}
+
+// ── Arrastar e largar ──
+let _gfOpDragParcelaId = null;
+
+function gfOpDragStart(ev, parcelaId) {
+  _gfOpDragParcelaId = parcelaId;
+  ev.dataTransfer.effectAllowed = 'move';
+  try { ev.dataTransfer.setData('text/plain', String(parcelaId)); } catch (e) {}
+}
+
+function gfOpDragOver(ev) {
+  ev.preventDefault();
+  ev.dataTransfer.dropEffect = 'move';
+}
+
+function gfOpDrop(ev, semanaIdx) {
+  ev.preventDefault();
+  const parcelaId = _gfOpDragParcelaId || parseInt(ev.dataTransfer.getData('text/plain'));
+  _gfOpDragParcelaId = null;
+  if (!parcelaId) return;
+  gfOpMoverParcela(parcelaId, semanaIdx);
+}
+
+// Move a parcela para a semana de destino, mantendo o mesmo dia-da-semana.
+// Se a nova data for posterior à atual, conta como adiamento: incrementa
+// NumAdiamentos e pede (opcionalmente) um motivo, registado em JustificacaoDesvio.
+async function gfOpMoverParcela(parcelaId, semanaIdx) {
+  const p = GF_TESOURARIA_PARCELAS.find(x => x.id === parcelaId);
+  if (!p || !p.dataPrevista) return;
+  const semanas = _gfOpGerarSemanas();
+  const alvo = semanas[semanaIdx];
+  if (!alvo) return;
+
+  const dataAtual = new Date(p.dataPrevista);
+  if (dataAtual >= alvo.ini && dataAtual <= alvo.fim) return; // já está nesta semana
+
+  const dow = dataAtual.getDay() === 0 ? 6 : dataAtual.getDay() - 1;
+  const novaData = new Date(alvo.ini); novaData.setDate(alvo.ini.getDate() + dow);
+
+  await _gfOpAplicarNovaData(p, novaData);
+}
+
+function gfOpEditarData(parcelaId, novaDataStr) {
+  if (!novaDataStr) return;
+  const p = GF_TESOURARIA_PARCELAS.find(x => x.id === parcelaId);
+  if (!p) return;
+  _gfOpAplicarNovaData(p, new Date(novaDataStr));
+}
+
+async function _gfOpAplicarNovaData(p, novaData) {
+  const dataAntiga = p.dataPrevista ? new Date(p.dataPrevista) : null;
+  const isAdiamento = dataAntiga && novaData > dataAntiga;
+  try {
+    const body = { __metadata: { type: await _gfGetTesourariaParcelasType() }, DataPrevista: novaData.toISOString() };
+    if (isAdiamento) {
+      const justificacao = (prompt(`A adiar "${p.titulo}" de ${gfDate(p.dataPrevista)} para ${gfDate(novaData.toISOString())}. Motivo (opcional):`) || '').trim();
+      body.NumAdiamentos = (p.numAdiamentos || 0) + 1;
+      if (justificacao) body.JustificacaoDesvio = _gfOpAppendJustificacao(p, justificacao);
+    }
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${p.id})`, body, 'MERGE');
+    await gfLoadAll();
+    gfRefreshOperacional();
+  } catch (e) {
+    showNotif('Erro ao mover parcela: ' + e.message, 'error');
+  }
+}
+
+// Divide uma parcela em duas: reduz o valor da original e cria uma nova,
+// ligada à primeira via ParcelaPai, com o valor destacado, na mesma data
+// (depois pode ser arrastada para outra semana, se for o caso).
+async function gfOpAbrirSplit(parcelaId) {
+  const p = GF_TESOURARIA_PARCELAS.find(x => x.id === parcelaId);
+  if (!p) return;
+  const valorAtual = p.valorPrevisto || 0;
+  const valorStr = prompt(`Dividir "${p.titulo}" (${gfFmt(valorAtual)}).\nValor a destacar para a nova parcela:`, '');
+  if (valorStr === null) return;
+  const valorSplit = parseFloat((valorStr || '').replace(',', '.'));
+  if (!valorSplit || valorSplit <= 0 || valorSplit >= valorAtual) {
+    showNotif('Valor inválido — tem de ser maior que 0 e menor que o valor atual.', 'error');
+    return;
+  }
+  try {
+    const tipoEntidade = await _gfGetTesourariaParcelasType();
+    const valorRestante = +(valorAtual - valorSplit).toFixed(2);
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${parcelaId})`,
+      { __metadata: { type: tipoEntidade }, ValorPrevisto: valorRestante }, 'MERGE');
+
+    const body = {
+      __metadata: { type: tipoEntidade },
+      Title: `${p.titulo} (dividida)`,
+      TipoParcelaTipo: p.tipo,
+      ValorPrevisto: valorSplit,
+      DataPrevista: p.dataPrevista,
+      EstadoParcela: 'Prevista',
+      OrigemParcela: 'Manual',
+      ParcelaPai: parcelaId
+    };
+    if (p.rubricaId) body.RubricaIdId = p.rubricaId;
+    if (p.solicitacaoId) body.SolicitacaoIdId = p.solicitacaoId;
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items`, body, 'POST');
+    showNotif('Parcela dividida em duas.', 'success');
+    await gfLoadAll();
+    gfRefreshOperacional();
+  } catch (e) {
+    showNotif('Erro ao dividir parcela: ' + e.message, 'error');
+  }
+}
+
+async function gfOpAdicionarNaSemana(semanaIdx) {
+  const semanas = _gfOpGerarSemanas();
+  const s = semanas[semanaIdx];
+  if (!s) return;
+  try {
+    const tipoEntidade = await _gfGetTesourariaParcelasType();
+    const body = {
+      __metadata: { type: tipoEntidade },
+      Title: 'Parcela manual',
+      TipoParcelaTipo: 'Pagamento',
+      ValorPrevisto: 0,
+      DataPrevista: s.ini.toISOString(),
+      EstadoParcela: 'Prevista',
+      OrigemParcela: 'Manual'
+    };
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items`, body, 'POST');
+    await gfLoadAll();
+    gfRefreshOperacional();
+  } catch (e) {
+    showNotif('Erro ao adicionar parcela: ' + e.message, 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// TESOURARIA — ALERTAS, PREVISTO VS REALIZADO, EXPORTAR (Fase 6)
+// ══════════════════════════════════════════════════════════════
+
+// Alertas automáticos mostrados em todos os modos da vista de Previsões:
+// saldo projetado negativo nas próximas 10 semanas, parcelas vencidas ainda
+// por confirmar, e parcelas sem rúbrica/solicitação associada (não entram
+// na vista Anual por categoria). Usa o saldo já calculado em _gfBuildPrevisoes
+// (_gfSaldoAtualCache) para não voltar a ler a lista de movimentos bancários.
+function _gfBuildAlertasTesouraria() {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const vencidas = GF_TESOURARIA_PARCELAS.filter(p => p.estado === 'Prevista' && p.dataPrevista && new Date(p.dataPrevista) < hoje);
+  const semRubrica = GF_TESOURARIA_PARCELAS.filter(p => p.estado !== 'Anulada' && !p.rubricaId && !p.solicitacaoId);
+
+  const semanas = _gfGerarPeriodosAnual().slice(0, 10);
+  const totaisCategoria = _gfCalcularTotaisCategoriasPeriodo(semanas);
+  const categoriasReceita = GF_CATEGORIAS_TESOURARIA.filter(c => c.grupo === 'Receita');
+  const categoriasDespesa = GF_CATEGORIAS_TESOURARIA.filter(c => c.grupo === 'Despesa');
+  let corrente = _gfSaldoAtualCache;
+  let primeiraSemanaNegativa = null;
+  semanas.forEach((s, i) => {
+    const receb = categoriasReceita.reduce((sum, c) => sum + totaisCategoria[c.nome][i], 0);
+    const pag = categoriasDespesa.reduce((sum, c) => sum + totaisCategoria[c.nome][i], 0);
+    corrente = corrente + receb - pag;
+    if (corrente < 0 && !primeiraSemanaNegativa) primeiraSemanaNegativa = s;
+  });
+
+  const alertas = [];
+  if (primeiraSemanaNegativa) {
+    alertas.push({ cor: '#A32D2D', bg: '#FCEBEB', bd: '#F5A3A3', texto: `⚠️ Saldo projetado fica negativo a partir de ${primeiraSemanaNegativa.datas} (com base no Calendário de Parcelas das próximas 10 semanas).` });
+  }
+  if (vencidas.length) {
+    alertas.push({ cor: '#633806', bg: '#FAEEDA', bd: '#F9CA8B', texto: `⏰ ${vencidas.length} parcela(s) com data prevista já passada e ainda por confirmar — reveja em <a href="javascript:void(0)" onclick="gfNav('tesouraria-operacional')" style="color:#003087;font-weight:600">Operacional</a>.` });
+  }
+  if (semRubrica.length) {
+    alertas.push({ cor: '#633806', bg: '#FAEEDA', bd: '#F9CA8B', texto: `ℹ️ ${semRubrica.length} parcela(s) sem rúbrica nem solicitação associada — não entram na vista Anual (mapa) por categoria.` });
+  }
+
+  if (!alertas.length) return '';
+  return `<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+    ${alertas.map(a => `<div style="background:${a.bg};border:1px solid ${a.bd};border-radius:8px;padding:10px 14px;font-size:13px;color:${a.cor}">${a.texto}</div>`).join('')}
+  </div>`;
+}
+
+// Soma, por categoria de tesouraria, o Previsto (plano original, por DataPrevista)
+// e o Realizado (só parcelas já Confirmada/Paga/Recebida, pela DataEfetiva/DataConfirmada)
+// dentro de um intervalo de datas — usado pela comparação Previsto vs Realizado.
+function _gfCalcularPrevistoRealizado(periodoIni, periodoFim) {
+  const rubCatMap = {};
+  GF_RUBRICAS.forEach(r => { rubCatMap[r.id] = r.categoriaTesouraria || ''; });
+  const ESTADOS_REALIZADOS = ['Confirmada', 'Paga', 'Recebida'];
+
+  const dados = {};
+  GF_CATEGORIAS_TESOURARIA.forEach(c => { dados[c.nome] = { previsto: 0, realizado: 0 }; });
+
+  GF_TESOURARIA_PARCELAS.forEach(p => {
+    if (p.estado === 'Anulada') return;
+    const categoria = rubCatMap[p.rubricaId];
+    if (!categoria || !dados[categoria]) return;
+
+    if (p.dataPrevista) {
+      const dPrev = new Date(p.dataPrevista);
+      if (dPrev >= periodoIni && dPrev <= periodoFim) dados[categoria].previsto += p.valorPrevisto || 0;
+    }
+    if (ESTADOS_REALIZADOS.includes(p.estado)) {
+      const dataRef = p.dataEfetiva || p.dataConfirmada;
+      if (dataRef) {
+        const d = new Date(dataRef);
+        if (d >= periodoIni && d <= periodoFim) dados[categoria].realizado += p.valorEfetivo || p.valorConfirmado || 0;
+      }
+    }
+  });
+
+  return dados;
+}
+
+function _gfBuildPrevistoRealizado() {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const inicioMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const fimMesAtual = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+  const inicioMesAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+  const fimMesAnterior = new Date(hoje.getFullYear(), hoje.getMonth(), 0);
+
+  const nomeMes = d => {
+    const n = d.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
+    return n.charAt(0).toUpperCase() + n.slice(1);
+  };
+
+  const dadosAnterior = _gfCalcularPrevistoRealizado(inicioMesAnterior, fimMesAnterior);
+  const dadosAtual = _gfCalcularPrevistoRealizado(inicioMesAtual, fimMesAtual);
+
+  const fmtDesvio = v => {
+    if (Math.abs(v) < 0.01) return `<span style="color:var(--text3)">0,00 €</span>`;
+    return `<span style="color:${v >= 0 ? '#059669' : '#A32D2D'}">${v >= 0 ? '+' : ''}${gfFmt(v)}</span>`;
+  };
+
+  const buildBloco = (titulo, dados, grupo) => {
+    const categorias = GF_CATEGORIAS_TESOURARIA.filter(c => c.grupo === grupo).filter(c => dados[c.nome].previsto || dados[c.nome].realizado);
+    const totPrev = GF_CATEGORIAS_TESOURARIA.filter(c => c.grupo === grupo).reduce((s, c) => s + dados[c.nome].previsto, 0);
+    const totReal = GF_CATEGORIAS_TESOURARIA.filter(c => c.grupo === grupo).reduce((s, c) => s + dados[c.nome].realizado, 0);
+    return `
+      <div style="font-size:11px;font-weight:700;color:#fff;background:${grupo === 'Receita' ? '#2F5233' : '#7A2E2E'};padding:6px 10px;border-radius:4px 4px 0 0">${titulo}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="border-bottom:1px solid var(--border);text-align:right;color:var(--text3)">
+          <th style="padding:6px 10px;text-align:left">Categoria</th><th style="padding:6px 10px">Previsto</th><th style="padding:6px 10px">Realizado</th><th style="padding:6px 10px">Desvio</th>
+        </tr></thead>
+        <tbody>
+          ${categorias.length ? categorias.map(c => {
+            const d = dados[c.nome]; const desvio = d.realizado - d.previsto;
+            return `<tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:5px 10px">${c.nome}</td>
+              <td style="padding:5px 10px;text-align:right">${gfFmt(d.previsto)}</td>
+              <td style="padding:5px 10px;text-align:right">${gfFmt(d.realizado)}</td>
+              <td style="padding:5px 10px;text-align:right">${fmtDesvio(desvio)}</td>
+            </tr>`;
+          }).join('') : `<tr><td colspan="4" style="padding:10px;text-align:center;color:var(--text3)">Sem movimentos neste mês.</td></tr>`}
+          <tr style="font-weight:700;background:var(--bg3)">
+            <td style="padding:6px 10px">Total</td>
+            <td style="padding:6px 10px;text-align:right">${gfFmt(totPrev)}</td>
+            <td style="padding:6px 10px;text-align:right">${gfFmt(totReal)}</td>
+            <td style="padding:6px 10px;text-align:right">${fmtDesvio(totReal - totPrev)}</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+  };
+
+  return `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:10px 14px;font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;border-bottom:1px solid var(--border)">${nomeMes(inicioMesAnterior)} <span style="font-weight:400;text-transform:none">(mês fechado)</span></div>
+        <div style="padding:10px 14px">${buildBloco('RECEBIMENTOS', dadosAnterior, 'Receita')}</div>
+        <div style="padding:0 14px 14px">${buildBloco('PAGAMENTOS', dadosAnterior, 'Despesa')}</div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:10px 14px;font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;border-bottom:1px solid var(--border)">${nomeMes(inicioMesAtual)} <span style="font-weight:400;text-transform:none">(em curso)</span></div>
+        <div style="padding:10px 14px">${buildBloco('RECEBIMENTOS', dadosAtual, 'Receita')}</div>
+        <div style="padding:0 14px 14px">${buildBloco('PAGAMENTOS', dadosAtual, 'Despesa')}</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:10px">
+      Previsto: soma do valor planeado (Data Prevista) no mês. Realizado: soma do valor confirmado/pago/recebido (Data Confirmada/Efetiva) no mês — só parcelas já liquidadas.
+    </div>
+  `;
+}
+
+// Exporta a tabela Anual (mapa) para CSV, com a mesma estrutura de colunas/linhas do ecrã.
+function gfExportTesourariaAnualCSV() {
+  const periodos = _gfGerarPeriodosAnual();
+  const totaisCategoria = _gfCalcularTotaisCategoriasPeriodo(periodos);
+  const categoriasReceita = GF_CATEGORIAS_TESOURARIA.filter(c => c.grupo === 'Receita');
+  const categoriasDespesa = GF_CATEGORIAS_TESOURARIA.filter(c => c.grupo === 'Despesa');
+  const totalRecebimentos = periodos.map((_, i) => categoriasReceita.reduce((s, c) => s + totaisCategoria[c.nome][i], 0));
+  const totalPagamentos = periodos.map((_, i) => categoriasDespesa.reduce((s, c) => s + totaisCategoria[c.nome][i], 0));
+  const saldoIni = [], saldoFim = [];
+  let corrente = _gfSaldoAtualCache;
+  periodos.forEach((_, i) => {
+    saldoIni.push(corrente);
+    corrente = corrente + totalRecebimentos[i] - totalPagamentos[i];
+    saldoFim.push(corrente);
+  });
+
+  const num = v => (v || 0).toFixed(2).replace('.', ',');
+  const csvLine = arr => arr.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';');
+
+  const rows = [];
+  rows.push(csvLine(['Período', ...periodos.map(p => p.label)]));
+  rows.push(csvLine(['Semana do ano', ...periodos.map(p => p.sublabel)]));
+  rows.push(csvLine(['Datas', ...periodos.map(p => p.datas)]));
+  rows.push(csvLine(['RECEBIMENTOS']));
+  categoriasReceita.forEach(c => rows.push(csvLine([c.nome, ...totaisCategoria[c.nome].map(num)])));
+  rows.push(csvLine(['Total RECEBIMENTOS', ...totalRecebimentos.map(num)]));
+  rows.push(csvLine(['PAGAMENTOS']));
+  categoriasDespesa.forEach(c => rows.push(csvLine([c.nome, ...totaisCategoria[c.nome].map(num)])));
+  rows.push(csvLine(['Total PAGAMENTOS', ...totalPagamentos.map(num)]));
+  rows.push(csvLine(['Saldo Inicial', ...saldoIni.map(num)]));
+  rows.push(csvLine(['(+) Recebimentos', ...totalRecebimentos.map(num)]));
+  rows.push(csvLine(['(-) Pagamentos', ...totalPagamentos.map(num)]));
+  rows.push(csvLine(['Saldo Final', ...saldoFim.map(num)]));
+
+  const csvContent = '\uFEFF' + rows.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Tesouraria_Plano_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function gfSetPrevPeriodo(p) {
   _gfPrevPeriodo = p;
   const app = gfEl('gf-app');
@@ -9632,6 +10506,7 @@ function _gfBuildPrevisoes(saldoAtual) {
   // ── Gerar períodos consoante o modo ──────────────────────────
   const periodos = [];
   const periodo = _gfPrevPeriodo;
+  const isAnual = periodo === 'anual'; // vista "Anual (mapa)", Fase 4 — tabela à parte, ver _gfBuildTesourariaAnualTabela
 
   if (periodo === 'semanal') {
     const dow = hoje.getDay() === 0 ? 6 : hoje.getDay() - 1;
@@ -9782,13 +10657,18 @@ function _gfBuildPrevisoes(saldoAtual) {
       <div>
         <div style="font-size:22px;font-weight:600;margin-bottom:4px">📊 Previsões de Tesouraria</div>
         <div style="font-size:13px;color:var(--text3)">Entradas e saídas previstas — aprovadas e por liquidar</div>
+        <a href="javascript:void(0)" onclick="gfImportarRubricasTesouraria()" style="font-size:11px;color:var(--text3);text-decoration:underline;margin-top:4px;display:inline-block">⚙️ Importar classificação do Plano de Tesouraria Semanal (rúbricas "Banco Global")</a>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
         <button style="${btnStyle('semanal')}" onclick="gfSetPrevPeriodo('semanal')">Semanal</button>
         <button style="${btnStyle('mensal')}" onclick="gfSetPrevPeriodo('mensal')">Mensal</button>
         <button style="${btnStyle('trimestral')}" onclick="gfSetPrevPeriodo('trimestral')">Trimestral</button>
+        <button style="${btnStyle('anual')}" onclick="gfSetPrevPeriodo('anual')">Anual (mapa)</button>
+        <button style="${btnStyle('realizado')}" onclick="gfSetPrevPeriodo('realizado')">Previsto vs Realizado</button>
       </div>
     </div>
+
+    ${_gfBuildAlertasTesouraria()}
 
     <div class="card" style="margin-bottom:18px;padding:16px 20px;border-left:4px solid var(--fj-blue)">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
@@ -9821,6 +10701,7 @@ function _gfBuildPrevisoes(saldoAtual) {
       <a href="javascript:void(0)" onclick="gfNav('tesouraria-divida')" style="color:#003087;font-weight:600;margin-left:8px">Ver Dívida a Fornecedores →</a>
     </div>` : ''}
 
+    ${isAnual ? _gfBuildTesourariaAnualTabela(saldoAtual) : periodo === 'realizado' ? _gfBuildPrevistoRealizado() : `
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px">${cardsHtml}</div>
 
     <div style="margin-bottom:8px;font-size:13px;font-weight:600;color:var(--text2)">
@@ -9828,6 +10709,7 @@ function _gfBuildPrevisoes(saldoAtual) {
       <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:6px">(clique para expandir)</span>
     </div>
     ${linhas}
+    `}
   `;
 }
 
@@ -10672,6 +11554,489 @@ function gfGerirMembros(projId) {
 // ══════════════════════════════════════════════════════════════
 // RUBRICA FORM
 // ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+// CALENDÁRIO DE PARCELAS DE TESOURARIA (Fase 2)
+// ══════════════════════════════════════════════════════════════
+
+const MESES_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+function gfParcelasDaRubrica(rubricaId, ano) {
+  return GF_TESOURARIA_PARCELAS
+    .filter(p => p.rubricaId === rubricaId && p.estado !== 'Anulada' && p.dataPrevista && new Date(p.dataPrevista).getFullYear() === ano)
+    .sort((a, b) => new Date(a.dataPrevista) - new Date(b.dataPrevista));
+}
+
+function gfSomaParcelas(rubricaId, ano, tipo) {
+  return gfParcelasDaRubrica(rubricaId, ano)
+    .filter(p => p.tipo === tipo)
+    .reduce((s, p) => s + (p.valorConfirmado || p.valorPrevisto || 0), 0);
+}
+
+// Sugestão de distribuição mensal (%) a partir do histórico de movimentos executados
+// do ano anterior, para rúbricas com o mesmo título (case-insensitive). Reaproveita a
+// mesma heurística de classificação (contagem de meses com valor + coeficiente de
+// variação) usada em gfImportarRubricasTesouraria() / GF_TESOURARIA_IMPORT_RUBRICAS.
+function gfSugerirDistribuicaoHistorica(rub, ano) {
+  const tituloNorm = (rub.titulo || '').trim().toLowerCase();
+  if (!tituloNorm) return null;
+  const movs = GF_MOV_EXECUTADOS.filter(m =>
+    (m.rubricaNome || '').trim().toLowerCase() === tituloNorm &&
+    m.dataMovimento && new Date(m.dataMovimento).getFullYear() === (ano - 1)
+  );
+  if (!movs.length) return null;
+
+  const porMes = Array(12).fill(0);
+  movs.forEach(m => {
+    const mes = new Date(m.dataMovimento).getMonth();
+    porMes[mes] += Math.abs(m.valor || 0);
+  });
+  const total = porMes.reduce((s, v) => s + v, 0);
+  if (total <= 0) return null;
+
+  const comValor = porMes.filter(v => v > 0);
+  const media = total / comValor.length;
+  const variancia = comValor.reduce((s, v) => s + Math.pow(v - media, 2), 0) / comValor.length;
+  const cv = media > 0 ? Math.sqrt(variancia) / media : 1;
+  let padrao;
+  if (comValor.length === 0) padrao = 'Pontual';
+  else if (comValor.length >= 5 && cv <= 0.10) padrao = 'Fixa mensal';
+  else if (comValor.length >= 5) padrao = 'Recorrente variável';
+  else if (comValor.length >= 2) padrao = 'Sazonal';
+  else padrao = 'Pontual';
+
+  return { padrao, percentagens: porMes.map(v => +(v / total * 100).toFixed(2)) };
+}
+
+function gfGetParcCalcState(rubricaId, rub, ano) {
+  if (!_gfParcCalc[rubricaId]) {
+    const sugestao = gfSugerirDistribuicaoHistorica(rub, ano);
+    _gfParcCalc[rubricaId] = {
+      metodo: sugestao ? 'historico' : 'mensal',
+      percentagens: sugestao ? sugestao.percentagens : Array(12).fill(+(100 / 12).toFixed(2)),
+      padraoSugerido: sugestao ? sugestao.padrao : null
+    };
+  }
+  return _gfParcCalc[rubricaId];
+}
+
+function gfRefreshRubricaForm() {
+  const app = gfEl('gf-app');
+  if (app) app.innerHTML = gfRenderRubricaForm();
+}
+
+// Dispatcher genérico de refresh local — usado pelas funções partilhadas de parcelas
+// (gfSaveParcelaCampo / gfEliminarParcela), chamadas tanto a partir do Calendário de
+// Parcelas (form de Rúbrica, Fase 2) como do Plano de Pagamento (form de Solicitação, Fase 3).
+function gfRefreshCurrentForm() {
+  const app = gfEl('gf-app');
+  if (!app) return;
+  if (GF.screen === 'orcamento-rubrica-form') app.innerHTML = gfRenderRubricaForm();
+  else if (GF.screen === 'solicitacao-form') app.innerHTML = gfRenderSolicitacaoForm();
+  else if (GF.screen === 'tesouraria-operacional') app.innerHTML = gfRenderTesourariaOperacional();
+  else gfRender();
+}
+
+function gfSetMetodoCalendario(rubricaId, metodo) {
+  const st = _gfParcCalc[rubricaId];
+  if (st) st.metodo = metodo;
+  gfRefreshRubricaForm();
+}
+
+function gfSetPercentagemMes(rubricaId, mes, valor) {
+  const st = _gfParcCalc[rubricaId];
+  if (!st) return;
+  st.percentagens[mes] = parseFloat(valor) || 0;
+  // Atualiza só o indicador de soma, sem re-render completo (evita perder o foco do input).
+  const el = gfEl(`gf-parc-soma-pct-${rubricaId}`);
+  if (el) {
+    const soma = st.percentagens.reduce((s, v) => s + v, 0);
+    el.textContent = soma.toFixed(1) + '%';
+    el.style.color = Math.abs(soma - 100) < 0.5 ? 'var(--green)' : '#EF4444';
+  }
+}
+
+function gfRenderCalendarioParcelas(rub) {
+  const ano = rub.ano;
+  const st = gfGetParcCalcState(rub.id, rub, ano);
+  const parcelas = gfParcelasDaRubrica(rub.id, ano);
+  const tiposAplicaveis = [];
+  if (rub.despOrc > 0) tiposAplicaveis.push({ tipo: 'Pagamento', orc: rub.despOrc });
+  if (rub.recOrc > 0) tiposAplicaveis.push({ tipo: 'Recebimento', orc: rub.recOrc });
+
+  const somaPct = st.percentagens.reduce((s, v) => s + v, 0);
+
+  return `
+    <div class="card" style="max-width:600px;margin-top:20px">
+      <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">Calendário de Parcelas — ${ano}</div>
+
+      ${!tiposAplicaveis.length ? `
+        <div style="font-size:13px;color:var(--text3)">Define um valor orçamentado (despesa ou receita) para gerar o calendário.</div>
+      ` : `
+        <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
+          <div>
+            <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Método de geração</label>
+            <select onchange="gfSetMetodoCalendario(${rub.id},this.value)" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+              <option value="mensal" ${st.metodo === 'mensal' ? 'selected' : ''}>Mensal fixa — 12 parcelas iguais</option>
+              <option value="percentual" ${st.metodo === 'percentual' ? 'selected' : ''}>Distribuição percentual por mês</option>
+              ${st.padraoSugerido ? `<option value="historico" ${st.metodo === 'historico' ? 'selected' : ''}>Sugestão a partir do histórico ${ano - 1} (${st.padraoSugerido})</option>` : ''}
+              <option value="manual" ${st.metodo === 'manual' ? 'selected' : ''}>Manual — adicionar parcelas uma a uma</option>
+            </select>
+          </div>
+
+          ${(st.metodo === 'percentual' || st.metodo === 'historico') ? `
+            <div>
+              <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:6px">
+                ${MESES_PT.map((m, i) => `
+                  <div>
+                    <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:2px">${m}</label>
+                    <input type="number" step="0.01" value="${st.percentagens[i]}" oninput="gfSetPercentagemMes(${rub.id},${i},this.value)" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:5px;font-size:12px">
+                  </div>
+                `).join('')}
+              </div>
+              <div style="font-size:12px;color:var(--text3)">Soma: <strong id="gf-parc-soma-pct-${rub.id}" style="color:${Math.abs(somaPct - 100) < 0.5 ? 'var(--green)' : '#EF4444'}">${somaPct.toFixed(1)}%</strong> (deve ser 100%)</div>
+            </div>
+          ` : ''}
+
+          ${st.metodo !== 'manual' ? `
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              ${tiposAplicaveis.map(t => `<button class="btn btn-primary" onclick="gfGerarParcelasAutomatico(${rub.id},'${t.tipo}')">Gerar parcelas de ${t.tipo === 'Pagamento' ? 'despesa' : 'receita'}</button>`).join('')}
+            </div>
+          ` : `
+            <button class="btn btn-primary" onclick="gfAdicionarParcelaManual(${rub.id})">+ Adicionar parcela</button>
+          `}
+        </div>
+      `}
+
+      ${tiposAplicaveis.map(t => {
+        const soma = gfSomaParcelas(rub.id, ano, t.tipo);
+        const dif = t.orc - soma;
+        return `
+          <div style="font-size:12px;padding:8px 10px;border-radius:6px;background:${Math.abs(dif) < 0.01 ? 'var(--green-bg)' : '#FEF3C7'};color:${Math.abs(dif) < 0.01 ? '#065F46' : '#92400E'};margin-bottom:8px">
+            ${t.tipo}: parcelas somam ${soma.toFixed(2)}€ de ${t.orc.toFixed(2)}€ orçamentados${Math.abs(dif) < 0.01 ? ' ✓' : ` (${dif > 0 ? 'faltam' : 'excesso de'} ${Math.abs(dif).toFixed(2)}€)`}
+          </div>
+        `;
+      }).join('')}
+
+      ${parcelas.length ? `
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text3)">
+              <th style="padding:6px 4px">Título</th><th style="padding:6px 4px">Tipo</th><th style="padding:6px 4px">Data prevista</th><th style="padding:6px 4px;text-align:right">Valor previsto (€)</th><th style="padding:6px 4px">Estado</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${parcelas.map(p => `
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:6px 4px">${p.titulo}</td>
+                <td style="padding:6px 4px">${p.tipo}</td>
+                <td style="padding:6px 4px"><input type="date" value="${p.dataPrevista ? p.dataPrevista.split('T')[0] : ''}" onchange="gfSaveParcelaCampo(${p.id},'DataPrevista',this.value)" style="border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:12px"></td>
+                <td style="padding:6px 4px;text-align:right"><input type="number" step="0.01" value="${p.valorPrevisto}" onchange="gfSaveParcelaCampo(${p.id},'ValorPrevisto',this.value)" style="width:90px;border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:12px;text-align:right"></td>
+                <td style="padding:6px 4px">${p.estado}</td>
+                <td style="padding:6px 4px;text-align:right"><a onclick="gfEliminarParcela(${p.id})" style="color:#EF4444;cursor:pointer">✕</a></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : `<div style="font-size:12px;color:var(--text3);margin-top:8px">Ainda sem parcelas geradas para ${ano}.</div>`}
+    </div>
+  `;
+}
+
+async function _gfGetTesourariaParcelasType() {
+  if (_gfTesourariaParcelasType) return _gfTesourariaParcelasType;
+  const meta = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')?$select=ListItemEntityTypeFullName`);
+  _gfTesourariaParcelasType = meta.d.ListItemEntityTypeFullName;
+  return _gfTesourariaParcelasType;
+}
+
+async function gfGerarParcelasAutomatico(rubricaId, tipo) {
+  const rub = GF_RUBRICAS.find(r => r.id === rubricaId);
+  if (!rub) return;
+  const ano = rub.ano;
+  const st = _gfParcCalc[rubricaId];
+  const orc = tipo === 'Pagamento' ? rub.despOrc : rub.recOrc;
+  if (!orc || orc <= 0) { showNotif('Sem valor orçamentado para gerar parcelas.', 'error'); return; }
+
+  let percentagens;
+  if (st.metodo === 'mensal') {
+    percentagens = Array(12).fill(+(100 / 12).toFixed(4));
+  } else {
+    const soma = st.percentagens.reduce((s, v) => s + v, 0);
+    if (Math.abs(soma - 100) > 0.5) { showNotif('A soma das percentagens deve ser 100% antes de gerar.', 'error'); return; }
+    percentagens = st.percentagens;
+  }
+
+  const existentesMeses = new Set(
+    gfParcelasDaRubrica(rubricaId, ano).filter(p => p.tipo === tipo).map(p => new Date(p.dataPrevista).getMonth())
+  );
+
+  try {
+    const tipoEntidade = await _gfGetTesourariaParcelasType();
+    let criadas = 0;
+    for (let mes = 0; mes < 12; mes++) {
+      if (existentesMeses.has(mes)) continue; // idempotente: não duplica meses já com parcela deste tipo
+      const pct = percentagens[mes] || 0;
+      if (pct <= 0) continue;
+      const valor = +(orc * pct / 100).toFixed(2);
+      const data = new Date(ano, mes, Math.min(rub.diaPagamento || 15, 28));
+      const body = {
+        __metadata: { type: tipoEntidade },
+        Title: `${MESES_PT[mes]}/${ano} — ${rub.titulo}`,
+        RubricaIdId: rubricaId,
+        TipoParcelaTipo: tipo,
+        ValorPrevisto: valor,
+        DataPrevista: data.toISOString(),
+        EstadoParcela: 'Prevista',
+        OrigemParcela: 'Orçamento'
+      };
+      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items`, body, 'POST');
+      criadas++;
+    }
+    showNotif(criadas ? `${criadas} parcela(s) criada(s).` : 'Não havia parcelas novas a criar (meses já preenchidos).', 'success');
+    await gfLoadAll();
+    gfRefreshRubricaForm();
+  } catch (e) {
+    showNotif('Erro ao gerar parcelas: ' + e.message, 'error');
+  }
+}
+
+async function gfAdicionarParcelaManual(rubricaId) {
+  const rub = GF_RUBRICAS.find(r => r.id === rubricaId);
+  if (!rub) return;
+  const tipo = rub.despOrc > 0 ? 'Pagamento' : 'Recebimento';
+  try {
+    const tipoEntidade = await _gfGetTesourariaParcelasType();
+    const hoje = new Date();
+    const body = {
+      __metadata: { type: tipoEntidade },
+      Title: `Parcela manual — ${rub.titulo}`,
+      RubricaIdId: rubricaId,
+      TipoParcelaTipo: tipo,
+      ValorPrevisto: 0,
+      DataPrevista: new Date(rub.ano, hoje.getMonth(), 15).toISOString(),
+      EstadoParcela: 'Prevista',
+      OrigemParcela: 'Manual'
+    };
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items`, body, 'POST');
+    await gfLoadAll();
+    gfRefreshRubricaForm();
+  } catch (e) {
+    showNotif('Erro ao adicionar parcela: ' + e.message, 'error');
+  }
+}
+
+async function gfSaveParcelaCampo(parcelaId, campo, valor) {
+  try {
+    const body = { __metadata: { type: await _gfGetTesourariaParcelasType() } };
+    body[campo] = campo === 'DataPrevista' ? new Date(valor).toISOString() : (parseFloat(valor) || 0);
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${parcelaId})`, body, 'MERGE');
+    await gfLoadAll();
+    gfRefreshCurrentForm();
+  } catch (e) {
+    showNotif('Erro ao guardar: ' + e.message, 'error');
+  }
+}
+
+async function gfEliminarParcela(parcelaId) {
+  if (!confirm('Eliminar esta parcela?')) return;
+  try {
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${parcelaId})`, null, 'DELETE');
+    await gfLoadAll();
+    gfRefreshCurrentForm();
+  } catch (e) {
+    showNotif('Erro ao eliminar: ' + e.message, 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// PLANO DE PAGAMENTO (Fase 3) — calendário de parcelas associado a uma
+// Solicitação específica (em vez de uma Rúbrica inteira, como no Fase 2).
+// Reutiliza FJ_Tesouraria_Parcelas com SolicitacaoIdId preenchido e
+// OrigemParcela='Solicitação'/'Manual', e as mesmas gfSaveParcelaCampo/
+// gfEliminarParcela genéricas (por isso o dispatcher gfRefreshCurrentForm acima).
+// ══════════════════════════════════════════════════════════════
+
+function gfParcelasDaSolicitacao(solicitacaoId) {
+  return GF_TESOURARIA_PARCELAS
+    .filter(p => p.solicitacaoId === solicitacaoId && p.estado !== 'Anulada')
+    .sort((a, b) => new Date(a.dataPrevista) - new Date(b.dataPrevista));
+}
+
+function gfSomaParcelasSolicitacao(solicitacaoId) {
+  return gfParcelasDaSolicitacao(solicitacaoId).reduce((s, p) => s + (p.valorConfirmado || p.valorPrevisto || 0), 0);
+}
+
+// Estado efémero do formulário de plano de pagamento, guardado em _gfParcCalc com
+// chave de texto 'sol_<id>' para não colidir com as chaves numéricas das rúbricas (Fase 2).
+function gfGetPlanoPagamentoState(sol) {
+  const key = 'sol_' + sol.id;
+  if (!_gfParcCalc[key]) {
+    _gfParcCalc[key] = { metodo: sol.recorrente ? 'recorrencia' : 'unico', numParcelasSplit: 2 };
+  }
+  return _gfParcCalc[key];
+}
+
+function gfSetMetodoPlanoPagamento(solId, metodo) {
+  const st = _gfParcCalc['sol_' + solId];
+  if (st) st.metodo = metodo;
+  gfRefreshCurrentForm();
+}
+
+function gfSetNumParcelasSplit(solId, valor) {
+  const st = _gfParcCalc['sol_' + solId];
+  if (st) st.numParcelasSplit = Math.max(2, parseInt(valor) || 2);
+}
+
+function gfRenderPlanoPagamento(sol) {
+  const st = gfGetPlanoPagamentoState(sol);
+  const parcelas = gfParcelasDaSolicitacao(sol.id);
+  const soma = gfSomaParcelasSolicitacao(sol.id);
+  const dif = (sol.valor || 0) - soma;
+
+  return `
+    <div class="card" style="margin-top:20px">
+      <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">Plano de Pagamento</div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
+        <div>
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Método</label>
+          <select onchange="gfSetMetodoPlanoPagamento(${sol.id},this.value)" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+            <option value="unico" ${st.metodo === 'unico' ? 'selected' : ''}>Pagamento único — valor total na data limite</option>
+            <option value="split" ${st.metodo === 'split' ? 'selected' : ''}>Dividir em N parcelas iguais</option>
+            ${sol.recorrente ? `<option value="recorrencia" ${st.metodo === 'recorrencia' ? 'selected' : ''}>Recorrência — ${sol.numOcorrencias || '?'}x ${sol.periodicidade || ''}</option>` : ''}
+            <option value="manual" ${st.metodo === 'manual' ? 'selected' : ''}>Manual — adicionar parcelas uma a uma</option>
+          </select>
+        </div>
+
+        ${st.metodo === 'split' ? `
+          <div>
+            <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Número de parcelas</label>
+            <input type="number" min="2" value="${st.numParcelasSplit}" onchange="gfSetNumParcelasSplit(${sol.id},this.value)" style="width:120px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+          </div>
+        ` : ''}
+
+        ${st.metodo !== 'manual' ? `
+          <div><button class="btn btn-primary" onclick="gfGerarPlanoPagamento(${sol.id})">Gerar parcelas</button></div>
+        ` : `
+          <button class="btn btn-primary" onclick="gfAdicionarParcelaPagamentoManual(${sol.id})">+ Adicionar parcela</button>
+        `}
+      </div>
+
+      <div style="font-size:12px;padding:8px 10px;border-radius:6px;background:${Math.abs(dif) < 0.01 ? 'var(--green-bg)' : '#FEF3C7'};color:${Math.abs(dif) < 0.01 ? '#065F46' : '#92400E'};margin-bottom:8px">
+        Parcelas somam ${soma.toFixed(2)}€ de ${(sol.valor || 0).toFixed(2)}€ solicitados${Math.abs(dif) < 0.01 ? ' ✓' : ` (${dif > 0 ? 'faltam' : 'excesso de'} ${Math.abs(dif).toFixed(2)}€)`}
+      </div>
+
+      ${parcelas.length ? `
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text3)">
+              <th style="padding:6px 4px">Título</th><th style="padding:6px 4px">Data prevista</th><th style="padding:6px 4px;text-align:right">Valor previsto (€)</th><th style="padding:6px 4px">Estado</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${parcelas.map(p => `
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:6px 4px">${p.titulo}</td>
+                <td style="padding:6px 4px"><input type="date" value="${p.dataPrevista ? p.dataPrevista.split('T')[0] : ''}" onchange="gfSaveParcelaCampo(${p.id},'DataPrevista',this.value)" style="border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:12px"></td>
+                <td style="padding:6px 4px;text-align:right"><input type="number" step="0.01" value="${p.valorPrevisto}" onchange="gfSaveParcelaCampo(${p.id},'ValorPrevisto',this.value)" style="width:90px;border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:12px;text-align:right"></td>
+                <td style="padding:6px 4px">${p.estado}</td>
+                <td style="padding:6px 4px;text-align:right"><a onclick="gfEliminarParcela(${p.id})" style="color:#EF4444;cursor:pointer">✕</a></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : `<div style="font-size:12px;color:var(--text3);margin-top:8px">Ainda sem parcelas definidas.</div>`}
+    </div>
+  `;
+}
+
+async function gfGerarPlanoPagamento(solId) {
+  const sol = GF_SOLICITACOES.find(s => s.id === solId);
+  if (!sol) return;
+  const st = _gfParcCalc['sol_' + solId];
+  if (!st) return;
+  if (!sol.valor || sol.valor <= 0) { showNotif('Defina o valor da solicitação antes de gerar o plano.', 'error'); return; }
+
+  const existentes = gfParcelasDaSolicitacao(solId);
+  if (existentes.length && !confirm('Já existem parcelas para esta solicitação. Gerar novamente acrescenta outras (não substitui) — confirme para continuar.')) return;
+
+  const tipo = sol.tipoSolicitacao === 'Receita' ? 'Recebimento' : 'Pagamento';
+  const baseData = sol.dataLimitePagamento ? new Date(sol.dataLimitePagamento) : new Date();
+  const itens = [];
+
+  if (st.metodo === 'unico') {
+    itens.push({ data: baseData, valor: sol.valor, titulo: `Pagamento — ${sol.titulo}` });
+  } else if (st.metodo === 'split') {
+    const n = st.numParcelasSplit || 2;
+    const valorParcela = +(sol.valor / n).toFixed(2);
+    let somaAcumulada = 0;
+    for (let i = 0; i < n; i++) {
+      const data = new Date(baseData.getFullYear(), baseData.getMonth() + i, baseData.getDate());
+      const valor = (i === n - 1) ? +(sol.valor - somaAcumulada).toFixed(2) : valorParcela; // última parcela absorve o arredondamento
+      somaAcumulada += valor;
+      itens.push({ data, valor, titulo: `Parcela ${i + 1}/${n} — ${sol.titulo}` });
+    }
+  } else if (st.metodo === 'recorrencia') {
+    if (!sol.recorrente || !sol.numOcorrencias || !sol.periodicidade) { showNotif('Defina periodicidade e número de ocorrências na solicitação antes de gerar.', 'error'); return; }
+    const mesesStep = { 'Mensal': 1, 'Trimestral': 3, 'Semestral': 6, 'Anual': 12 }[sol.periodicidade] || 1;
+    for (let i = 0; i < sol.numOcorrencias; i++) {
+      const data = new Date(baseData.getFullYear(), baseData.getMonth() + i * mesesStep, baseData.getDate());
+      itens.push({ data, valor: sol.valor, titulo: `Ocorrência ${i + 1}/${sol.numOcorrencias} — ${sol.titulo}` });
+    }
+  }
+
+  if (!itens.length) { showNotif('Nada a gerar.', 'error'); return; }
+
+  try {
+    const tipoEntidade = await _gfGetTesourariaParcelasType();
+    for (const it of itens) {
+      const body = {
+        __metadata: { type: tipoEntidade },
+        Title: it.titulo,
+        RubricaIdId: sol.rubricaId,
+        SolicitacaoIdId: sol.id,
+        TipoParcelaTipo: tipo,
+        ValorPrevisto: it.valor,
+        DataPrevista: it.data.toISOString(),
+        EstadoParcela: 'Prevista',
+        OrigemParcela: 'Solicitação'
+      };
+      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items`, body, 'POST');
+    }
+    showNotif(`${itens.length} parcela(s) criada(s).`, 'success');
+    await gfLoadAll();
+    gfRefreshCurrentForm();
+  } catch (e) {
+    showNotif('Erro ao gerar plano de pagamento: ' + e.message, 'error');
+  }
+}
+
+async function gfAdicionarParcelaPagamentoManual(solId) {
+  const sol = GF_SOLICITACOES.find(s => s.id === solId);
+  if (!sol) return;
+  const tipo = sol.tipoSolicitacao === 'Receita' ? 'Recebimento' : 'Pagamento';
+  try {
+    const tipoEntidade = await _gfGetTesourariaParcelasType();
+    const baseData = sol.dataLimitePagamento ? new Date(sol.dataLimitePagamento) : new Date();
+    const body = {
+      __metadata: { type: tipoEntidade },
+      Title: `Parcela manual — ${sol.titulo}`,
+      RubricaIdId: sol.rubricaId,
+      SolicitacaoIdId: sol.id,
+      TipoParcelaTipo: tipo,
+      ValorPrevisto: 0,
+      DataPrevista: baseData.toISOString(),
+      EstadoParcela: 'Prevista',
+      OrigemParcela: 'Manual'
+    };
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items`, body, 'POST');
+    await gfLoadAll();
+    gfRefreshCurrentForm();
+  } catch (e) {
+    showNotif('Erro ao adicionar parcela: ' + e.message, 'error');
+  }
+}
+
 function gfRenderRubricaForm() {
   const proj = GF_PROJETOS.find(p => p.id === GF.project);
   const rub = GF.rubrica ? GF_RUBRICAS.find(r => r.id === GF.rubrica) : null;
@@ -10770,6 +12135,8 @@ function gfRenderRubricaForm() {
         <button class="btn btn-primary" onclick="gfSaveRubrica(${isEdit ? rub.id : 'null'})">${isEdit ? 'Guardar' : 'Criar'}</button>
       </div>
     </div>
+
+    ${isEdit && gfCanViewTesouraria() ? gfRenderCalendarioParcelas(rub) : ''}
   `;
 }
 
@@ -10948,7 +12315,7 @@ function gfRenderSolicitacoes() {
   if (restrito && tab === 'lista') tab = 'minhas'; // Membro sem separador "Todas"
   if (restrito && tab === 'pendentes') tab = 'minhas'; // Pendentes é só para quem processa
   let lista = tab === 'minhas' ? GF_SOLICITACOES.filter(s => s.autorEmail === myEmail) : GF_SOLICITACOES;
-  if (tab === 'realizadas') lista = GF_SOLICITACOES.filter(s => s.estado === 'Processado' || s.estado === 'Pago');
+  if (tab === 'realizadas') lista = GF_SOLICITACOES.filter(s => s.estado === 'Processado' || s.estado === 'Pago' || s.estado === 'Recebido');
 
   // FILTRAR solicitações de projetos que o utilizador pode ver
   // canViewFinanceProject já trata todos os roles (PE, Diretores, Membros)
@@ -11030,6 +12397,7 @@ function gfRenderSolicitacoes() {
         <button class="btn btn-primary" style="background:var(--mod-financeiro);border-color:var(--mod-financeiro)" onclick="GF.solicitacao=null;gfNav('solicitacao-form')">+ Nova Solicitação</button>
         ${gfCanProcessar() ? '<button class="btn" style="background:#10B981;color:#fff;border-color:#10B981" onclick="gfOpenProcessadoModal()">+ Processado</button>' : ''}
         ${gfCanProcessar() ? '<button class="btn" style="background:#6366F1;color:#fff;border-color:#6366F1" onclick="gfOpenPagoModal()">+ Pago</button>' : ''}
+        ${gfCanProcessar() ? '<button class="btn" style="background:#F97316;color:#fff;border-color:#F97316" onclick="gfOpenRecebidoModal()">+ Recebido</button>' : ''}
       </div>
     </div>
 
@@ -11158,8 +12526,28 @@ function gfRenderSolicitacaoForm() {
               </label>
             </div>
           </div>
+
+          <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="gf-sol-recorrente" ${sol?.recorrente ? 'checked' : ''} onchange="gfSolToggleRecorrente()" style="width:18px;height:18px">
+              <span style="font-weight:500">🔁 Solicitação recorrente <span style="font-size:11px;font-weight:400;color:var(--text3)">(ex: renda mensal, subsídio trimestral)</span></span>
+            </label>
+            <div id="gf-sol-recorrencia-campos" style="display:${sol?.recorrente ? 'grid' : 'none'};grid-template-columns:1fr 1fr;gap:16px;margin-top:12px">
+              <div>
+                <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Periodicidade</label>
+                <select id="gf-sol-periodicidade" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+                  <option value="">Selecionar...</option>
+                  ${['Mensal','Trimestral','Semestral','Anual'].map(p => `<option value="${p}" ${sol?.periodicidade === p ? 'selected' : ''}>${p}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Nº de ocorrências</label>
+                <input type="number" id="gf-sol-num-ocorrencias" min="1" value="${sol?.numOcorrencias || ''}" placeholder="Ex: 12" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+              </div>
+            </div>
+          </div>
         </div>
-        
+
         <div class="card" style="margin-bottom:16px">
           <div style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">Valor e Fornecedor</div>
           
@@ -11232,7 +12620,15 @@ function gfRenderSolicitacaoForm() {
         </div>
       </div>
     </div>
+    ${isEdit && gfCanViewTesouraria() ? gfRenderPlanoPagamento(sol) : ''}
   `;
+}
+
+// Mostra/esconde os campos de Periodicidade/Nº de ocorrências consoante o checkbox "Recorrente"
+function gfSolToggleRecorrente() {
+  const chk = gfEl('gf-sol-recorrente');
+  const campos = gfEl('gf-sol-recorrencia-campos');
+  if (campos) campos.style.display = chk?.checked ? 'grid' : 'none';
 }
 
 function gfSolProjetoChange() {
@@ -11342,7 +12738,10 @@ async function gfSaveSolicitacao(id, estado) {
   const justificacao = gfVal('gf-sol-justificacao').trim();
   const tipoSolicitacao = document.querySelector('input[name="gf-sol-tipo"]:checked')?.value || 'Despesa';
   const dataLimite = gfVal('gf-sol-data-limite') || null;
-  
+  const recorrente = gfEl('gf-sol-recorrente')?.checked || false;
+  const periodicidade = recorrente ? (gfVal('gf-sol-periodicidade') || '') : '';
+  const numOcorrencias = recorrente ? (parseInt(gfVal('gf-sol-num-ocorrencias')) || null) : null;
+
   if (!titulo || !projetoId || !rubricaId || valor <= 0 || !fornecedor) {
     showNotif('Preencha todos os campos obrigatórios', 'error');
     return;
@@ -11385,7 +12784,13 @@ async function gfSaveSolicitacao(id, estado) {
       return;
     }
   }
-  
+
+  // Validar recorrência (periodicidade e nº de ocorrências obrigatórios ao submeter, se marcada)
+  if (recorrente && estado === 'Submetido' && (!periodicidade || !numOcorrencias || numOcorrencias < 1)) {
+    showNotif('Indique a periodicidade e o número de ocorrências da solicitação recorrente', 'error');
+    return;
+  }
+
   const body = {
     __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' },
     Codigo: codigo,
@@ -11398,7 +12803,10 @@ async function gfSaveSolicitacao(id, estado) {
     Fornecedor: fornecedor,
     EmailFornecedor: emailForn,
     Justificacao: justificacao,
-    DataLimitePagamento: dataLimite ? new Date(dataLimite).toISOString() : null
+    DataLimitePagamento: dataLimite ? new Date(dataLimite).toISOString() : null,
+    Recorrente: recorrente,
+    Periodicidade: periodicidade,
+    NumOcorrencias: numOcorrencias
   };
   
   if (estado === 'Submetido') {
@@ -11561,8 +12969,11 @@ function gfRenderSolicitacaoView() {
               : gfWorkflowStep(diretorAreaNome, !!sol.aprovDirNome || sol.estado === 'Aprovado DF' || sol.estado === 'Processado' || sol.estado === 'Pago', sol.aprovDirNome, sol.dataAprovDir)
                 + gfWorkflowStep('Dir. Financeira', sol.estado === 'Aprovado DF' || sol.estado === 'Processado' || sol.estado === 'Pago', sol.aprovDFNome, sol.dataAprovDF)
             ) : ''}
-            ${gfWorkflowStep('Processado', sol.estado === 'Processado' || sol.estado === 'Pago', null, sol.dataProcessado || null)}
-            ${gfWorkflowStep('Pago', sol.estado === 'Pago', null, sol.dataPago || null)}
+            ${sol.tipoSolicitacao === 'Receita'
+              ? gfWorkflowStep('Recebido', sol.estado === 'Recebido', null, sol.dataRecebimento || null)
+              : gfWorkflowStep('Processado', sol.estado === 'Processado' || sol.estado === 'Pago', null, sol.dataProcessado || null)
+                + gfWorkflowStep('Pago', sol.estado === 'Pago', null, sol.dataPago || null)
+            }
           </div>
         </div>
       </div>
@@ -12720,26 +14131,36 @@ async function saveBancoGlobal() {
   
   try {
     // Procurar projeto "Banco Global" e rubrica "Geral"
+    // (lista e nomes de campos corrigidos — esta função nunca tinha funcionado: escrevia
+    // na lista errada 'Factorial_Projetos', em vez de 'FJ_Projetos', e o Estado/Departamento
+    // não batiam certo com os valores reais destas colunas; ver gfImportarRubricasTesouraria
+    // para o mesmo projeto "Banco Global", agora criado corretamente lá.)
     let bancoProj = GF_PROJETOS.find(p => p.nome === 'Banco Global');
     
     // Se não existir, criar projeto Banco Global
     if (!bancoProj) {
+      let depId = null;
+      try {
+        const dep = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Departamentos')/items?$filter=Title eq 'Financeiro'&$select=Id&$top=1`);
+        depId = dep.d?.results?.[0]?.Id || null;
+      } catch (e) { /* segue sem departamento, se a lista falhar */ }
       const projBody = {
-        __metadata: { type: 'SP.Data.Factorial_x005f_ProjetosListItem' },
+        __metadata: { type: 'SP.Data.FJ_x005f_ProjetosListItem' },
         Title: 'Banco Global',
-        Departamento: 'Financeiro',
-        Estado: 'active',
+        Estado: 'Ativo',
         AnoOrcamental: new Date().getFullYear(),
+        IsBancoGlobal: true,
         Notas: 'Projeto virtual para gestão de tesouraria e fundos não orçamentados'
       };
-      const projRes = await spWrite(`${SP}/_api/web/lists/getbytitle('Factorial_Projetos')/items`, projBody, 'POST');
+      if (depId) projBody.DepartamentoId = depId;
+      const projRes = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Projetos')/items`, projBody, 'POST');
       const newProjId = projRes.d.Id;
-      bancoProj = { id: newProjId, nome: 'Banco Global' };
+      bancoProj = { id: newProjId, nome: 'Banco Global', isBanco: true };
       GF_PROJETOS.push(bancoProj);
     }
     
     // Procurar rubrica "Geral" no Banco Global
-    let geralRubrica = GF_RUBRICAS.find(r => r.projetoId === bancoProj.id && r.nome === 'Geral');
+    let geralRubrica = GF_RUBRICAS.find(r => r.projetoId === bancoProj.id && r.titulo === 'Geral');
     
     // Se não existir, criar rubrica Geral
     if (!geralRubrica) {
@@ -12747,13 +14168,14 @@ async function saveBancoGlobal() {
         __metadata: { type: 'SP.Data.FJ_x005f_RubricasListItem' },
         Title: 'Geral',
         ProjetoIdId: bancoProj.id,
-        Ano: new Date().getFullYear(),
+        AnoOrcamental: new Date().getFullYear(),
+        Estado: 'Ativo',
         DespOrcamentada: 0,
         RecOrcamentada: 0
       };
       const rubRes = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items`, rubBody, 'POST');
       const newRubId = rubRes.d.Id;
-      geralRubrica = { id: newRubId, nome: 'Geral', projetoId: bancoProj.id };
+      geralRubrica = { id: newRubId, titulo: 'Geral', projetoId: bancoProj.id, despOrc: 0, recOrc: 0 };
       GF_RUBRICAS.push(geralRubrica);
     }
     
@@ -14851,6 +16273,7 @@ function gfOpenProcessadoModal() {
   // Preencher select com solicitações "Aprovado DF" (ou "Aprovado Dir." para financeiro single-level)
   const aprovadas = GF_SOLICITACOES.filter(s =>
     canViewFinanceProject(s.projetoId) &&
+    s.tipoSolicitacao === 'Despesa' &&
     (s.estado === 'Aprovado DF' || (s.estado === 'Aprovado Dir.' && gfIsProjetoFinanceiro(s.projetoId)))
   );
   const sel = document.getElementById('gf-proc-sol-select');
@@ -15033,7 +16456,104 @@ async function gfSubmitPago() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// MODELOS DE REPARTIÇÃO — repartições fixas por várias rúbricas (ex.: salários,
+// MODAL — MARCAR COMO RECEBIDO (Fase 3). Fluxo paralelo ao Processado/Pago,
+// mas para solicitações de Receita: estas não passam por nota de encomenda —
+// vão diretamente de aprovadas para Recebido, com comprovativo anexado (REC_).
+// ══════════════════════════════════════════════════════════════
+let _recSelectedFiles = [];
+
+function gfOpenRecebidoModal() {
+  _recSelectedFiles = [];
+  gfRenderRecFileList();
+  const dataEl = document.getElementById('gf-rec-data');
+  if (dataEl) dataEl.value = new Date().toISOString().slice(0, 10);
+  // Preencher select com solicitações de Receita já aprovadas e ainda não recebidas
+  const aprovadas = GF_SOLICITACOES.filter(s =>
+    canViewFinanceProject(s.projetoId) &&
+    s.tipoSolicitacao === 'Receita' &&
+    (s.estado === 'Aprovado DF' || (s.estado === 'Aprovado Dir.' && gfIsProjetoFinanceiro(s.projetoId)))
+  );
+  const sel = document.getElementById('gf-rec-sol-select');
+  sel.innerHTML = '<option value="">— Selecionar solicitação —</option>' +
+    aprovadas.map(s => `<option value="${s.id}">[${s.codigo}] ${s.titulo} — ${gfFmt(s.valor)}</option>`).join('');
+  document.getElementById('gf-rec-modal').style.display = 'flex';
+}
+
+function gfCloseRecebidoModal() {
+  document.getElementById('gf-rec-modal').style.display = 'none';
+  _recSelectedFiles = [];
+}
+
+function gfRecAddFiles(input) {
+  for (const f of input.files) {
+    if (!_recSelectedFiles.find(x => x.name === f.name && x.size === f.size)) {
+      _recSelectedFiles.push(f);
+    }
+  }
+  input.value = '';
+  gfRenderRecFileList();
+}
+
+function gfRecRemoveFile(idx) {
+  _recSelectedFiles.splice(idx, 1);
+  gfRenderRecFileList();
+}
+
+function gfRenderRecFileList() {
+  const wrap = document.getElementById('gf-rec-file-list');
+  if (!wrap) return;
+  if (!_recSelectedFiles.length) {
+    wrap.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">Nenhum ficheiro selecionado</div>';
+    return;
+  }
+  wrap.innerHTML = _recSelectedFiles.map((f, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border:0.5px solid var(--border);border-radius:6px;margin-bottom:4px">
+      <span style="font-size:14px">💰</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div>
+        <div style="font-size:11px;color:var(--text3)">${(f.size/1024).toFixed(1)} KB</div>
+      </div>
+      <button onclick="gfRecRemoveFile(${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0 4px" title="Remover">×</button>
+    </div>`).join('');
+}
+
+async function gfSubmitRecebido() {
+  const solId = parseInt(document.getElementById('gf-rec-sol-select').value);
+  if (!solId) { showNotif('Seleciona uma solicitação', 'error'); return; }
+  if (!_recSelectedFiles.length) { showNotif('Anexa pelo menos um comprovativo de receção', 'error'); return; }
+
+  const dataRecebimento = document.getElementById('gf-rec-data')?.value || null;
+
+  const btn = document.getElementById('gf-rec-submit-btn');
+  btn.disabled = true; btn.textContent = 'A guardar...';
+  try {
+    for (const f of _recSelectedFiles) {
+      const renamed = new File([f], 'REC_' + f.name, { type: f.type });
+      await uploadAttachment('FJ_Solicitacoes', solId, renamed);
+    }
+    const body = {
+      __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' },
+      Estado: 'Recebido',
+      DataRecebimento: dataRecebimento ? new Date(dataRecebimento).toISOString() : new Date().toISOString()
+    };
+    await spWrite(
+      `${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${solId})`,
+      body,
+      'MERGE'
+    );
+    showNotif('Solicitação marcada como Recebida e comprovativo anexado! ✓', 'success');
+    gfCloseRecebidoModal();
+    await gfLoadAll();
+    gfRender();
+  } catch(e) {
+    showNotif('Erro: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// MODELOS DE REPARTIÇÃO— repartições fixas por várias rúbricas (ex.: salários,
 // repartidos por 15+ combinações Projeto/Rúbrica) que a equipa pode aplicar num
 // clique dentro do "Repartir", em vez de preencher linha a linha todos os meses.
 // Guardados em FJ_Configuracoes, e referem a rúbrica pelo NOME (rubricaTitulo),
@@ -17004,6 +18524,46 @@ init();
     <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
       <button class="btn" onclick="gfClosePagoModal()">Cancelar</button>
       <button id="gf-pago-submit-btn" class="btn" style="background:#6366F1;color:#fff;border-color:#6366F1" onclick="gfSubmitPago()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL + RECEBIDO ════════════════════════════════════════ -->
+<div id="gf-rec-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);margin:1rem">
+    <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:16px;font-weight:600">💰 Marcar como Recebido</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">Anexar comprovativo de receção e alterar estado</div>
+      </div>
+      <button onclick="gfCloseRecebidoModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">×</button>
+    </div>
+    <div style="padding:20px 24px">
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Solicitação de Receita aprovada *</label>
+        <select id="gf-rec-sol-select" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;color:var(--text);background:#fff">
+          <option value="">— Selecionar —</option>
+        </select>
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">📅 Data de Receção</label>
+        <input type="date" id="gf-rec-data" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;color:var(--text)">
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Comprovativo de receção *</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px dashed var(--border2);border-radius:8px;cursor:pointer;font-size:13px;color:var(--text2)" onmouseover="this.style.borderColor='#F97316'" onmouseout="this.style.borderColor='var(--border2)'">
+          <span style="font-size:18px">📎</span>
+          <span>Clica para adicionar ficheiros</span>
+          <input type="file" multiple style="display:none" onchange="gfRecAddFiles(this)">
+        </label>
+        <div id="gf-rec-file-list" style="margin-top:8px">
+          <div style="color:var(--text3);font-size:12px;padding:8px 0">Nenhum ficheiro selecionado</div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn" onclick="gfCloseRecebidoModal()">Cancelar</button>
+      <button id="gf-rec-submit-btn" class="btn" style="background:#F97316;color:#fff;border-color:#F97316" onclick="gfSubmitRecebido()">Guardar</button>
     </div>
   </div>
 </div>
