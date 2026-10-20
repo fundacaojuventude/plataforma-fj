@@ -10907,13 +10907,43 @@ function _gfBuildPrevisoes(saldoAtual) {
 
   // Despesas aprovadas (DF ou superior) ainda não pagas
   const ESTADOS_TESOURARIA = ['Aprovado DF', 'Aprovado', 'Processado'];
-  const dividas = GF_SOLICITACOES.filter(s =>
-    ESTADOS_TESOURARIA.includes(s.estado) && s.tipoSolicitacao === 'Despesa'
+
+  // Fase 10 — Solicitações com Plano de Pagamento próprio (parcelas no Calendário de
+  // Parcelas, Fase 3/9): a previsão passa a usar essas parcelas (datas/valores reais,
+  // editáveis) em vez do valor único na Data Limite de Pagamento da Solicitação — assim
+  // o que se parcela no Operacional ou no Plano de Pagamento aparece aqui corretamente,
+  // em vez de continuar a mostrar o valor todo numa única data.
+  const parcelasComSolicitacao = GF_TESOURARIA_PARCELAS.filter(p => p.solicitacaoId && p.estado !== 'Anulada');
+  const solComPlano = new Set(parcelasComSolicitacao.map(p => p.solicitacaoId));
+
+  const dividasBase = GF_SOLICITACOES.filter(s =>
+    ESTADOS_TESOURARIA.includes(s.estado) && s.tipoSolicitacao === 'Despesa' && !solComPlano.has(s.id)
   );
   // Receitas aprovadas ainda não recebidas
-  const receitas = GF_SOLICITACOES.filter(s =>
-    ESTADOS_TESOURARIA.includes(s.estado) && s.tipoSolicitacao === 'Receita'
+  const receitasBase = GF_SOLICITACOES.filter(s =>
+    ESTADOS_TESOURARIA.includes(s.estado) && s.tipoSolicitacao === 'Receita' && !solComPlano.has(s.id)
   );
+
+  // Parcelas ainda por realizar ('Prevista') — tanto as de um Plano de Pagamento de uma
+  // Solicitação como as lançadas diretamente numa Rúbrica no Operacional sem Solicitação
+  // formal. Já realizadas (Confirmada/Paga/Recebida) ficam de fora: essas já passaram a
+  // integrar o Saldo de Caixa Atual (importado do banco), incluí-las de novo aqui seria
+  // contar o mesmo dinheiro duas vezes. Adaptadas à mesma forma {titulo, fornecedor, valor,
+  // dataLimitePagamento} das dívidas/receitas acima, para reaproveitar toda a lógica de
+  // períodos/vencidos sem a duplicar.
+  const parcelasPontuais = GF_TESOURARIA_PARCELAS
+    .filter(p => p.estado === 'Prevista' && p.dataPrevista)
+    .map(p => ({
+      titulo: p.titulo || p.solicitacaoNome || p.rubricaNome || 'Parcela',
+      fornecedor: p.solicitacaoNome || p.rubricaNome || '—',
+      valor: p.valorPrevisto || 0,
+      dataLimitePagamento: p.dataPrevista,
+      tipoSolicitacao: p.tipo === 'Recebimento' ? 'Receita' : 'Despesa'
+    }));
+
+  const dividas = dividasBase.concat(parcelasPontuais.filter(p => p.tipoSolicitacao === 'Despesa'));
+  const receitas = receitasBase.concat(parcelasPontuais.filter(p => p.tipoSolicitacao === 'Receita'));
+
   // Pagamentos recorrentes de rubricas mensais
   const pagamentosMensais = _gfGetPagamentosMensais();
 
