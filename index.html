@@ -1174,7 +1174,7 @@ tr:hover td{background:var(--bg3)}
                       <input type="text" id="fe-tar-titulo" placeholder="Descrição da tarefa..." style="padding:9px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
                       <select id="fe-tar-resp" class="user-resp-sel" style="font-size:13px;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;background:#fff;color:var(--text)"><option value="">— Responsável —</option></select>
                       <input type="date" id="fe-tar-data" style="padding:9px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)">
-                      <select id="fe-tar-estado" style="font-size:13px;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;background:#fff;color:var(--text)"><option>Por fazer</option><option>Em curso</option></select>
+                      <select id="fe-tar-estado" style="font-size:13px;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;background:#fff;color:var(--text)"><option>Por fazer</option><option>Em curso</option><option>Concluída</option><option>Cancelada</option></select>
                       <button type="button" class="btn btn-primary btn-sm" onclick="extAddTarefaTemp()">+ Adicionar</button>
                     </div>
                   </div>
@@ -2723,7 +2723,7 @@ tr:hover td{background:var(--bg3)}
           <div class="fg" style="grid-column:1/-1"><label>Descrição *</label><input type="text" id="ext-add-tar-titulo" placeholder="Descreve a tarefa..."></div>
           <div class="fg"><label>Responsável</label><select id="ext-add-tar-resp" class="user-resp-sel" style="width:100%"><option value="">— Selecionar —</option></select></div>
           <div class="fg"><label>Data limite *</label><input type="date" id="ext-add-tar-data" required></div>
-          <div class="fg"><label>Estado</label><select id="ext-add-tar-estado"><option>Por fazer</option><option>Em curso</option></select></div>
+          <div class="fg"><label>Estado</label><select id="ext-add-tar-estado"><option>Por fazer</option><option>Em curso</option><option>Concluída</option><option>Cancelada</option></select></div>
         </div>
         <div class="panel-footer">
           <button class="btn" onclick="extCloseAddTarModal()">Cancelar</button>
@@ -8687,6 +8687,32 @@ let GF = {
 
 let GF_PROJETOS = [];
 let GF_RUBRICAS = [];
+
+// Categorias de tesouraria (secção 9 da especificação do módulo de Tesouraria,
+// migradas do Excel "Plano_de_Tesouraria_Semanal_FJ"). Usadas para classificar
+// cada rúbrica no formulário do Orçamento e para agregar as vistas de Tesouraria.
+const GF_CATEGORIAS_TESOURARIA = [
+  { grupo: 'Receita', nome: 'Financiamento de Projetos (subsídios e reembolsos)' },
+  { grupo: 'Receita', nome: 'Rendas de Espaços e Imóveis (incl. NIDE)' },
+  { grupo: 'Receita', nome: 'Contratos de Formação (Prestação de Serviços PE)' },
+  { grupo: 'Receita', nome: 'Apoios a Mostras' },
+  { grupo: 'Receita', nome: 'Formação Privada' },
+  { grupo: 'Despesa', nome: 'Rendas (Lisboa, Condomínios, Espaços)' },
+  { grupo: 'Despesa', nome: 'Escolas/Projetos - Formandos (estagiários)' },
+  { grupo: 'Despesa', nome: 'Escolas/Projetos - Formadores/Gabinetes Psicologia' },
+  { grupo: 'Despesa', nome: 'Escolas/Projetos - PE MAAT + PE Artes (Gulbenkian) - estagiários' },
+  { grupo: 'Despesa', nome: 'Recursos Humanos - Vencimentos' },
+  { grupo: 'Despesa', nome: 'Recursos Humanos - SS / IRS / Seguros / Entidade Contratante' },
+  { grupo: 'Despesa', nome: 'Responsabilidades de Crédito - IHRU' },
+  { grupo: 'Despesa', nome: 'Responsabilidades de Crédito - Montepio (contrato mútuo)' },
+  { grupo: 'Despesa', nome: 'Responsabilidades de Crédito - CGD / Millennium CC / Montepio CC' },
+  { grupo: 'Despesa', nome: 'Responsabilidades de Crédito - AT' },
+  { grupo: 'Despesa', nome: 'Despesas de Funcionamento' },
+  { grupo: 'Despesa', nome: 'Despesas com as Mostras' },
+  { grupo: 'Despesa', nome: 'Obras' },
+  { grupo: 'Despesa', nome: 'Outros Pagamentos a Fornecedores' }
+];
+const GF_PADROES_TESOURARIA = ['Fixa mensal', 'Recorrente variável', 'Sazonal', 'Pontual'];
 let GF_SOLICITACOES = [];
 let GF_ALTERACOES = [];
 let GF_ALTERACOES_ORIGENS = [];
@@ -8794,7 +8820,7 @@ async function gfLoadAll() {
     }));
 
     // Rubricas com expand
-    const dr = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items?$select=Id,Title,ProjetoIdId,TipoRubrica,DespOrcamentada,RecOrcamentada,AnoOrcamental,Estado,HistoricoAlteracoes,RubricaMensal,DiaPagamento,ProjetoId/Title,ProjetoId/Id&$expand=ProjetoId&$top=2000`);
+    const dr = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items?$select=Id,Title,ProjetoIdId,TipoRubrica,DespOrcamentada,RecOrcamentada,AnoOrcamental,Estado,HistoricoAlteracoes,RubricaMensal,DiaPagamento,CategoriaTesouraria,PadraoTesouraria,ProjetoId/Title,ProjetoId/Id&$expand=ProjetoId&$top=2000`);
     GF_RUBRICAS = (dr.d?.results || []).map(r => ({
       id: r.Id,
       titulo: r.Title || '',
@@ -8807,7 +8833,13 @@ async function gfLoadAll() {
       estado: r.Estado || 'Ativo',
       historicoAlteracoes: r.HistoricoAlteracoes || '[]',
       rubricaMensal: r.RubricaMensal === true || r.RubricaMensal === 'Yes' || r.RubricaMensal === 1,
-      diaPagamento: parseInt(r.DiaPagamento) || 15
+      diaPagamento: parseInt(r.DiaPagamento) || 15,
+      // Classificação para o módulo de Tesouraria (Fase 1). PadraoTesouraria é a
+      // classificação nova (4 valores); quando ainda não foi definida por rúbrica,
+      // cai para o antigo RubricaMensal (só distinguia Fixa mensal vs resto) para
+      // não quebrar o que _gfGetPagamentosMensais() já calculava antes desta fase.
+      categoriaTesouraria: r.CategoriaTesouraria || '',
+      padraoTesouraria: r.PadraoTesouraria || (r.RubricaMensal ? 'Fixa mensal' : '')
     }));
 
     // Solicitações com expand
@@ -9503,13 +9535,31 @@ async function gfRenderTesourariaPrevisoes() {
     if (app) app.innerHTML = `<div style="max-width:1200px;margin:0 auto;padding-top:12px"><div style="padding:2rem;text-align:center;color:var(--text3)">Não tem permissão para aceder a esta secção.</div></div>`;
     return;
   }
-  // Carregar saldo actual do SP
+  // Saldo de caixa (Fase 1 do módulo de Tesouraria): lido automaticamente do
+  // SaldoContabilistico do movimento bancário mais recente em FJ_MovimentosBancarios
+  // (já carregado em GF_MOV_PENDENTES, importado do extrato via Power Automate) —
+  // é a fonte real do banco, sempre atualizada, sem ninguém ter de a escrever à mão.
+  // O valor manual em FJ_Configuracoes (SaldoCaixa) só é usado como reserva, para
+  // quando ainda não existe nenhum movimento bancário importado.
   let saldoAtual = 0;
-  try {
-    const dc = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$filter=Title eq 'SaldoCaixa'&$select=Id,Valor&$top=1`);
-    const cfg = dc.d?.results?.[0];
-    if (cfg) { saldoAtual = parseFloat(cfg.Valor) || 0; _gfSaldoCaixaId = cfg.Id; }
-  } catch(e) { /* lista pode não existir */ }
+  let saldoFonte = 'manual';
+  let saldoData = null;
+  const movComSaldo = GF_MOV_PENDENTES
+    .filter(m => m.dataMovimento)
+    .sort((a, b) => new Date(b.dataMovimento) - new Date(a.dataMovimento))[0];
+  if (movComSaldo) {
+    saldoAtual = movComSaldo.saldoContabilistico || 0;
+    saldoFonte = 'banco';
+    saldoData = movComSaldo.dataMovimento;
+  } else {
+    try {
+      const dc = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$filter=Title eq 'SaldoCaixa'&$select=Id,Valor&$top=1`);
+      const cfg = dc.d?.results?.[0];
+      if (cfg) { saldoAtual = parseFloat(cfg.Valor) || 0; _gfSaldoCaixaId = cfg.Id; }
+    } catch(e) { /* lista pode não existir */ }
+  }
+  _gfSaldoFonteCache = saldoFonte;
+  _gfSaldoDataCache = saldoData;
 
   const app = gfEl('gf-app');
   if (app) {
@@ -9520,6 +9570,8 @@ async function gfRenderTesourariaPrevisoes() {
 // Estado do selector de período das previsões
 let _gfPrevPeriodo = 'semanal';
 let _gfSaldoAtualCache = 0;
+let _gfSaldoFonteCache = 'manual';
+let _gfSaldoDataCache = null;
 
 // ── Gera pagamentos mensais sintéticos a partir de rubricas marcadas como mensais ──
 function _gfGetPagamentosMensais() {
@@ -9741,16 +9793,25 @@ function _gfBuildPrevisoes(saldoAtual) {
     <div class="card" style="margin-bottom:18px;padding:16px 20px;border-left:4px solid var(--fj-blue)">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
         <div>
-          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:4px">Saldo de Caixa Atual</div>
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;margin-bottom:4px">
+            Saldo de Caixa Atual
+            ${_gfSaldoFonteCache === 'banco' ? '<span style="font-size:10px;background:#E6F4EA;color:#1E7E34;padding:1px 7px;border-radius:10px;margin-left:4px;text-transform:none">🏦 Banco (automático)</span>' : '<span style="font-size:10px;background:#FAEEDA;color:#633806;padding:1px 7px;border-radius:10px;margin-left:4px;text-transform:none">✏️ Manual</span>'}
+          </div>
           <div style="font-size:26px;font-weight:700;color:${saldoAtual<0?'#A32D2D':'#003087'}">${fmt(saldoAtual)}</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">Guardado em FJ_Configuracoes · base para as previsões</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">
+            ${_gfSaldoFonteCache === 'banco'
+              ? `Último movimento bancário importado (FJ_MovimentosBancarios)${_gfSaldoDataCache ? ' · ' + fmtDate(new Date(_gfSaldoDataCache)) : ''}`
+              : 'Guardado em FJ_Configuracoes · ainda sem movimentos bancários importados'}
+          </div>
         </div>
+        ${_gfSaldoFonteCache !== 'banco' ? `
         <div style="display:flex;align-items:center;gap:8px">
           <input type="number" id="tes-saldo-input" value="${saldoAtual}" step="0.01"
             style="padding:9px 12px;border:1px solid var(--border2);border-radius:8px;font-size:15px;width:170px;font-weight:600;text-align:right">
           <button class="btn btn-primary" onclick="gfSaveSaldoCaixa(parseFloat(document.getElementById('tes-saldo-input').value)||0)"
             style="background:var(--fj-blue);border-color:var(--fj-blue)">Guardar Saldo</button>
         </div>
+        ` : ''}
       </div>
     </div>
 
@@ -10671,6 +10732,37 @@ function gfRenderRubricaForm() {
             <option value="Fecho" ${rub?.estado === 'Fecho' ? 'selected' : ''}>Fecho</option>
           </select>
         </div>
+
+        ${gfCanViewTesouraria() ? `
+        <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px">
+          <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">Classificação para a Tesouraria</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+            <div>
+              <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Categoria de tesouraria</label>
+              <select id="gf-rub-categoria-tes" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+                <option value="">— Não classificada —</option>
+                <optgroup label="Receita">
+                  ${GF_CATEGORIAS_TESOURARIA.filter(ct => ct.grupo === 'Receita').map(ct => `<option value="${ct.nome}" ${rub?.categoriaTesouraria === ct.nome ? 'selected' : ''}>${ct.nome}</option>`).join('')}
+                </optgroup>
+                <optgroup label="Despesa">
+                  ${GF_CATEGORIAS_TESOURARIA.filter(ct => ct.grupo === 'Despesa').map(ct => `<option value="${ct.nome}" ${rub?.categoriaTesouraria === ct.nome ? 'selected' : ''}>${ct.nome}</option>`).join('')}
+                </optgroup>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Padrão</label>
+              <select id="gf-rub-padrao-tes" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+                <option value="">— Não definido —</option>
+                ${GF_PADROES_TESOURARIA.map(p => `<option value="${p}" ${rub?.padraoTesouraria === p ? 'selected' : ''}>${p}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div style="max-width:220px">
+            <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Dia típico de pagamento/recebimento</label>
+            <input type="number" id="gf-rub-dia-pag" value="${rub?.diaPagamento || 15}" min="1" max="31" step="1" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+          </div>
+        </div>
+        ` : ''}
       </div>
       
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--border)">
@@ -10719,7 +10811,18 @@ async function gfSaveRubrica(id) {
     DespOrcamentada: despOrc,
     RecOrcamentada: recOrc
   };
-  
+
+  // Classificação de Tesouraria (Fase 1) — campos só existem no formulário para
+  // quem tem gfCanViewTesouraria(); para os outros utilizadores não se tocam.
+  if (gfEl('gf-rub-categoria-tes')) body.CategoriaTesouraria = gfVal('gf-rub-categoria-tes') || '';
+  if (gfEl('gf-rub-padrao-tes')) {
+    const padraoTes = gfVal('gf-rub-padrao-tes') || '';
+    body.PadraoTesouraria = padraoTes;
+    // Mantém o antigo RubricaMensal sincronizado para não quebrar _gfGetPagamentosMensais().
+    body.RubricaMensal = padraoTes === 'Fixa mensal';
+  }
+  if (gfEl('gf-rub-dia-pag')) body.DiaPagamento = parseInt(gfVal('gf-rub-dia-pag')) || 15;
+
   try {
     if (id) {
       await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items(${id})`, body, 'MERGE');
