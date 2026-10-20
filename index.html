@@ -8960,7 +8960,7 @@ async function gfLoadAll() {
     }));
 
     // Rubricas com expand
-    const dr = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items?$select=Id,Title,ProjetoIdId,TipoRubrica,DespOrcamentada,RecOrcamentada,AnoOrcamental,Estado,HistoricoAlteracoes,RubricaMensal,DiaPagamento,CategoriaTesouraria,PadraoTesouraria,ProjetoId/Title,ProjetoId/Id&$expand=ProjetoId&$top=2000`);
+    const dr = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items?$select=Id,Title,ProjetoIdId,TipoRubrica,DespOrcamentada,RecOrcamentada,AnoOrcamental,Estado,HistoricoAlteracoes,RubricaMensal,DiaPagamento,CategoriaTesouraria,PadraoTesouraria,RubricaFixa,ProjetoId/Title,ProjetoId/Id&$expand=ProjetoId&$top=2000`);
     GF_RUBRICAS = (dr.d?.results || []).map(r => ({
       id: r.Id,
       titulo: r.Title || '',
@@ -8979,7 +8979,12 @@ async function gfLoadAll() {
       // cai para o antigo RubricaMensal (só distinguia Fixa mensal vs resto) para
       // não quebrar o que _gfGetPagamentosMensais() já calculava antes desta fase.
       categoriaTesouraria: r.CategoriaTesouraria || '',
-      padraoTesouraria: r.PadraoTesouraria || (r.RubricaMensal ? 'Fixa mensal' : '')
+      padraoTesouraria: r.PadraoTesouraria || (r.RubricaMensal ? 'Fixa mensal' : ''),
+      // Fase 7 — Fixa (sem Solicitação manual; gera Solicitação automática mensal e só se
+      // considera paga/recebida quando ligada a um Movimento Executado) vs. com Solicitação
+      // manual (fluxo normal de pedido/aprovação). null = ainda não classificada (ver
+      // gfClassificarRubricasFixas()); true/false = já decidido manualmente ou pela classificação.
+      rubricaFixa: r.RubricaFixa === true ? true : (r.RubricaFixa === false ? false : null)
     }));
 
     // Solicitações com expand
@@ -9859,6 +9864,114 @@ async function gfImportarRubricasTesouraria() {
   }
 }
 
+// Categorias de tesouraria tipicamente "fixas" (recorrentes, sem Solicitação manual) —
+// usado só como sugestão de arranque por gfClassificarRubricasFixas(); o DF pode sempre
+// corrigir rúbrica a rúbrica na checkbox "Rúbrica fixa" do formulário.
+const GF_CATEGORIAS_FIXAS_SUGESTAO = [
+  'Rendas (Lisboa, Condomínios, Espaços)',
+  'Recursos Humanos - Vencimentos',
+  'Recursos Humanos - SS / IRS / Seguros / Entidade Contratante',
+  'Responsabilidades de Crédito - IHRU',
+  'Responsabilidades de Crédito - Montepio (contrato mútuo)',
+  'Responsabilidades de Crédito - CGD / Millennium CC / Montepio CC',
+  'Responsabilidades de Crédito - AT',
+  'Despesas de Funcionamento',
+  'Rendas de Espaços e Imóveis (incl. NIDE)',
+  'Contratos de Formação (Prestação de Serviços PE)'
+];
+
+// Classifica como Fixa/Com Solicitação só as rúbricas que ainda não têm esta classificação
+// (rubricaFixa === null) — nunca sobrepõe uma escolha já feita manualmente no formulário.
+async function gfClassificarRubricasFixas() {
+  if (!gfCanViewTesouraria()) { showNotif('Sem permissão para esta ação.', 'error'); return; }
+  const porClassificar = GF_RUBRICAS.filter(r => r.rubricaFixa === null);
+  if (!porClassificar.length) { showNotif('Todas as rúbricas já estão classificadas (Fixa/Com Solicitação).', 'success'); return; }
+  if (!confirm(`Isto classifica automaticamente ${porClassificar.length} rúbrica(s) ainda sem classificação, com base na categoria de tesouraria. Rúbricas já classificadas manualmente não são alteradas. Continuar?`)) return;
+
+  showNotif('A classificar...', 'success');
+  try {
+    let fixas = 0, comSolicitacao = 0, erros = 0;
+    for (const rub of porClassificar) {
+      const fixa = GF_CATEGORIAS_FIXAS_SUGESTAO.includes(rub.categoriaTesouraria);
+      try {
+        await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items(${rub.id})`,
+          { __metadata: { type: 'SP.Data.FJ_x005f_RubricasListItem' }, RubricaFixa: fixa }, 'MERGE');
+        fixa ? fixas++ : comSolicitacao++;
+      } catch (e) {
+        erros++;
+        console.error('Erro ao classificar rúbrica', rub.titulo, e);
+      }
+    }
+    showNotif(`Classificação concluída: ${fixas} fixa(s), ${comSolicitacao} com Solicitação manual${erros ? `, ${erros} com erro (ver consola)` : ''}.`, erros ? 'error' : 'success');
+    await gfLoadAll();
+    gfRenderTesourariaPrevisoes();
+  } catch (e) {
+    showNotif('Erro na classificação: ' + e.message, 'error');
+  }
+}
+
+// Para cada rúbrica marcada como Fixa, cria uma Solicitação (já aprovada, Estado "Aprovado
+// DF") para cada parcela prevista (FJ_Tesouraria_Parcelas, OrigemParcela "Orçamento") que
+// ainda não esteja ligada a nenhuma Solicitação — e liga-a de imediato à parcela de origem
+// (SolicitacaoIdId). Isto garante que a Dívida a Fornecedores (que só lê Solicitações) inclui
+// sempre as despesas/receitas fixas por vir, mesmo sem pedido manual de ninguém. Idempotente:
+// uma parcela já ligada a uma Solicitação nunca gera uma segunda.
+async function gfGerarSolicitacoesFixas() {
+  if (!gfCanViewTesouraria()) { showNotif('Sem permissão para esta ação.', 'error'); return; }
+  const rubricasFixas = new Set(GF_RUBRICAS.filter(r => r.rubricaFixa === true).map(r => r.id));
+  if (!rubricasFixas.size) { showNotif('Não há rúbricas marcadas como "Fixa" — classifica primeiro (botão acima) ou marca-as no formulário da rúbrica.', 'error'); return; }
+
+  const pendentes = GF_TESOURARIA_PARCELAS.filter(p =>
+    rubricasFixas.has(p.rubricaId) && p.origem === 'Orçamento' && !p.solicitacaoId
+  );
+  if (!pendentes.length) { showNotif('Não há parcelas de rúbricas fixas por ligar a uma Solicitação.', 'success'); return; }
+  if (!confirm(`Isto cria até ${pendentes.length} Solicitação(ões) já aprovada(s) (uma por mês/rúbrica fixa), para a Dívida a Fornecedores refletir estas despesas/receitas previstas. Continuar?`)) return;
+
+  showNotif('A gerar Solicitações — pode demorar um a dois minutos...', 'success');
+  try {
+    const myEmail = (user?.username || user?.preferredUsername || '');
+    const autorId = await getSpUID(myEmail);
+    const metaSol = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')?$select=ListItemEntityTypeFullName`);
+    const solType = metaSol.d.ListItemEntityTypeFullName;
+    const parcType = await _gfGetTesourariaParcelasType();
+
+    let criadas = 0, erros = 0;
+    for (const p of pendentes) {
+      const rub = GF_RUBRICAS.find(r => r.id === p.rubricaId);
+      if (!rub) { erros++; continue; }
+      const mesLabel = p.dataPrevista ? new Date(p.dataPrevista).toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' }) : '';
+      const body = {
+        __metadata: { type: solType },
+        Codigo: gfGenCodigo('FIX'),
+        Title: `${rub.titulo}${mesLabel ? ' - ' + mesLabel : ''}`.slice(0, 255),
+        ProjetoIdId: rub.projetoId,
+        RubricaIdId: rub.id,
+        Valor: p.valorPrevisto || 0,
+        Estado: 'Aprovado DF',
+        TipoSolicitacao: p.tipo === 'Recebimento' ? 'Receita' : 'Despesa',
+        Fornecedor: rub.titulo,
+        DataLimitePagamento: p.dataPrevista || null,
+        Justificacao: 'Gerada automaticamente a partir da previsão de tesouraria (rúbrica fixa) — ' + rub.titulo + '.'
+      };
+      if (autorId) body.AutorId = autorId;
+      try {
+        const res = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items`, body, 'POST');
+        await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${p.id})`,
+          { __metadata: { type: parcType }, SolicitacaoIdId: res.d.Id }, 'MERGE');
+        criadas++;
+      } catch (e) {
+        erros++;
+        console.error('Erro ao gerar Solicitação fixa', rub.titulo, e);
+      }
+    }
+    showNotif(`${criadas} Solicitação(ões) gerada(s)${erros ? `, ${erros} com erro (ver consola)` : ''}.`, erros ? 'error' : 'success');
+    await gfLoadAll();
+    gfRenderTesourariaPrevisoes();
+  } catch (e) {
+    showNotif('Erro ao gerar Solicitações: ' + e.message, 'error');
+  }
+}
+
 // ══════════════════════════════════════════════════════════════
 // TESOURARIA — VISTA ANUAL (MAPA), Fase 4. Réplica do layout do Excel
 // "Plano de Tesouraria": 10 semanas de detalhe + resto do mês + meses
@@ -10657,7 +10770,9 @@ function _gfBuildPrevisoes(saldoAtual) {
       <div>
         <div style="font-size:22px;font-weight:600;margin-bottom:4px">📊 Previsões de Tesouraria</div>
         <div style="font-size:13px;color:var(--text3)">Entradas e saídas previstas — aprovadas e por liquidar</div>
-        <a href="javascript:void(0)" onclick="gfImportarRubricasTesouraria()" style="font-size:11px;color:var(--text3);text-decoration:underline;margin-top:4px;display:inline-block">⚙️ Importar classificação do Plano de Tesouraria Semanal (rúbricas "Banco Global")</a>
+        <a href="javascript:void(0)" onclick="gfImportarRubricasTesouraria()" style="font-size:11px;color:var(--text3);text-decoration:underline;margin-top:4px;display:inline-block">⚙️ Importar classificação do Plano de Tesouraria Semanal (rúbricas "Banco Global")</a><br>
+        <a href="javascript:void(0)" onclick="gfClassificarRubricasFixas()" style="font-size:11px;color:var(--text3);text-decoration:underline;margin-top:4px;display:inline-block">⚙️ Classificar rúbricas novas como Fixas/Com Solicitação (automático, só nas ainda não classificadas)</a><br>
+        <a href="javascript:void(0)" onclick="gfGerarSolicitacoesFixas()" style="font-size:11px;color:var(--text3);text-decoration:underline;margin-top:4px;display:inline-block">⚙️ Gerar Solicitações mensais para rúbricas fixas (mantém a Dívida a Fornecedores completa)</a>
       </div>
       <div style="display:flex;gap:6px;align-items:center">
         <button style="${btnStyle('semanal')}" onclick="gfSetPrevPeriodo('semanal')">Semanal</button>
@@ -11749,6 +11864,45 @@ async function _gfGetTesourariaParcelasType() {
   return _gfTesourariaParcelasType;
 }
 
+// Fase 7 — uma parcela só se considera realmente paga/recebida quando a Solicitação a que
+// está ligada (SolicitacaoId) é liquidada por um Movimento Executado real (ver
+// gfSubmitAfetar()); nunca por marcação manual do estado. gfReverterMovExecutado() usa o
+// par simétrico para repor "Prevista" se a afetação for anulada.
+async function _gfSincronizarParcelasPagas(solId, dataEfetiva) {
+  const parcelas = GF_TESOURARIA_PARCELAS.filter(p =>
+    p.solicitacaoId === solId && !['Paga', 'Recebida', 'Confirmada', 'Anulada'].includes(p.estado)
+  );
+  if (!parcelas.length) return;
+  const parcType = await _gfGetTesourariaParcelasType();
+  for (const p of parcelas) {
+    const novoEstado = p.tipo === 'Recebimento' ? 'Recebida' : 'Paga';
+    try {
+      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${p.id})`,
+        { __metadata: { type: parcType }, EstadoParcela: novoEstado, ValorEfetivo: p.valorPrevisto, DataEfetiva: dataEfetiva },
+        'MERGE');
+    } catch (e) {
+      console.error('Erro ao sincronizar parcela com solicitação paga', p.id, e);
+    }
+  }
+}
+
+async function _gfReverterParcelasPagas(solId) {
+  const parcelas = GF_TESOURARIA_PARCELAS.filter(p =>
+    p.solicitacaoId === solId && ['Paga', 'Recebida', 'Confirmada'].includes(p.estado)
+  );
+  if (!parcelas.length) return;
+  const parcType = await _gfGetTesourariaParcelasType();
+  for (const p of parcelas) {
+    try {
+      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${p.id})`,
+        { __metadata: { type: parcType }, EstadoParcela: 'Prevista', ValorEfetivo: 0, DataEfetiva: null },
+        'MERGE');
+    } catch (e) {
+      console.error('Erro ao repor parcela de solicitação revertida', p.id, e);
+    }
+  }
+}
+
 async function gfGerarParcelasAutomatico(rubricaId, tipo) {
   const rub = GF_RUBRICAS.find(r => r.id === rubricaId);
   if (!rub) return;
@@ -12126,6 +12280,13 @@ function gfRenderRubricaForm() {
             <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Dia típico de pagamento/recebimento</label>
             <input type="number" id="gf-rub-dia-pag" value="${rub?.diaPagamento || 15}" min="1" max="31" step="1" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
           </div>
+          <div style="margin-top:14px;display:flex;align-items:flex-start;gap:8px">
+            <input type="checkbox" id="gf-rub-fixa" ${rub?.rubricaFixa === true ? 'checked' : ''} style="margin-top:3px">
+            <label for="gf-rub-fixa" style="font-size:13px;line-height:1.4">
+              <strong>Rúbrica fixa</strong> (recorrente, sem Solicitação manual)<br>
+              <span style="font-size:11.5px;color:var(--text3)">Ex.: rendas, vencimentos, créditos, utilities. Para cada mês gera-se automaticamente uma Solicitação já aprovada (para entrar corretamente na Dívida a Fornecedores), e só fica paga/recebida quando ligada a um Movimento Executado. Desmarcada = fluxo normal com pedido e aprovação manual (Mostras, Obras, fornecedores pontuais, financiamentos de projetos).</span>
+            </label>
+          </div>
         </div>
         ` : ''}
       </div>
@@ -12189,6 +12350,7 @@ async function gfSaveRubrica(id) {
     body.RubricaMensal = padraoTes === 'Fixa mensal';
   }
   if (gfEl('gf-rub-dia-pag')) body.DiaPagamento = parseInt(gfVal('gf-rub-dia-pag')) || 15;
+  if (gfEl('gf-rub-fixa')) body.RubricaFixa = gfEl('gf-rub-fixa').checked;
 
   try {
     if (id) {
@@ -17580,6 +17742,9 @@ async function gfSubmitAfetar() {
             { __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' }, Estado: 'Pago', DataPago: new Date().toISOString() },
             'MERGE'
           );
+          // Fase 7 — só agora (movimento bancário real afeto) é que a(s) parcela(s) de
+          // Tesouraria ligada(s) a esta Solicitação passam a Paga/Recebida.
+          await _gfSincronizarParcelasPagas(sol.id, m.dataMovimento);
         } catch (e) {
           erroPago = true;
           console.error('Erro ao marcar solicitação como Paga', sol.id, e);
@@ -17650,6 +17815,9 @@ async function gfReverterMovExecutado(movExecId) {
           { __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' }, Estado: gfEstadoAntesDoPagamento(sol) },
           'MERGE'
         );
+        // Fase 7 — simétrico de _gfSincronizarParcelasPagas(): a afetação foi anulada, as
+        // parcelas ligadas voltam a "Prevista".
+        await _gfReverterParcelasPagas(sol.id);
       }
     }
 
