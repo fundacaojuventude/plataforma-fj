@@ -9806,42 +9806,88 @@ function _gfDiasUteisMes(ano, mesIndex0) {
   return count;
 }
 
-// Custo de um colaborador num dado mês: vencimento base (a dobrar em julho e novembro —
-// subsídios de férias/Natal, convenção de 14 meses) + encargos da entidade patronal sobre
-// esse vencimento + subsídio de alimentação × dias úteis do mês + subsídio de transporte.
-function _gfCustoColaboradorMes(c, ano, mesIndex0) {
-  const multVB = (mesIndex0 === 6 || mesIndex0 === 10) ? 2 : 1; // julho=6, novembro=10 (0-indexado)
-  const vb = (c.vencimentoBase || 0) * multVB;
-  const encargos = vb * ((c.taxaEncargos || 0) / 100);
+// Taxas fixas usadas para separar o vencimento líquido das contribuições entregues ao
+// Estado (Fase 13). SS trabalhador é a taxa legal fixa em Portugal; IRS é uma média
+// estimada (sem dados de retenção por pessoa) — confirmado pelo Rui, ajustável aqui.
+const GF_TAXA_SS_TRABALHADOR = 11;   // % sobre o vencimento bruto, a cargo do colaborador
+const GF_TAXA_IRS_MEDIA = 15;        // % sobre o vencimento bruto, estimativa média de IRS retido
+
+// Decompõe o custo de um colaborador num dado mês nas suas partes: vencimento base (a
+// dobrar em junho e dezembro — subsídios de férias/Natal, convenção de 14 meses; Vencimento
+// Base já é o valor mensal, 1/14 do anual, logo dobrar em 2 dos 12 meses dá o total anual
+// certo, 12×VB + 2×VB extra = 14×VB), encargos da entidade patronal, SS do trabalhador e
+// IRS retido (ambos saem do bruto do colaborador), subsídio de alimentação (× dias úteis do
+// mês) e subsídio de transporte — estes dois últimos pagos em cheio, sem retenção.
+// `liquido` é o que o colaborador recebe (dia ~26, mesmo mês); `contribuicoes` é o que vai
+// para o Estado — SS entidade patronal + SS trabalhador + IRS — até dia 20 do mês seguinte
+// (prazo legal). `total` = liquido + contribuicoes, e não muda com esta separação.
+function _gfDecomporCustoColaboradorMes(c, ano, mesIndex0) {
+  const multVB = (mesIndex0 === 5 || mesIndex0 === 11) ? 2 : 1; // junho=5, dezembro=11 (0-indexado)
+  const vbGross = (c.vencimentoBase || 0) * multVB;
+  const encargosPatronais = vbGross * ((c.taxaEncargos || 0) / 100);
+  const ssTrabalhador = vbGross * (GF_TAXA_SS_TRABALHADOR / 100);
+  const irs = vbGross * (GF_TAXA_IRS_MEDIA / 100);
   const sa = (c.subAlimentacaoDia || 0) * _gfDiasUteisMes(ano, mesIndex0);
   const transp = c.subTransporte || 0;
-  return vb + encargos + sa + transp;
+  const contribuicoes = encargosPatronais + ssTrabalhador + irs;
+  const liquido = vbGross - ssTrabalhador - irs + sa + transp;
+  return { vbGross, encargosPatronais, ssTrabalhador, irs, sa, transp, contribuicoes, liquido, total: liquido + contribuicoes };
 }
 
-// Fase 8 — Despesa RH prevista, calculada pessoa a pessoa a partir do Quadro de Pessoal
+// Mantido para quem só quer o custo total do mês (ex.: estatística "Custo RH previsto" —
+// soma líquido + contribuições, independentemente de quando cada parte sai da caixa).
+function _gfCustoColaboradorMes(c, ano, mesIndex0) {
+  return _gfDecomporCustoColaboradorMes(c, ano, mesIndex0).total;
+}
+
+// Fase 8/13 — Despesa RH prevista, calculada pessoa a pessoa a partir do Quadro de Pessoal
 // (GF_COLABORADORES), em vez da antiga média cega (orçamento anual da rúbrica "Afetação
-// RH - X" ÷ 14). Substitui as rúbricas "Afetação RH" na previsão por uma única linha
-// agregada mensal; o detalhe por rúbrica/projeto continua a existir normalmente do lado da
-// execução real (fluxo "Afetar RH" em Movimentos Pendentes, inalterado).
+// RH - X" ÷ 14). Substitui as rúbricas "Afetação RH" na previsão por duas linhas mensais
+// agregadas — vencimentos líquidos (dia 26, mesmo mês) e SS+IRS (dia 20 do mês seguinte) —
+// em vez de tudo junto numa só data; o detalhe por rúbrica/projeto continua a existir
+// normalmente do lado da execução real (fluxo "Afetar RH" em Movimentos Pendentes, inalterado).
 function _gfGetPagamentosMensaisRH() {
   const anoAtual = new Date().getFullYear();
   const ativos = GF_COLABORADORES.filter(c => c.ativo);
   if (!ativos.length) return [];
   const pagamentos = [];
   for (let mes = 1; mes <= 12; mes++) {
-    const total = ativos.reduce((s, c) => s + _gfCustoColaboradorMes(c, anoAtual, mes - 1), 0);
-    if (total <= 0) continue;
-    const dia = Math.min(26, new Date(anoAtual, mes, 0).getDate());
-    const data = new Date(anoAtual, mes - 1, dia);
-    pagamentos.push({
-      data,
-      valor: total,
-      titulo: 'Despesa RH (Quadro de Pessoal)',
-      fornecedor: `${ativos.length} colaborador(es)`,
-      dataLimitePagamento: data.toISOString().split('T')[0],
-      _isMensal: true,
-      _rubricaId: null
-    });
+    const decomposicoes = ativos.map(c => _gfDecomporCustoColaboradorMes(c, anoAtual, mes - 1));
+    const totalLiquido = decomposicoes.reduce((s, d) => s + d.liquido, 0);
+    const totalContribuicoes = decomposicoes.reduce((s, d) => s + d.contribuicoes, 0);
+
+    if (totalLiquido > 0) {
+      const diaLiq = Math.min(26, new Date(anoAtual, mes, 0).getDate());
+      const dataLiq = new Date(anoAtual, mes - 1, diaLiq);
+      pagamentos.push({
+        data: dataLiq,
+        valor: totalLiquido,
+        titulo: 'Vencimentos líquidos (Quadro de Pessoal)',
+        fornecedor: `${ativos.length} colaborador(es)`,
+        dataLimitePagamento: dataLiq.toISOString().split('T')[0],
+        _isMensal: true,
+        _rubricaId: null
+      });
+    }
+
+    if (totalContribuicoes > 0) {
+      // Contribuições sobre o vencimento do mês "mes" entregam-se ao Estado até dia 20 do
+      // mês seguinte (dezembro cai em janeiro do ano seguinte).
+      const mesSeguinte = mes === 12 ? 1 : mes + 1;
+      const anoSeguinte = mes === 12 ? anoAtual + 1 : anoAtual;
+      const diaContrib = Math.min(20, new Date(anoSeguinte, mesSeguinte, 0).getDate());
+      const dataContrib = new Date(anoSeguinte, mesSeguinte - 1, diaContrib);
+      const nomeMes = new Date(anoAtual, mes - 1, 1).toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
+      pagamentos.push({
+        data: dataContrib,
+        valor: totalContribuicoes,
+        titulo: 'Segurança Social + IRS (Quadro de Pessoal)',
+        fornecedor: `Referente a ${nomeMes}`,
+        dataLimitePagamento: dataContrib.toISOString().split('T')[0],
+        _isMensal: true,
+        _rubricaId: null
+      });
+    }
   }
   return pagamentos;
 }
@@ -9851,9 +9897,11 @@ function _gfGetPagamentosMensais() {
   const pagamentos = [];
 
   GF_RUBRICAS
-    // "Afetação RH - X" fica de fora daqui — substituída por _gfGetPagamentosMensaisRH(),
-    // que usa o Quadro de Pessoal em vez de dividir o orçamento anual às cegas por 14.
-    .filter(r => r.rubricaMensal && r.despOrc > 0 && r.estado === 'Ativo' && r.tipo === 'Despesa' && !/afeta[çc][aã]o\s*rh/i.test(r.titulo))
+    // "Afetação RH - X" / "Pessoal Interno RH - X" ficam de fora daqui — substituídas por
+    // _gfGetPagamentosMensaisRH(), que usa o Quadro de Pessoal em vez de dividir o
+    // orçamento anual às cegas por 14 (confirmado pelo Rui: são custo das mesmas pessoas,
+    // incluí-las aqui também duplicava o valor na previsão).
+    .filter(r => r.rubricaMensal && r.despOrc > 0 && r.estado === 'Ativo' && r.tipo === 'Despesa' && !/(afeta[çc][aã]o|pessoal\s*interno)\s*rh/i.test(r.titulo))
     .forEach(r => {
       const valorBase = r.despOrc / 12;
 
@@ -9966,7 +10014,10 @@ function gfRenderQuadroRH() {
   if (!gfCanViewTesouraria()) return `<div class="empty" style="padding:3rem">Sem permissão para ver esta página.</div>`;
   const ativos = GF_COLABORADORES.filter(c => c.ativo);
   const anoAtual = new Date().getFullYear();
-  const custoMesAtual = ativos.reduce((s, c) => s + _gfCustoColaboradorMes(c, anoAtual, new Date().getMonth()), 0);
+  const decomposicoesMesAtual = ativos.map(c => _gfDecomporCustoColaboradorMes(c, anoAtual, new Date().getMonth()));
+  const custoMesAtual = decomposicoesMesAtual.reduce((s, d) => s + d.total, 0);
+  const liquidoMesAtual = decomposicoesMesAtual.reduce((s, d) => s + d.liquido, 0);
+  const contribMesAtual = decomposicoesMesAtual.reduce((s, d) => s + d.contribuicoes, 0);
 
   return `
     <div style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
@@ -9984,6 +10035,9 @@ function gfRenderQuadroRH() {
       <div class="card" style="padding:16px;margin-bottom:16px">
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Custo RH previsto este mês (${ativos.length} ativo(s))</div>
         <div style="font-size:22px;font-weight:700">${gfFmt(custoMesAtual)}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:6px">
+          💶 ${gfFmt(liquidoMesAtual)} líquido aos colaboradores (dia 26) · 🏛️ ${gfFmt(contribMesAtual)} SS + IRS ao Estado (dia 20 do mês seguinte)
+        </div>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
@@ -10938,7 +10992,8 @@ function _gfBuildPrevisoes(saldoAtual) {
       fornecedor: p.solicitacaoNome || p.rubricaNome || '—',
       valor: p.valorPrevisto || 0,
       dataLimitePagamento: p.dataPrevista,
-      tipoSolicitacao: p.tipo === 'Recebimento' ? 'Receita' : 'Despesa'
+      tipoSolicitacao: p.tipo === 'Recebimento' ? 'Receita' : 'Despesa',
+      solicitacaoId: p.solicitacaoId || null // Fase 14 — para o botão 📅 saber que Plano de Pagamento abrir
     }));
 
   const dividas = dividasBase.concat(parcelasPontuais.filter(p => p.tipoSolicitacao === 'Despesa'));
@@ -11045,14 +11100,28 @@ function _gfBuildPrevisoes(saldoAtual) {
       ? `${i === 0 ? '📅 ' : ''}${p.label} — ${fmtDate(p.ini)} a ${fmtDate(p.fim)}`
       : p.label;
 
-    const rowsS = p.saidas.map(s => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:2px 0;color:var(--text2)">
+    // Fase 14 — id da Solicitação por trás da linha (a própria, ou a dona da parcela), só
+    // quando existir — parcelas manuais ligadas a uma Rúbrica (sem Solicitação) não têm.
+    const gfSolIdDaLinha = s => s.solicitacaoId || s.id || null;
+    const gfBtnPlano = (s, cor) => {
+      const solId = gfSolIdDaLinha(s);
+      return solId ? `<a onclick="event.stopPropagation();gfOpenPlanoPagamentoModal(${solId})" title="Editar parcelas / datas de pagamento" style="cursor:pointer;font-size:12px;color:${cor};flex-shrink:0">📅</a>` : '';
+    };
+
+    const rowsS = p.saidas.map(s => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;padding:2px 0;color:var(--text2)">
       <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${s.titulo}${s.fornecedor ? ' — ' + s.fornecedor : ''}${new Date(s.dataLimitePagamento) < p.ini ? ' <span style="color:#A32D2D;font-size:10px">[vencido]</span>' : ''}</span>
-      <span style="font-weight:600;flex-shrink:0;color:#A32D2D">-${fmt(s.valor)}</span>
+      <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <span style="font-weight:600;color:#A32D2D">-${fmt(s.valor)}</span>
+        ${gfBtnPlano(s, '#A32D2D')}
+      </span>
     </div>`).join('');
 
-    const rowsE = p.entradas.map(s => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:2px 0;color:var(--text2)">
+    const rowsE = p.entradas.map(s => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;padding:2px 0;color:var(--text2)">
       <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${s.titulo}${s.fornecedor ? ' — ' + s.fornecedor : ''}</span>
-      <span style="font-weight:600;flex-shrink:0;color:#059669">+${fmt(s.valor)}</span>
+      <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <span style="font-weight:600;color:#059669">+${fmt(s.valor)}</span>
+        ${gfBtnPlano(s, '#059669')}
+      </span>
     </div>`).join('');
 
     const rowsM = p.mensais.map(m => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:2px 0;color:var(--text2)">
