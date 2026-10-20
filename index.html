@@ -8695,6 +8695,12 @@ let GF = {
 
 let GF_PROJETOS = [];
 let GF_RUBRICAS = [];
+// Fase 18 — rúbricas plurianuais: GF_RUBRICAS_MASTER é a rúbrica "mestre" (uma linha por
+// rúbrica, sem ano — campos de FJ_Rubricas); GF_RUBRICAS_ANO_ROWS são as linhas de
+// FJ_RubricasAno já carregadas (só para os anos em _gfRubricasAnoAnosCarregados).
+let GF_RUBRICAS_MASTER = [];
+let GF_RUBRICAS_ANO_ROWS = [];
+let _gfRubricasAnoAnosCarregados = new Set();
 
 // Categorias de tesouraria (secção 9 da especificação do módulo de Tesouraria,
 // migradas do Excel "Plano_de_Tesouraria_Semanal_FJ"). Usadas para classificar
@@ -8718,7 +8724,12 @@ const GF_CATEGORIAS_TESOURARIA = [
   { grupo: 'Despesa', nome: 'Despesas de Funcionamento' },
   { grupo: 'Despesa', nome: 'Despesas com as Mostras' },
   { grupo: 'Despesa', nome: 'Obras' },
-  { grupo: 'Despesa', nome: 'Outros Pagamentos a Fornecedores' }
+  { grupo: 'Despesa', nome: 'Outros Pagamentos a Fornecedores' },
+  // Fallback (Fase 18) — para rúbricas ainda sem CategoriaTesouraria definida (a maioria das
+  // rúbricas de projeto "normais", fora das importadas do Plano de Tesouraria Semanal), para
+  // as suas parcelas não desaparecerem destes totais por categoria enquanto não são classificadas.
+  { grupo: 'Receita', nome: 'Outras Receitas (não classificadas)' },
+  { grupo: 'Despesa', nome: 'Outras Despesas (não classificadas)' }
 ];
 const GF_PADROES_TESOURARIA = ['Fixa mensal', 'Recorrente variável', 'Sazonal', 'Pontual'];
 
@@ -8954,6 +8965,99 @@ async function gfLoadAlteracoes() {
   }));
 }
 
+// ══════════════════════════════════════════════════════════════
+// RÚBRICAS PLURIANUAIS (Fase 18)
+// ══════════════════════════════════════════════════════════════
+
+// Visibilidade de um Projeto num dado ano (ponto 3) — por intervalo de datas em vez do
+// antigo AnoOrcamental (um único ano fixo). Sem DataInicio/DataFim definidos, mantém o
+// comportamento de sempre: visível em todos os anos.
+function gfProjetoVisivelNoAno(p, ano) {
+  if (!p) return false;
+  if (!p.dataInicio && !p.dataFim) return true;
+  const anoIni = p.dataInicio ? new Date(p.dataInicio).getFullYear() : -Infinity;
+  const anoFim = p.dataFim ? new Date(p.dataFim).getFullYear() : Infinity;
+  return ano >= anoIni && ano <= anoFim;
+}
+
+// Orçamento (DespOrcamentada/RecOrcamentada/EstadoAno) de uma rúbrica mestre num ano
+// específico — independente do ano em vista no Orçamento (GF.year). Procura primeiro em
+// FJ_RubricasAno (já carregado); se a rúbrica ainda não tiver nenhuma linha em
+// FJ_RubricasAno (ainda não passou por "Migrar Orçamento 2026") e o ano pedido for o seu
+// AnoOrcamental antigo, usa esse valor legado como rede de segurança transitória.
+function gfOrcamentoAnoRubrica(rubricaId, ano) {
+  const linha = GF_RUBRICAS_ANO_ROWS.find(a => a.RubricaIdId === rubricaId && a.Ano === ano);
+  if (linha) {
+    return {
+      despOrc: linha.DespOrcamentada || 0,
+      recOrc: linha.RecOrcamentada || 0,
+      estadoAno: linha.EstadoAno || 'Proposta',
+      aprovadoPor: linha.AprovadoPor?.Title || '',
+      dataAprovacao: linha.DataAprovacao || null,
+      rubricaAnoId: linha.Id
+    };
+  }
+  const m = GF_RUBRICAS_MASTER.find(r => r.id === rubricaId);
+  const temAlgumaLinha = GF_RUBRICAS_ANO_ROWS.some(a => a.RubricaIdId === rubricaId);
+  if (m && !temAlgumaLinha && m._anoLegado === ano) {
+    return { despOrc: m._despOrcLegado, recOrc: m._recOrcLegado, estadoAno: 'Aprovada', aprovadoPor: '', dataAprovacao: null, rubricaAnoId: null };
+  }
+  return null;
+}
+
+// Junta a rúbrica mestre com o seu orçamento num ano — uma linha por rúbrica, como sempre
+// (GF_RUBRICAS continua a ter uma linha por id; todo o código que faz
+// GF_RUBRICAS.find(r=>r.id===X) continua a funcionar sem alterações).
+function gfJuntarRubricaAno(m, ano) {
+  const orc = gfOrcamentoAnoRubrica(m.id, ano) || { despOrc: 0, recOrc: 0, estadoAno: null, aprovadoPor: '', dataAprovacao: null, rubricaAnoId: null };
+  return {
+    id: m.id,
+    titulo: m.titulo,
+    projetoId: m.projetoId,
+    projetoNome: m.projetoNome,
+    tipo: m.tipo,
+    estado: m.estado,
+    historicoAlteracoes: m.historicoAlteracoes,
+    rubricaMensal: m.rubricaMensal,
+    diaPagamento: m.diaPagamento,
+    categoriaTesouraria: m.categoriaTesouraria,
+    padraoTesouraria: m.padraoTesouraria,
+    rubricaFixa: m.rubricaFixa,
+    ano,
+    despOrc: orc.despOrc,
+    recOrc: orc.recOrc,
+    estadoAno: orc.estadoAno,
+    aprovadoPor: orc.aprovadoPor,
+    dataAprovacao: orc.dataAprovacao,
+    rubricaAnoId: orc.rubricaAnoId
+  };
+}
+
+function gfConstruirRubricasDoAno(ano) {
+  return GF_RUBRICAS_MASTER.map(m => gfJuntarRubricaAno(m, ano));
+}
+
+// Carrega (se ainda não estiver em memória) as linhas de FJ_RubricasAno de um ano
+// específico, fora da janela GF.year-1..GF.year+1 já carregada em gfLoadAll (ponto 6) —
+// ex.: afetar um Movimento bancário de um ano mais antigo.
+async function gfGarantirAnoRubricasCarregado(ano) {
+  if (_gfRubricasAnoAnosCarregados.has(ano)) return;
+  try {
+    const dra = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items?$select=Id,RubricaIdId,Ano,DespOrcamentada,RecOrcamentada,EstadoAno,AprovadoPor/Title,DataAprovacao&$expand=AprovadoPor&$filter=Ano eq ${ano}&$top=3000`);
+    GF_RUBRICAS_ANO_ROWS = GF_RUBRICAS_ANO_ROWS.concat(dra.d?.results || []);
+    _gfRubricasAnoAnosCarregados.add(ano);
+  } catch (e) { console.warn('gfGarantirAnoRubricasCarregado', ano, e.message); }
+}
+
+// Muda o ano em vista no Orçamento — garante primeiro que esse ano já está carregado
+// (normalmente já está, dentro da janela GF.year-1..GF.year+1 carregada em gfLoadAll).
+async function gfMudarAno(ano) {
+  await gfGarantirAnoRubricasCarregado(ano);
+  GF.year = ano;
+  GF_RUBRICAS = gfConstruirRubricasDoAno(GF.year);
+  gfRender();
+}
+
 async function gfLoadAll() {
   try {
     // Projetos (usando sharedProjetos ou carregando direto)
@@ -8964,22 +9068,25 @@ async function gfLoadAll() {
       codigo: p.codigo || '',
       dep: p.dep || '',
       estado: p.estado || 'Ativo',
-      anoOrcamental: p.anoOrcamental || GF.year,
+      anoOrcamental: p.anoOrcamental || GF.year, // legado — já não controla visibilidade (ver gfProjetoVisivelNoAno)
+      dataInicio: p.dataInicio || '',
+      dataFim: p.dataFim || '',
       isBanco: p.isBancoGlobal || false,
       membrosAfetos: p.membrosAfetos || []
     }));
 
-    // Rubricas com expand
+    // Rúbricas — FJ_Rubricas é agora a rúbrica "mestre" (Fase 18, sem ano). Os campos
+    // DespOrcamentada/RecOrcamentada/AnoOrcamental ainda são lidos só como rede de segurança
+    // legada (gfOrcamentoAnoRubrica), para rúbricas que "Migrar Orçamento 2026" ainda não
+    // tenha processado — deixam de ter qualquer efeito logo que exista a linha
+    // correspondente em FJ_RubricasAno.
     const dr = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items?$select=Id,Title,ProjetoIdId,TipoRubrica,DespOrcamentada,RecOrcamentada,AnoOrcamental,Estado,HistoricoAlteracoes,RubricaMensal,DiaPagamento,CategoriaTesouraria,PadraoTesouraria,RubricaFixa,ProjetoId/Title,ProjetoId/Id&$expand=ProjetoId&$top=2000`);
-    GF_RUBRICAS = (dr.d?.results || []).map(r => ({
+    GF_RUBRICAS_MASTER = (dr.d?.results || []).map(r => ({
       id: r.Id,
       titulo: r.Title || '',
       projetoId: r.ProjetoId?.Id || r.ProjetoIdId || null,
       projetoNome: r.ProjetoId?.Title || '',
       tipo: r.TipoRubrica || 'Despesa',
-      despOrc: r.DespOrcamentada || 0,
-      recOrc: r.RecOrcamentada || 0,
-      ano: r.AnoOrcamental || GF.year,
       estado: r.Estado || 'Ativo',
       historicoAlteracoes: r.HistoricoAlteracoes || '[]',
       rubricaMensal: r.RubricaMensal === true || r.RubricaMensal === 'Yes' || r.RubricaMensal === 1,
@@ -8994,8 +9101,21 @@ async function gfLoadAll() {
       // considera paga/recebida quando ligada a um Movimento Executado) vs. com Solicitação
       // manual (fluxo normal de pedido/aprovação). null = ainda não classificada (ver
       // gfClassificarRubricasFixas()); true/false = já decidido manualmente ou pela classificação.
-      rubricaFixa: r.RubricaFixa === true ? true : (r.RubricaFixa === false ? false : null)
+      rubricaFixa: r.RubricaFixa === true ? true : (r.RubricaFixa === false ? false : null),
+      // Legado (Fase 18) — só usado por gfOrcamentoAnoRubrica como rede de segurança.
+      _anoLegado: r.AnoOrcamental || null,
+      _despOrcLegado: r.DespOrcamentada || 0,
+      _recOrcLegado: r.RecOrcamentada || 0
     }));
+
+    // Orçamento por ano (FJ_RubricasAno) — só a janela GF.year-1..GF.year+1 (ponto 6: nunca
+    // a lista inteira). Outros anos são carregados sob pedido por gfGarantirAnoRubricasCarregado.
+    _gfRubricasAnoAnosCarregados = new Set([GF.year - 1, GF.year, GF.year + 1]);
+    const anosFiltroRA = [..._gfRubricasAnoAnosCarregados].map(a => `Ano eq ${a}`).join(' or ');
+    const dra = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items?$select=Id,RubricaIdId,Ano,DespOrcamentada,RecOrcamentada,EstadoAno,AprovadoPor/Title,DataAprovacao&$expand=AprovadoPor&$filter=${anosFiltroRA}&$top=3000`);
+    GF_RUBRICAS_ANO_ROWS = dra.d?.results || [];
+
+    GF_RUBRICAS = gfConstruirRubricasDoAno(GF.year);
 
     // Solicitações com expand
     const ds = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items?$select=*,ProjetoId/Title,RubricaId/Title,Autor/Title,Autor/EMail,AprovDir/Title,AprovDF/Title&$expand=ProjetoId,RubricaId,Autor,AprovDir,AprovDF&$orderby=Created desc&$top=500`);
@@ -9267,8 +9387,12 @@ function gfCalcRestantePorEstados(sols, estados) {
 }
 
 // Calcula valores de despesa para uma rúbrica
-function gfCalcDespesa(rubricaId) {
-  const sols = GF_SOLICITACOES.filter(s => s.rubricaId === rubricaId && s.tipoSolicitacao === 'Despesa');
+function gfCalcDespesa(rubricaId, ano = GF.year) {
+  // Fase 18 — filtra também pelo ano da Data Limite de Pagamento: a mesma rúbrica mestre
+  // agora pode ter Solicitações de anos diferentes, que já não devem somar-se juntas.
+  // Sem data definida, assume o ano em vista (comportamento anterior à Fase 18).
+  const sols = GF_SOLICITACOES.filter(s => s.rubricaId === rubricaId && s.tipoSolicitacao === 'Despesa' &&
+    (s.dataLimitePagamento ? new Date(s.dataLimitePagamento).getFullYear() === ano : ano === GF.year));
   const bloqueio = gfCalcBloqueioAlteracao(rubricaId);
   const solicitada = sols.filter(s => s.estado !== 'Rejeitado').reduce((a, s) => a + (s.valor || 0), 0);
 
@@ -9307,8 +9431,10 @@ function gfCalcDespesa(rubricaId) {
 }
 
 // Calcula valores de receita para uma rúbrica
-function gfCalcReceita(rubricaId) {
-  const sols = GF_SOLICITACOES.filter(s => s.rubricaId === rubricaId && s.tipoSolicitacao === 'Receita');
+function gfCalcReceita(rubricaId, ano = GF.year) {
+  // Fase 18 — mesmo critério de gfCalcDespesa.
+  const sols = GF_SOLICITACOES.filter(s => s.rubricaId === rubricaId && s.tipoSolicitacao === 'Receita' &&
+    (s.dataLimitePagamento ? new Date(s.dataLimitePagamento).getFullYear() === ano : ano === GF.year));
   const compromissoRestante = sols.filter(s => s.estado !== 'Rejeitado')
     .reduce((a, s) => a + Math.max(0, (s.valor || 0) - gfCalcMovLigados(s.id)), 0);
   const executado = gfCalcExecutadoRubrica(rubricaId, 'Receita');
@@ -9889,17 +10015,22 @@ function _gfGetPagamentosMensais() {
   const anoAtual = new Date().getFullYear();
   const pagamentos = [];
 
-  GF_RUBRICAS
+  // Fase 18 — fonte passa a ser GF_RUBRICAS_MASTER (campos independentes do ano: só há
+  // uma rúbrica mestre por id); o despOrc de cada ano vem de gfOrcamentoAnoRubrica, nunca
+  // de GF_RUBRICAS (que reflete o ano em vista no Orçamento, GF.year — esta função tem de
+  // usar sempre o ano civil atual/seguinte, independentemente do que esteja selecionado lá).
+  GF_RUBRICAS_MASTER
     // "Afetação RH - X" / "Pessoal Interno RH - X" ficam de fora daqui — substituídas por
     // _gfGetPagamentosMensaisRH(), que usa o Quadro de Pessoal em vez de dividir o
     // orçamento anual às cegas por 14 (confirmado pelo Rui: são custo das mesmas pessoas,
     // incluí-las aqui também duplicava o valor na previsão).
-    .filter(r => r.rubricaMensal && r.despOrc > 0 && r.estado === 'Ativo' && r.tipo === 'Despesa' && !/(afeta[çc][aã]o|pessoal\s*interno)\s*rh/i.test(r.titulo))
+    .filter(r => r.rubricaMensal && r.estado === 'Ativo' && r.tipo === 'Despesa' && !/(afeta[çc][aã]o|pessoal\s*interno)\s*rh/i.test(r.titulo))
     .forEach(r => {
-      const valorBase = r.despOrc / 12;
-
       // Gera para o ano atual e o seguinte — mesma razão da Fase 15 em _gfGetPagamentosMensaisRH.
       for (const ano of [anoAtual, anoAtual + 1]) {
+        const orc = gfOrcamentoAnoRubrica(r.id, ano);
+        if (!orc || !(orc.despOrc > 0)) continue;
+        const valorBase = orc.despOrc / 12;
         for (let mes = 1; mes <= 12; mes++) {
           const valor = valorBase;
           const dia = Math.min(r.diaPagamento, new Date(ano, mes, 0).getDate()); // ajusta ao último dia do mês
@@ -10406,8 +10537,10 @@ function _gfCalcularTotaisCategoriasPeriodo(periodos) {
 
   GF_TESOURARIA_PARCELAS.forEach(p => {
     if (p.estado === 'Anulada') return;
-    const categoria = rubCatMap[p.rubricaId];
-    if (!categoria || !totais[categoria]) return; // rúbrica sem categoria de tesouraria definida
+    // Fase 18 — sem categoria definida na rúbrica, cai no balde "Outras / Não classificadas"
+    // (em vez de desaparecer destes totais), do lado Receita/Despesa que a própria parcela indica.
+    const categoria = rubCatMap[p.rubricaId] || (p.tipo === 'Recebimento' ? 'Outras Receitas (não classificadas)' : 'Outras Despesas (não classificadas)');
+    if (!totais[categoria]) return;
     const dataRef = p.dataEfetiva || p.dataConfirmada || p.dataPrevista;
     if (!dataRef) return;
     const d = new Date(dataRef);
@@ -10811,8 +10944,9 @@ function _gfCalcularPrevistoRealizado(periodoIni, periodoFim) {
 
   GF_TESOURARIA_PARCELAS.forEach(p => {
     if (p.estado === 'Anulada') return;
-    const categoria = rubCatMap[p.rubricaId];
-    if (!categoria || !dados[categoria]) return;
+    // Fase 18 — mesmo fallback de _gfCalcularTotaisCategoriasPeriodo.
+    const categoria = rubCatMap[p.rubricaId] || (p.tipo === 'Recebimento' ? 'Outras Receitas (não classificadas)' : 'Outras Despesas (não classificadas)');
+    if (!dados[categoria]) return;
 
     if (p.dataPrevista) {
       const dPrev = new Date(p.dataPrevista);
@@ -11007,7 +11141,7 @@ function _gfBuildPrevisoes(saldoAtual) {
   if (periodo === 'semanal') {
     const dow = hoje.getDay() === 0 ? 6 : hoje.getDay() - 1;
     const seg = new Date(hoje); seg.setDate(hoje.getDate() - dow);
-    for (let w = 0; w < 8; w++) {
+    for (let w = 0; w < 10; w++) {
       const ini = new Date(seg); ini.setDate(seg.getDate() + w * 7);
       const fim = new Date(ini); fim.setDate(ini.getDate() + 6);
       periodos.push({ ini, fim, label: `Semana ${w+1}`, sublabel: null });
@@ -11277,7 +11411,7 @@ function gfExportOrcamentoCSV() {
 
   const rows = [csvLine(headerCols)];
 
-  let projs = GF_PROJETOS.filter(p => !p.anoOrcamental || p.anoOrcamental === ano);
+  let projs = GF_PROJETOS.filter(p => gfProjetoVisivelNoAno(p, ano)); // Fase 18, ponto 3
   projs = filterFinanceProjects(projs);
 
   projs.forEach(p => {
@@ -11320,6 +11454,95 @@ function gfExportOrcamentoCSV() {
 }
 
 // ══════════════════════════════════════════════════════════════
+// MIGRAÇÃO — FJ_Rubricas (mestre, sem ano) + FJ_RubricasAno (orçamento por ano)
+// ══════════════════════════════════════════════════════════════
+// Fase 18 — rúbricas plurianuais, pedido do Rui:
+//   1) FJ_Rubricas passa a ser a rúbrica "mestre" (um único registo, sem ano).
+//   2) FJ_RubricasAno guarda o orçamento de cada ano (RubricaId, Ano, DespOrcamentada,
+//      RecOrcamentada, EstadoAno, AprovadoPor, DataAprovacao) — já criada no SharePoint.
+//   3) O ano de 2027 já foi tratado por "Propor ano seguinte" (253 linhas em Proposta,
+//      ligadas à rúbrica mestre correta — ver NotasAno "[PROP-2027]"). Falta só o 2026.
+// Esta função migra o ANO DE 2026: para cada rúbrica "mestre" ainda viva (exclui as 5
+// rúbricas de 2027 que ficaram duplicadas do SIAC/in.CREATIVE, já substituídas pelas suas
+// pares de 2026 — ver GF_RUBRICAS_DUPLICADAS_SIAC_2027 abaixo), cria uma linha em
+// FJ_RubricasAno com Ano=2026 e os valores que já estão em FJ_Rubricas hoje, com
+// EstadoAno='Aprovada' (orçamento já em vigor e em uso durante todo o ano). Idempotente:
+// salta sempre rúbricas que já têm uma linha de 2026 em FJ_RubricasAno.
+//
+// As 5 rúbricas de 2027 abaixo foram absorvidas pela rúbrica de 2026 equivalente (a sua
+// linha de 2027 em FJ_RubricasAno já aponta para o RubricaId da rúbrica de 2026 — ver
+// FJRubricasAno#206/207/208/209/236). Ficam aqui só marcadas (Estado=Suspenso + título
+// prefixado) para as poderes eliminar manualmente no SharePoint quando quiseres — esta
+// função nunca apaga itens.
+const GF_RUBRICAS_DUPLICADAS_SIAC_2027 = [251, 254, 257, 258, 259];
+
+async function gfMigrarRubricasAno2026() {
+  if (_financeRole !== 'df') { showNotif('Sem permissão para esta ação.', 'error'); return; }
+  if (!confirm('Vai criar em FJ_RubricasAno a linha de 2026 de cada rúbrica ainda sem essa linha, com os valores atuais de FJ_Rubricas (EstadoAno = Aprovada). Idempotente — rúbricas que já tenham linha de 2026 são ignoradas. Continuar?')) return;
+
+  const btn = event?.target; if (btn) { btn.disabled = true; btn.textContent = 'A migrar...'; }
+  try {
+    // Linhas de FJ_RubricasAno já existentes para 2026, para a migração não duplicar nada
+    // se for corrida mais do que uma vez.
+    const existentesRes = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items?$select=RubricaIdId&$filter=Ano eq 2026&$top=2000`);
+    const jaTem2026 = new Set((existentesRes.d?.results || []).map(r => r.RubricaIdId));
+
+    const candidatas = GF_RUBRICAS.filter(r =>
+      r.ano === 2026 &&
+      !GF_RUBRICAS_DUPLICADAS_SIAC_2027.includes(r.id) &&
+      r.titulo && // exclui os 3 itens vazios/corrompidos (sem título nem projeto)
+      !jaTem2026.has(r.id)
+    );
+
+    let criadas = 0, erros = 0;
+    for (const r of candidatas) {
+      const body = {
+        __metadata: { type: 'SP.Data.FJ_x005f_RubricasAnoListItem' },
+        Title: `${r.titulo} - 2026`,
+        RubricaIdId: r.id,
+        Ano: 2026,
+        DespOrcamentada: r.despOrc || 0,
+        RecOrcamentada: r.recOrc || 0,
+        EstadoAno: 'Aprovada',
+        NotasAno: '[MIG-2026] Criado automaticamente a partir do valor já orçamentado em FJ_Rubricas (orçamento em vigor, considerado já aprovado).'
+      };
+      try {
+        await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items`, body, 'POST');
+        criadas++;
+      } catch (e) {
+        erros++;
+        console.warn('Falha a migrar rúbrica', r.id, r.titulo, e.message);
+      }
+    }
+
+    // Marcar (não eliminar) as 5 rúbricas de 2027 já absorvidas pela sua par de 2026.
+    let marcadas = 0;
+    for (const id of GF_RUBRICAS_DUPLICADAS_SIAC_2027) {
+      const r = GF_RUBRICAS.find(x => x.id === id);
+      if (!r || r.titulo.startsWith('[DUPLICADO 2027 — pode eliminar]')) continue; // já marcada antes
+      try {
+        await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items(${id})`, {
+          __metadata: { type: 'SP.Data.FJ_x005f_RubricasListItem' },
+          Title: `[DUPLICADO 2027 — pode eliminar] ${r.titulo}`,
+          Estado: 'Suspenso'
+        }, 'MERGE');
+        marcadas++;
+      } catch (e) {
+        console.warn('Falha a marcar duplicada', id, e.message);
+      }
+    }
+
+    showNotif(`Migração 2026: ${criadas} linha(s) criada(s) em FJ_RubricasAno, ${candidatas.length - criadas - erros} já existiam, ${marcadas} rúbrica(s) duplicada(s) de 2027 marcada(s) para eliminares manualmente.${erros ? ` ${erros} erro(s) — ver consola.` : ''}`, erros ? 'error' : 'success');
+    await gfLoadAll();
+    gfRender();
+  } catch (e) {
+    showNotif('Erro na migração: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🗂️ Migrar Orçamento 2026'; }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
 // ORÇAMENTO - PROJETOS (MASTER)
 // ══════════════════════════════════════════════════════════════
 function gfRenderOrcamento() {
@@ -11331,7 +11554,7 @@ function gfRenderOrcamento() {
   console.log('Current User:', currentUserFJ);
   
   // FILTRAR projetos que o utilizador pode ver
-  let projs = GF_PROJETOS.filter(p => !p.anoOrcamental || p.anoOrcamental === GF.year);
+  let projs = GF_PROJETOS.filter(p => gfProjetoVisivelNoAno(p, GF.year)); // Fase 18, ponto 3
   console.log('Após filtro de ano:', projs.length, 'projetos');
   
   projs = filterFinanceProjects(projs);
@@ -11438,9 +11661,10 @@ function gfRenderOrcamento() {
             ${GF.bloqueado ? '🔒 Edições Bloqueadas' : '🔓 Edições Permitidas'}
           </button>
           <button class="btn btn-primary" style="background:var(--fj-orange);border-color:var(--fj-orange)" onclick="openBancoGlobalModal()">💰 Adicionar Fundos</button>
+          <button class="btn" onclick="gfMigrarRubricasAno2026()" title="Cria em FJ_RubricasAno a linha de 2026 de cada rúbrica, a partir do valor orçamentado atual em FJ_Rubricas. Idempotente — pode correr-se mais do que uma vez em segurança.">🗂️ Migrar Orçamento 2026</button>
         ` : ''}
         ${[2024, 2025, 2026, 2027].map(y => `
-          <button class="btn btn-sm ${y === GF.year ? '' : ''}" style="${y === GF.year ? 'background:var(--mod-financeiro);color:#fff;border-color:var(--mod-financeiro)' : ''}" onclick="GF.year=${y};gfRender()">${y}</button>
+          <button class="btn btn-sm ${y === GF.year ? '' : ''}" style="${y === GF.year ? 'background:var(--mod-financeiro);color:#fff;border-color:var(--mod-financeiro)' : ''}" onclick="gfMudarAno(${y})">${y}</button>
         `).join('')}
         <button class="btn btn-sm" onclick="gfExportOrcamentoCSV()" title="Exportar Aprovado / Pago / Orçamento por Projeto e Rúbrica">⬇️ Exportar CSV</button>
       </div>
@@ -12292,6 +12516,41 @@ async function _gfSincronizarParcelasPagas(solId, dataEfetiva) {
     } catch (e) {
       console.error('Erro ao sincronizar parcela com solicitação paga', p.id, e);
     }
+  }
+}
+
+// Fase 17 — chamada para CADA afetação (não só quando a Solicitação fica 100% paga), com o
+// valor realmente afeto nessa linha. Tenta casar esse valor com a(s) parcela(s) mais antigas
+// do Plano de Pagamento (pela ordem das datas, gfParcelasDaSolicitacao já vem ordenada) cuja
+// soma bata certo em cêntimos — ex.: 1000€ afetos a uma solicitação de 8000€ com parcelas
+// 1000€+7000€ marca só a de 1000€. Sem combinação exata em prefixo, não marca nada: fica para
+// _gfSincronizarParcelasPagas quando a solicitação ficar totalmente paga, como já acontecia.
+async function _gfSincronizarParcelaPorValor(solId, valorAfeto, dataEfetiva) {
+  if (!valorAfeto || valorAfeto <= 0) return;
+  const parcelas = gfParcelasDaSolicitacao(solId).filter(p => !GF_PARCELAS_REALIZADAS.includes(p.estado));
+  if (!parcelas.length) return;
+
+  const alvo = Math.round(valorAfeto * 100);
+  let acumulado = 0;
+  const aPagar = [];
+  for (const p of parcelas) {
+    acumulado += Math.round((p.valorPrevisto || 0) * 100);
+    aPagar.push(p);
+    if (acumulado === alvo) {
+      const parcType = await _gfGetTesourariaParcelasType();
+      for (const pp of aPagar) {
+        const novoEstado = pp.tipo === 'Recebimento' ? 'Recebida' : 'Paga';
+        try {
+          await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${pp.id})`,
+            { __metadata: { type: parcType }, EstadoParcela: novoEstado, ValorEfetivo: pp.valorPrevisto, DataEfetiva: dataEfetiva },
+            'MERGE');
+        } catch (e) {
+          console.error('Erro ao casar parcela por valor', pp.id, e);
+        }
+      }
+      return;
+    }
+    if (acumulado > alvo) return; // nenhuma combinação em prefixo bate certo com o valor afeto
   }
 }
 
@@ -16447,7 +16706,7 @@ function gfRenderConfiguracoes() {
       </div>
       <div style="padding:20px;display:flex;gap:8px;flex-wrap:wrap">
         ${[2024, 2025, 2026, 2027].map(y => `
-          <button class="btn ${y === GF.year ? 'btn-primary' : ''}" style="${y === GF.year ? 'background:var(--mod-financeiro);color:#fff;border-color:var(--mod-financeiro)' : ''}" onclick="GF.year=${y};gfRender()">
+          <button class="btn ${y === GF.year ? 'btn-primary' : ''}" style="${y === GF.year ? 'background:var(--mod-financeiro);color:#fff;border-color:var(--mod-financeiro)' : ''}" onclick="gfMudarAno(${y})">
             ${y}${y === GF.year ? ' ✓' : ''}
           </button>
         `).join('')}
@@ -18166,7 +18425,7 @@ async function gfSubmitAfetar() {
   const btn = document.getElementById('gf-afetar-submit-btn');
   btn.disabled = true; btn.textContent = 'A guardar...';
   try {
-    const solicitacoesTocadas = new Set();
+    const valorPorSolicitacao = new Map(); // Fase 17 — soma o valor afeto por Solicitação (pode haver mais do que uma linha para a mesma)
     for (const l of linhasFinais) {
       const body = {
         __metadata: { type: 'SP.Data.FJ_x005f_MovimentosExecutadosListItem' },
@@ -18184,7 +18443,7 @@ async function gfSubmitAfetar() {
       };
       if (l.solicitacaoId) {
         body.SolicitacaoIdId = l.solicitacaoId;
-        solicitacoesTocadas.add(l.solicitacaoId);
+        valorPorSolicitacao.set(l.solicitacaoId, (valorPorSolicitacao.get(l.solicitacaoId) || 0) + (l.valor || 0));
       }
       await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosExecutados')/items`, body, 'POST');
     }
@@ -18199,11 +18458,20 @@ async function gfSubmitAfetar() {
     // Recarregar para ter os Movimentos Executados atualizados antes de verificar saldos
     await gfLoadAll();
 
+    // Fase 17 — antes de verificar se alguma Solicitação ficou 100% paga, tenta casar o
+    // valor de cada afetação com a(s) parcela(s) mais antigas do seu Plano de Pagamento cuja
+    // soma bata certo — assim uma afetação PARCIAL já reflete a parcela certa, sem esperar
+    // que o resto também seja pago.
+    for (const [solId, valor] of valorPorSolicitacao) {
+      try { await _gfSincronizarParcelaPorValor(solId, valor, m.dataMovimento); }
+      catch (e) { console.error('Erro ao casar parcela por valor', solId, e); }
+    }
+
     // Solicitações cujo saldo por pagar chegou a 0 → passam a "Pago"
     // (try/catch por solicitação: uma falha aqui não pode impedir o resto do fluxo
     // de terminar nem ficar silenciosa — antes não havia tratamento de erro nesta parte)
     let erroPago = false;
-    for (const solId of solicitacoesTocadas) {
+    for (const solId of valorPorSolicitacao.keys()) {
       const sol = GF_SOLICITACOES.find(s => s.id === solId);
       if (sol && sol.estado !== 'Pago' && gfSolicitacaoSaldoPorPagar(sol) <= 0.005) {
         try {
@@ -18275,20 +18543,26 @@ async function gfReverterMovExecutado(movExecId) {
     // Recarregar antes de verificar saldos, para as linhas apagadas já não contarem
     await gfLoadAll();
 
-    // Solicitações que tinham ficado "Pago" por causa deste movimento → repõe estado anterior
+    // Solicitações tocadas por este movimento → repõe parcelas e, se tinha ficado "Pago"
+    // por causa dele, repõe também o estado anterior.
+    // Fase 17 — a reposição das parcelas corre sempre que a Solicitação é tocada, não só
+    // quando ela tinha chegado a ficar "Pago" por inteiro: com o casamento parcial (acima),
+    // uma afetação PARCIAL já pode ter marcado parcelas como Pagas sem a Solicitação alguma
+    // vez ter ficado "Pago" — e essas também têm de voltar a "Prevista" ao reverter.
     const solicitacoesTocadas = new Set(irmaos.map(l => l.solicitacaoId).filter(Boolean));
     for (const solId of solicitacoesTocadas) {
       const sol = GF_SOLICITACOES.find(s => s.id === solId);
-      if (sol && sol.estado === 'Pago' && gfSolicitacaoSaldoPorPagar(sol) > 0.005) {
+      if (!sol) continue;
+      if (sol.estado === 'Pago' && gfSolicitacaoSaldoPorPagar(sol) > 0.005) {
         await spWrite(
           `${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${sol.id})`,
           { __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' }, Estado: gfEstadoAntesDoPagamento(sol) },
           'MERGE'
         );
-        // Fase 7 — simétrico de _gfSincronizarParcelasPagas(): a afetação foi anulada, as
-        // parcelas ligadas voltam a "Prevista".
-        await _gfReverterParcelasPagas(sol.id);
       }
+      // Fase 7/17 — simétrico de _gfSincronizarParcelasPagas()/_gfSincronizarParcelaPorValor():
+      // a afetação foi anulada, as parcelas ligadas voltam a "Prevista".
+      await _gfReverterParcelasPagas(sol.id);
     }
 
     showNotif('Afetação revertida — o movimento voltou para Pendentes ✓', 'success');
