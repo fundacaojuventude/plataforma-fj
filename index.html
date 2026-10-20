@@ -829,6 +829,10 @@ tr:hover td{background:var(--bg3)}
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="2" width="4" height="12" rx="1"/><rect x="6" y="2" width="4" height="8" rx="1"/><rect x="11" y="2" width="4" height="10" rx="1"/></svg>
         Operacional
       </div>
+      <div class="nav-item" id="gf-nav-quadro-rh" onclick="gfNav('tesouraria-rh')" style="color:rgba(255,255,255,.75);padding-left:1.25rem;display:none">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="5" r="2.5"/><path d="M1 14c0-2.5 2-4 5-4s5 1.5 5 4"/><circle cx="12" cy="6" r="2"/><path d="M10.5 10c2 0 3.5 1.2 3.5 3.3"/></svg>
+        Quadro de Pessoal
+      </div>
 
       <div class="nav-item" id="gf-nav-direcao" onclick="gfNav('direcao')" style="color:rgba(255,255,255,.75);display:none">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12l4-8 4 4 4-6"/></svg>
@@ -8857,6 +8861,12 @@ let GF_MOV_PENDENTES = [];   // FJ_MovimentosBancarios — importação do Excel
 let GF_MOV_EXECUTADOS = [];  // FJ_MovimentosExecutados — ledger final, um registo por rúbrica afetada
 let GF_MOV_EXECUTADOS_ERRO = null; // mensagem de erro se a lista acima falhar ao carregar — ver aviso em gfRenderOrcamento()
 let GF_TESOURARIA_PARCELAS = []; // FJ_Tesouraria_Parcelas (Fase 2) — calendário de parcelas previstas/confirmadas/efetivas por rúbrica
+// Fase 8 — Quadro de Pessoal (FJ_Colaboradores): custo real de RH pessoa a pessoa
+// (vencimento base, subsídio de alimentação/dia, subsídio de transporte, taxa de encargos
+// da entidade patronal), usado para calcular a Despesa RH prevista em vez da média cega
+// do orçamento anual das rúbricas "Afetação RH - X" (ver _gfGetPagamentosMensais()).
+let GF_COLABORADORES = [];
+let _gfColaboradoresType = null;
 let _gfTesourariaParcelasType = null; // cache do ListItemEntityTypeFullName, obtido em runtime
 let _gfParcCalc = {}; // estado efémero do formulário de geração de calendário por rúbrica: { [rubricaId]: { metodo, percentagens, padraoSugerido } }
 let GF_AFETAR = { movimento: null, repartida: false, linhas: [] }; // estado do modal "Afetar movimento" (repartição por várias rúbricas)
@@ -9158,6 +9168,27 @@ async function gfLoadAll() {
       GF_TESOURARIA_PARCELAS = [];
     }
 
+    // Quadro de Pessoal (Fase 8)
+    try {
+      const dcol = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Colaboradores')/items?$select=*&$orderby=Title&$top=500`);
+      GF_COLABORADORES = (dcol.d?.results || []).map(r => ({
+        id: r.Id,
+        nome: r.Title || '',
+        categoriaProfissional: r.CategoriaProfissional || '',
+        direcao: r.Direcao || '',
+        vencimentoBase: r.VencimentoBase || 0,
+        subAlimentacaoDia: r.SubAlimentacaoDia || 0,
+        subTransporte: r.SubTransporte || 0,
+        taxaEncargos: r.TaxaEncargos || 0,
+        dataAdmissao: r.DataAdmissao || null,
+        ativo: r.Ativo !== false,
+        notas: r.Notas || ''
+      }));
+    } catch (e) {
+      console.warn('Lista FJ_Colaboradores indisponível:', e.message);
+      GF_COLABORADORES = [];
+    }
+
     console.log('GF Data loaded:', { projetos: GF_PROJETOS.length, rubricas: GF_RUBRICAS.length, solicitacoes: GF_SOLICITACOES.length, movPendentes: GF_MOV_PENDENTES.length, movExecutados: GF_MOV_EXECUTADOS.length });
 
     // Carregar estado do bloqueio do orçamento (persiste em FJ_Configuracoes)
@@ -9340,6 +9371,7 @@ function gfNav(screen, params = {}) {
     'tesouraria-divida':    'gf-nav-divida',
     'tesouraria-previsoes': 'gf-nav-previsoes',
     'tesouraria-operacional': 'gf-nav-operacional',
+    'tesouraria-rh':        'gf-nav-quadro-rh',
     'modelos-reparticao':   'gf-nav-modelos-reparticao',
   };
   const navId = NAV_MAP[screen] || NAV_MAP[screen.split('-')[0]];
@@ -9368,7 +9400,7 @@ function gfUpdateSidebarNav() {
   if (cfg) cfg.style.display = _financeRole === 'pe' ? 'flex' : 'none';
   // Tesouraria: apenas Financeiro ou PE
   const canTes = gfCanViewTesouraria();
-  const tesIds = ['gf-nav-tesouraria-lbl', 'gf-nav-divida', 'gf-nav-previsoes', 'gf-nav-operacional'];
+  const tesIds = ['gf-nav-tesouraria-lbl', 'gf-nav-divida', 'gf-nav-previsoes', 'gf-nav-operacional', 'gf-nav-quadro-rh'];
   tesIds.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = canTes ? (id === 'gf-nav-tesouraria-lbl' ? 'block' : 'flex') : 'none';
@@ -9407,6 +9439,8 @@ function gfRender() {
     case 'configuracoes': html = gfRenderConfiguracoes(); break;
     case 'tesouraria-divida': html = gfRenderTesourariaDivida(); break;
     case 'tesouraria-operacional': html = gfRenderTesourariaOperacional(); break;
+    case 'tesouraria-rh': html = gfRenderQuadroRH(); break;
+    case 'tesouraria-rh-form': html = gfRenderColaboradorForm(); break;
     case 'modelos-reparticao': html = gfRenderModelosReparticao(); break;
     default: html = gfRenderHome();
   }
@@ -9757,21 +9791,71 @@ let _gfSaldoFonteCache = 'manual';
 let _gfSaldoDataCache = null;
 
 // ── Gera pagamentos mensais sintéticos a partir de rubricas marcadas como mensais ──
+// Dias úteis (seg-sex) de um mês — simplificação: não desconta feriados nacionais.
+function _gfDiasUteisMes(ano, mesIndex0) {
+  const d = new Date(ano, mesIndex0, 1);
+  let count = 0;
+  while (d.getMonth() === mesIndex0) {
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) count++;
+    d.setDate(d.getDate() + 1);
+  }
+  return count;
+}
+
+// Custo de um colaborador num dado mês: vencimento base (a dobrar em julho e novembro —
+// subsídios de férias/Natal, convenção de 14 meses) + encargos da entidade patronal sobre
+// esse vencimento + subsídio de alimentação × dias úteis do mês + subsídio de transporte.
+function _gfCustoColaboradorMes(c, ano, mesIndex0) {
+  const multVB = (mesIndex0 === 6 || mesIndex0 === 10) ? 2 : 1; // julho=6, novembro=10 (0-indexado)
+  const vb = (c.vencimentoBase || 0) * multVB;
+  const encargos = vb * ((c.taxaEncargos || 0) / 100);
+  const sa = (c.subAlimentacaoDia || 0) * _gfDiasUteisMes(ano, mesIndex0);
+  const transp = c.subTransporte || 0;
+  return vb + encargos + sa + transp;
+}
+
+// Fase 8 — Despesa RH prevista, calculada pessoa a pessoa a partir do Quadro de Pessoal
+// (GF_COLABORADORES), em vez da antiga média cega (orçamento anual da rúbrica "Afetação
+// RH - X" ÷ 14). Substitui as rúbricas "Afetação RH" na previsão por uma única linha
+// agregada mensal; o detalhe por rúbrica/projeto continua a existir normalmente do lado da
+// execução real (fluxo "Afetar RH" em Movimentos Pendentes, inalterado).
+function _gfGetPagamentosMensaisRH() {
+  const anoAtual = new Date().getFullYear();
+  const ativos = GF_COLABORADORES.filter(c => c.ativo);
+  if (!ativos.length) return [];
+  const pagamentos = [];
+  for (let mes = 1; mes <= 12; mes++) {
+    const total = ativos.reduce((s, c) => s + _gfCustoColaboradorMes(c, anoAtual, mes - 1), 0);
+    if (total <= 0) continue;
+    const dia = Math.min(26, new Date(anoAtual, mes, 0).getDate());
+    const data = new Date(anoAtual, mes - 1, dia);
+    pagamentos.push({
+      data,
+      valor: total,
+      titulo: 'Despesa RH (Quadro de Pessoal)',
+      fornecedor: `${ativos.length} colaborador(es)`,
+      dataLimitePagamento: data.toISOString().split('T')[0],
+      _isMensal: true,
+      _rubricaId: null
+    });
+  }
+  return pagamentos;
+}
+
 function _gfGetPagamentosMensais() {
   const anoAtual = new Date().getFullYear();
   const pagamentos = [];
 
   GF_RUBRICAS
-    .filter(r => r.rubricaMensal && r.despOrc > 0 && r.estado === 'Ativo' && r.tipo === 'Despesa')
+    // "Afetação RH - X" fica de fora daqui — substituída por _gfGetPagamentosMensaisRH(),
+    // que usa o Quadro de Pessoal em vez de dividir o orçamento anual às cegas por 14.
+    .filter(r => r.rubricaMensal && r.despOrc > 0 && r.estado === 'Ativo' && r.tipo === 'Despesa' && !/afeta[çc][aã]o\s*rh/i.test(r.titulo))
     .forEach(r => {
-      const isRH = /afeta[çc][aã]o\s*rh/i.test(r.titulo);
-      const divisor = isRH ? 14 : 12;
-      const valorBase = r.despOrc / divisor;
+      const valorBase = r.despOrc / 12;
 
       for (let mes = 1; mes <= 12; mes++) {
-        // "Afetação RH": julho (7) e novembro (11) têm 2 pagamentos
-        const multiplicador = isRH && (mes === 7 || mes === 11) ? 2 : 1;
-        const valor = valorBase * multiplicador;
+        const valor = valorBase;
         const dia = Math.min(r.diaPagamento, new Date(anoAtual, mes, 0).getDate()); // ajusta ao último dia do mês
         const data = new Date(anoAtual, mes - 1, dia);
         pagamentos.push({
@@ -9786,7 +9870,7 @@ function _gfGetPagamentosMensais() {
       }
     });
 
-  return pagamentos;
+  return pagamentos.concat(_gfGetPagamentosMensaisRH());
 }
 
 // ── Importação única: classificação do Plano de Tesouraria Semanal ──
@@ -9859,6 +9943,222 @@ async function gfImportarRubricasTesouraria() {
     showNotif(`Importação concluída: ${criadas} rúbrica(s) criada(s), ${ignoradas} já existiam${erros ? `, ${erros} com erro (ver consola)` : ''}.`, erros ? 'error' : 'success');
     await gfLoadAll();
     gfRenderTesourariaPrevisoes();
+  } catch (e) {
+    showNotif('Erro na importação: ' + e.message, 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// QUADRO DE PESSOAL (Fase 8) — FJ_Colaboradores
+// ══════════════════════════════════════════════════════════════
+
+async function _gfGetColaboradoresType() {
+  if (_gfColaboradoresType) return _gfColaboradoresType;
+  const meta = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Colaboradores')?$select=ListItemEntityTypeFullName`);
+  _gfColaboradoresType = meta.d.ListItemEntityTypeFullName;
+  return _gfColaboradoresType;
+}
+
+function gfRenderQuadroRH() {
+  if (!gfCanViewTesouraria()) return `<div class="empty" style="padding:3rem">Sem permissão para ver esta página.</div>`;
+  const ativos = GF_COLABORADORES.filter(c => c.ativo);
+  const anoAtual = new Date().getFullYear();
+  const custoMesAtual = ativos.reduce((s, c) => s + _gfCustoColaboradorMes(c, anoAtual, new Date().getMonth()), 0);
+
+  return `
+    <div style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-size:22px;font-weight:600;margin-bottom:4px">👥 Quadro de Pessoal</div>
+        <div style="font-size:13px;color:var(--text3)">Custo real de RH — alimenta a previsão de Despesa RH na Tesouraria</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        ${!GF_COLABORADORES.length ? `<button class="btn" onclick="gfImportarQuadroRH()">⚙️ Importar do Quadro de RH (Set/2026)</button>` : ''}
+        <button class="btn btn-primary" onclick="GF.colabEdit=null; gfNav('tesouraria-rh-form')">+ Novo colaborador</button>
+      </div>
+    </div>
+
+    ${GF_COLABORADORES.length ? `
+      <div class="card" style="padding:16px;margin-bottom:16px">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Custo RH previsto este mês (${ativos.length} ativo(s))</div>
+        <div style="font-size:22px;font-weight:700">${gfFmt(custoMesAtual)}</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text3)">
+            <th style="padding:8px 6px">Nome</th><th style="padding:8px 6px">Categoria</th><th style="padding:8px 6px">Direção</th>
+            <th style="padding:8px 6px;text-align:right">Venc. Base</th><th style="padding:8px 6px;text-align:right">SA/dia</th>
+            <th style="padding:8px 6px;text-align:right">Sub. Transp.</th><th style="padding:8px 6px;text-align:right">Encargos</th>
+            <th style="padding:8px 6px">Estado</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${GF_COLABORADORES.map(c => `
+            <tr style="border-bottom:1px solid var(--border);${!c.ativo ? 'opacity:.5' : ''}">
+              <td style="padding:8px 6px;font-weight:500">${c.nome}</td>
+              <td style="padding:8px 6px">${c.categoriaProfissional || '—'}</td>
+              <td style="padding:8px 6px">${c.direcao || '—'}</td>
+              <td style="padding:8px 6px;text-align:right">${gfFmt(c.vencimentoBase)}</td>
+              <td style="padding:8px 6px;text-align:right">${gfFmt(c.subAlimentacaoDia)}</td>
+              <td style="padding:8px 6px;text-align:right">${c.subTransporte ? gfFmt(c.subTransporte) : '—'}</td>
+              <td style="padding:8px 6px;text-align:right">${c.taxaEncargos ? c.taxaEncargos + '%' : '—'}</td>
+              <td style="padding:8px 6px">${c.ativo ? '<span class="bdg" style="background:#D1FAE5;color:#065F46">Ativo</span>' : '<span class="bdg" style="background:#E5E7EB;color:#374151">Inativo</span>'}</td>
+              <td style="padding:8px 6px;text-align:right"><a onclick="GF.colabEdit=${c.id}; gfNav('tesouraria-rh-form')" style="color:var(--fj-blue);cursor:pointer;font-size:12px">Editar</a></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    ` : `<div class="empty" style="padding:3rem">Ainda sem colaboradores. Importa do Quadro de RH ou adiciona manualmente.</div>`}
+  `;
+}
+
+function gfRenderColaboradorForm() {
+  if (!gfCanViewTesouraria()) return `<div class="empty" style="padding:3rem">Sem permissão para ver esta página.</div>`;
+  const c = GF.colabEdit ? GF_COLABORADORES.find(x => x.id === GF.colabEdit) : null;
+  return `
+    <div style="margin-bottom:20px">
+      <a href="javascript:void(0)" onclick="gfNav('tesouraria-rh')" style="color:var(--text3);font-size:13px">← Voltar ao Quadro de Pessoal</a>
+      <div style="font-size:22px;font-weight:600;margin-top:8px">${c ? 'Editar colaborador' : 'Novo colaborador'}</div>
+    </div>
+    <div class="card" style="padding:20px;max-width:600px;display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Nome <span style="color:#EF4444">*</span></label>
+        <input type="text" id="gf-colab-nome" value="${c?.nome || ''}" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div>
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Categoria Profissional</label>
+          <input type="text" id="gf-colab-categoria" value="${c?.categoriaProfissional || ''}" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Direção/Projeto</label>
+          <input type="text" id="gf-colab-direcao" value="${c?.direcao || ''}" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+        <div>
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Vencimento Base (€)</label>
+          <input type="number" id="gf-colab-vb" value="${c?.vencimentoBase || 0}" step="0.01" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Sub. Alimentação (€/dia)</label>
+          <input type="number" id="gf-colab-sa" value="${c?.subAlimentacaoDia || 0}" step="0.01" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Sub. Transporte (€)</label>
+          <input type="number" id="gf-colab-transp" value="${c?.subTransporte || 0}" step="0.01" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div>
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Taxa de Encargos SS (%)</label>
+          <input type="number" id="gf-colab-encargos" value="${c?.taxaEncargos ?? 23.75}" step="0.01" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+        </div>
+        <div style="display:flex;align-items:flex-end;padding-bottom:10px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px">
+            <input type="checkbox" id="gf-colab-ativo" ${(c?.ativo !== false) ? 'checked' : ''}> Ativo
+          </label>
+        </div>
+      </div>
+      <div>
+        <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Notas</label>
+        <textarea id="gf-colab-notas" rows="2" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">${c?.notas || ''}</textarea>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;padding-top:14px;border-top:1px solid var(--border)">
+        <button class="btn" onclick="gfNav('tesouraria-rh')">Cancelar</button>
+        <button class="btn btn-primary" onclick="gfSaveColaborador(${c ? c.id : 'null'})">${c ? 'Guardar' : 'Criar'}</button>
+      </div>
+    </div>
+  `;
+}
+
+async function gfSaveColaborador(id) {
+  const nome = gfVal('gf-colab-nome').trim();
+  if (!nome) { showNotif('Nome obrigatório', 'error'); return; }
+  const body = {
+    __metadata: { type: await _gfGetColaboradoresType() },
+    Title: nome,
+    CategoriaProfissional: gfVal('gf-colab-categoria'),
+    Direcao: gfVal('gf-colab-direcao'),
+    VencimentoBase: gfValN('gf-colab-vb'),
+    SubAlimentacaoDia: gfValN('gf-colab-sa'),
+    SubTransporte: gfValN('gf-colab-transp'),
+    TaxaEncargos: gfValN('gf-colab-encargos'),
+    Ativo: gfEl('gf-colab-ativo').checked,
+    Notas: gfVal('gf-colab-notas')
+  };
+  try {
+    if (id) {
+      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Colaboradores')/items(${id})`, body, 'MERGE');
+    } else {
+      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Colaboradores')/items`, body, 'POST');
+    }
+    showNotif('Colaborador guardado ✓', 'success');
+    await gfLoadAll();
+    gfNav('tesouraria-rh');
+  } catch (e) {
+    showNotif('Erro ao guardar: ' + e.message, 'error');
+  }
+}
+
+// Dados do separador "Set 26" do Excel "Anexo 3 - Quadro de RH" (confirmado com o Rui).
+// Taxa de encargos ~23.75% (valor que o Rui confirmou como aproximado da SS entidade
+// patronal) aplicada a todos por omissão — ajustável depois por pessoa no formulário.
+// Duas posições ainda por contratar (Gestor/a de Projetos, Psicóloga — Lisboa 2030) foram
+// incluídas como orçamentadas, para a previsão não subestimar o custo de RH; o Rui pode
+// marcá-las como Inativas a qualquer momento se não se aplicarem.
+const GF_QUADRO_RH_IMPORT = [
+  { nome: 'Raquel Almeida', categoria: 'DIRETOR', direcao: 'FINANCEIRO', vb: 2500, sa: 8, transp: 0 },
+  { nome: 'Carla Maria Barbosa de Sousa', categoria: 'Técnico Administrativo', direcao: 'FINANCEIRO', vb: 1050, sa: 8, transp: 75 },
+  { nome: 'Cristina Maria Ferreira Sousa', categoria: 'Técnico Administrativo', direcao: 'FINANCEIRO', vb: 1050, sa: 8, transp: 75 },
+  { nome: 'Tomás Apolinário', categoria: 'DIRETOR', direcao: 'IMPACTO', vb: 1850, sa: 8, transp: 0 },
+  { nome: 'Madalena Oliveira', categoria: 'DIRETOR', direcao: 'OPERAÇÕES NORTE', vb: 2300, sa: 8, transp: 0 },
+  { nome: 'Bruno Miguel Oliveira Pacheco', categoria: 'Gestor Projeto', direcao: 'OPERAÇÕES NORTE', vb: 1400, sa: 8, transp: 75 },
+  { nome: 'Gestor/a de Projetos (posição a preencher)', categoria: 'Gestor Projeto', direcao: 'OPERAÇÕES NORTE', vb: 1700, sa: 8, transp: 0 },
+  { nome: 'Inês de Seabra Loureiro Azevedo Brandão', categoria: 'Gestor Projeto', direcao: 'OPERAÇÕES NORTE', vb: 1100, sa: 8, transp: 0 },
+  { nome: 'Miguel Gonçalves', categoria: 'Gestor Projeto', direcao: 'OPERAÇÕES NORTE', vb: 1325, sa: 8, transp: 0 },
+  { nome: 'Gestor/a de Projetos — Lisboa 2030 (posição a preencher)', categoria: 'Gestor Projeto', direcao: 'LISBOA', vb: 1200, sa: 8, transp: 0 },
+  { nome: 'Psicóloga — Lisboa 2030 (posição a preencher)', categoria: 'Gestor Projeto', direcao: 'LISBOA', vb: 1150, sa: 8, transp: 0 },
+  { nome: 'Andreia Cristina Martins Carrilho Salgueiro', categoria: 'Gestor Projeto', direcao: 'LISBOA', vb: 1400, sa: 8, transp: 75 },
+  { nome: 'Madalena Jerónimo', categoria: 'Técnico Administrativo', direcao: 'LISBOA', vb: 1100, sa: 8, transp: 0 },
+  { nome: 'Paula Graça', categoria: 'Gestor Projeto', direcao: 'LISBOA', vb: 1400, sa: 8, transp: 0 },
+  { nome: 'Rita Nabais', categoria: 'Gestor Projeto', direcao: 'LISBOA', vb: 2100, sa: 8, transp: 0 },
+  { nome: 'Rui Oliveira', categoria: 'PRESIDENTE EXECUTIVO', direcao: '', vb: 2500, sa: 8, transp: 0 }
+];
+
+async function gfImportarQuadroRH() {
+  if (!gfCanViewTesouraria()) { showNotif('Sem permissão para esta ação.', 'error'); return; }
+  if (!confirm(`Isto cria até ${GF_QUADRO_RH_IMPORT.length} colaborador(es) no Quadro de Pessoal, a partir do separador "Set 26" do ficheiro de RH. Nomes já existentes não são duplicados. Continuar?`)) return;
+
+  showNotif('A importar...', 'success');
+  try {
+    const existentes = new Set(GF_COLABORADORES.map(c => c.nome));
+    const colabType = await _gfGetColaboradoresType();
+    let criados = 0, ignorados = 0, erros = 0;
+    for (const item of GF_QUADRO_RH_IMPORT) {
+      if (existentes.has(item.nome)) { ignorados++; continue; }
+      const body = {
+        __metadata: { type: colabType },
+        Title: item.nome,
+        CategoriaProfissional: item.categoria,
+        Direcao: item.direcao,
+        VencimentoBase: item.vb,
+        SubAlimentacaoDia: item.sa,
+        SubTransporte: item.transp,
+        TaxaEncargos: 23.75,
+        Ativo: true
+      };
+      try {
+        await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Colaboradores')/items`, body, 'POST');
+        existentes.add(item.nome);
+        criados++;
+      } catch (e) {
+        erros++;
+        console.error('Erro ao importar colaborador', item.nome, e);
+      }
+    }
+    showNotif(`Importação concluída: ${criados} colaborador(es) criado(s), ${ignorados} já existiam${erros ? `, ${erros} com erro (ver consola)` : ''}.`, erros ? 'error' : 'success');
+    await gfLoadAll();
+    gfRender();
   } catch (e) {
     showNotif('Erro na importação: ' + e.message, 'error');
   }
