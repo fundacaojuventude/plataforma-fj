@@ -11280,6 +11280,10 @@ function _gfBuildPrevisoes(saldoAtual) {
     titulo: item.titulo || item.fornecedor || 'Rúbrica fixa',
     _isMensal: true,
     _rubricaId: item.rubricaId,
+    // Fase 23 — para o botão 📅 (Plano de Pagamento) continuar disponível depois da Fase 21
+    // ter passado estas linhas das Pontuais para as Mensais: a própria Solicitação (item.id)
+    // quando o item já é uma, ou a Solicitação da parcela (item.solicitacaoId), quando existe.
+    solicitacaoId: item.solicitacaoId || item.id || null,
     projetoNome: item.projetoNome || (GF_RUBRICAS_MASTER.find(r => r.id === item.rubricaId)?.projetoNome) || '—'
   });
 
@@ -11464,15 +11468,21 @@ function _gfBuildPrevisoes(saldoAtual) {
       </span>
     </div>`, '#059669');
 
-    const rowsM = gfRenderGrupoProjeto(p.mensais, m => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:2px 0 2px 12px;color:var(--text2)">
+    const rowsM = gfRenderGrupoProjeto(p.mensais, m => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;padding:2px 0 2px 12px;color:var(--text2)">
       <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">🔄 ${m.titulo} <span style="color:var(--text3);font-size:10px">(rubrica mensal · dia ${m.data.getDate()})</span></span>
-      <span style="font-weight:600;flex-shrink:0;color:#A32D2D">-${fmt(m.valor)}</span>
+      <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <span style="font-weight:600;color:#A32D2D">-${fmt(m.valor)}</span>
+        ${gfBtnPlano(m, '#A32D2D')}
+      </span>
     </div>`, '#A32D2D');
 
     // Fase 20 — Entradas Mensais (receita recorrente), mesmo molde das Despesas Mensais.
-    const rowsEM = gfRenderGrupoProjeto(p.entradasMensais, m => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:2px 0 2px 12px;color:var(--text2)">
+    const rowsEM = gfRenderGrupoProjeto(p.entradasMensais, m => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;padding:2px 0 2px 12px;color:var(--text2)">
       <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">🔄 ${m.titulo} <span style="color:var(--text3);font-size:10px">(rubrica mensal · dia ${m.data.getDate()})</span></span>
-      <span style="font-weight:600;flex-shrink:0;color:#059669">+${fmt(m.valor)}</span>
+      <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <span style="font-weight:600;color:#059669">+${fmt(m.valor)}</span>
+        ${gfBtnPlano(m, '#059669')}
+      </span>
     </div>`, '#059669');
 
     const semDetalhe = !p.saidas.length && !p.entradas.length && !p.mensais.length && !p.entradasMensais.length;
