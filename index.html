@@ -9995,7 +9995,8 @@ function _gfGetPagamentosMensaisRH() {
           fornecedor: `${ativos.length} colaborador(es)`,
           dataLimitePagamento: dataLiq.toISOString().split('T')[0],
           _isMensal: true,
-          _rubricaId: null
+          _rubricaId: null,
+          projetoNome: 'Recursos Humanos' // Fase 19 — sem projeto próprio; agrupado à parte
         });
       }
 
@@ -10014,7 +10015,8 @@ function _gfGetPagamentosMensaisRH() {
           fornecedor: `Referente a ${nomeMes}`,
           dataLimitePagamento: dataContrib.toISOString().split('T')[0],
           _isMensal: true,
-          _rubricaId: null
+          _rubricaId: null,
+          projetoNome: 'Recursos Humanos' // Fase 19 — sem projeto próprio; agrupado à parte
         });
       }
     }
@@ -10053,7 +10055,8 @@ function _gfGetPagamentosMensais() {
             fornecedor: r.projetoNome || '—',
             dataLimitePagamento: data.toISOString().split('T')[0],
             _isMensal: true,
-            _rubricaId: r.id
+            _rubricaId: r.id,
+            projetoNome: r.projetoNome || '—' // Fase 19 — agrupar por projeto nas Previsões de Tesouraria
           });
         }
       }
@@ -11134,7 +11137,9 @@ function _gfBuildPrevisoes(saldoAtual) {
       valor: p.valorPrevisto || 0,
       dataLimitePagamento: p.dataPrevista,
       tipoSolicitacao: p.tipo === 'Recebimento' ? 'Receita' : 'Despesa',
-      solicitacaoId: p.solicitacaoId || null // Fase 14 — para o botão 📅 saber que Plano de Pagamento abrir
+      solicitacaoId: p.solicitacaoId || null, // Fase 14 — para o botão 📅 saber que Plano de Pagamento abrir
+      // Fase 19 — para agrupar por projeto nas Previsões de Tesouraria.
+      projetoNome: (GF_RUBRICAS_MASTER.find(r => r.id === p.rubricaId)?.projetoNome) || '—'
     }));
 
   const dividas = dividasBase.concat(parcelasPontuais.filter(p => p.tipoSolicitacao === 'Despesa'));
@@ -11257,26 +11262,48 @@ function _gfBuildPrevisoes(saldoAtual) {
       return solId ? `<a onclick="event.stopPropagation();gfOpenPlanoPagamentoModal(${solId})" title="Editar parcelas / datas de pagamento" style="cursor:pointer;font-size:12px;color:${cor};flex-shrink:0">📅</a>` : '';
     };
 
-    const rowsS = p.saidas.map(s => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;padding:2px 0;color:var(--text2)">
+    // Fase 19 — agrupa uma lista de linhas (entradas/saídas/mensais) por projeto, maior
+    // total primeiro, para ficar mais fácil perceber de onde vem cada valor na semana/mês.
+    const gfAgruparPorProjeto = (items) => {
+      const grupos = new Map();
+      items.forEach(it => {
+        const nome = it.projetoNome || '(sem projeto)';
+        if (!grupos.has(nome)) grupos.set(nome, []);
+        grupos.get(nome).push(it);
+      });
+      return [...grupos.entries()]
+        .map(([nome, itens]) => ({ nome, itens, total: itens.reduce((a, it) => a + (it.valor || 0), 0) }))
+        .sort((a, b) => b.total - a.total);
+    };
+    const gfRenderGrupoProjeto = (items, renderRow, corTotal) => gfAgruparPorProjeto(items).map(g => `
+      <div style="margin-top:7px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:10px;font-weight:700;color:var(--text3);padding:3px 0;border-bottom:0.5px solid var(--border)">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📁 ${g.nome}</span>
+          <span style="color:${corTotal};flex-shrink:0">${fmt(g.total)}</span>
+        </div>
+        ${g.itens.map(renderRow).join('')}
+      </div>`).join('');
+
+    const rowsS = gfRenderGrupoProjeto(p.saidas, s => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;padding:2px 0 2px 12px;color:var(--text2)">
       <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${s.titulo}${s.fornecedor ? ' — ' + s.fornecedor : ''}${new Date(s.dataLimitePagamento) < p.ini ? ' <span style="color:#A32D2D;font-size:10px">[vencido]</span>' : ''}</span>
       <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
         <span style="font-weight:600;color:#A32D2D">-${fmt(s.valor)}</span>
         ${gfBtnPlano(s, '#A32D2D')}
       </span>
-    </div>`).join('');
+    </div>`, '#A32D2D');
 
-    const rowsE = p.entradas.map(s => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;padding:2px 0;color:var(--text2)">
+    const rowsE = gfRenderGrupoProjeto(p.entradas, s => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;padding:2px 0 2px 12px;color:var(--text2)">
       <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${s.titulo}${s.fornecedor ? ' — ' + s.fornecedor : ''}</span>
       <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
         <span style="font-weight:600;color:#059669">+${fmt(s.valor)}</span>
         ${gfBtnPlano(s, '#059669')}
       </span>
-    </div>`).join('');
+    </div>`, '#059669');
 
-    const rowsM = p.mensais.map(m => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:2px 0;color:var(--text2)">
+    const rowsM = gfRenderGrupoProjeto(p.mensais, m => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:2px 0 2px 12px;color:var(--text2)">
       <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">🔄 ${m.titulo} <span style="color:var(--text3);font-size:10px">(rubrica mensal · dia ${m.data.getDate()})</span></span>
       <span style="font-weight:600;flex-shrink:0;color:#A32D2D">-${fmt(m.valor)}</span>
-    </div>`).join('');
+    </div>`, '#A32D2D');
 
     const semDetalhe = !p.saidas.length && !p.entradas.length && !p.mensais.length;
     const liquidoTotal = p.totalEntradas - p.totalSaidas - p.totalMensais;
