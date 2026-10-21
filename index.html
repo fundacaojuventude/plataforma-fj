@@ -9395,10 +9395,13 @@ function gfCalcRestantePorEstados(sols, estados) {
 // Calcula valores de despesa para uma rúbrica
 function gfCalcDespesa(rubricaId, ano = GF.year) {
   // Fase 18 — filtra também pelo ano da Data Limite de Pagamento: a mesma rúbrica mestre
-  // agora pode ter Solicitações de anos diferentes, que já não devem somar-se juntas.
-  // Sem data definida, assume o ano em vista (comportamento anterior à Fase 18).
+  // agora pode ter Solicitações de anos diferentes, que já não devem somar-se juntas. Sem
+  // Data Limite definida, usa a Data de Submissão como ano fixo de recurso — nunca o ano em
+  // vista no ecrã (isso fazia a mesma Solicitação "flutuar" e contar em qualquer ano para
+  // onde se mudasse o separador do Orçamento).
   const sols = GF_SOLICITACOES.filter(s => s.rubricaId === rubricaId && s.tipoSolicitacao === 'Despesa' &&
-    (s.dataLimitePagamento ? new Date(s.dataLimitePagamento).getFullYear() === ano : ano === GF.year));
+    (s.dataLimitePagamento ? new Date(s.dataLimitePagamento).getFullYear() === ano :
+      (s.dataSubmissao ? new Date(s.dataSubmissao).getFullYear() === ano : ano === GF.year)));
   const bloqueio = gfCalcBloqueioAlteracao(rubricaId);
   const solicitada = sols.filter(s => s.estado !== 'Rejeitado').reduce((a, s) => a + (s.valor || 0), 0);
 
@@ -9440,7 +9443,8 @@ function gfCalcDespesa(rubricaId, ano = GF.year) {
 function gfCalcReceita(rubricaId, ano = GF.year) {
   // Fase 18 — mesmo critério de gfCalcDespesa.
   const sols = GF_SOLICITACOES.filter(s => s.rubricaId === rubricaId && s.tipoSolicitacao === 'Receita' &&
-    (s.dataLimitePagamento ? new Date(s.dataLimitePagamento).getFullYear() === ano : ano === GF.year));
+    (s.dataLimitePagamento ? new Date(s.dataLimitePagamento).getFullYear() === ano :
+      (s.dataSubmissao ? new Date(s.dataSubmissao).getFullYear() === ano : ano === GF.year)));
   const compromissoRestante = sols.filter(s => s.estado !== 'Rejeitado')
     .reduce((a, s) => a + Math.max(0, (s.valor || 0) - gfCalcMovLigados(s.id)), 0);
   const executado = gfCalcExecutadoRubrica(rubricaId, 'Receita', ano);
@@ -12032,7 +12036,7 @@ function gfRenderRubricas() {
         // Fase 18 — mesmo critério de ano de gfCalcDespesa/gfCalcReceita (filtra pela Data Limite
         // de Pagamento da Solicitação, ou pelo ano do Movimento Executado), para a tabela de
         // baixo nunca mostrar linhas de anos diferentes do que a caixa-resumo acima já soma.
-        const solicitacoes = gfGetSolicitacoes(r.id).filter(s => s.dataLimitePagamento ? new Date(s.dataLimitePagamento).getFullYear() === GF.year : true);
+        const solicitacoes = gfGetSolicitacoes(r.id).filter(s => s.dataLimitePagamento ? new Date(s.dataLimitePagamento).getFullYear() === GF.year : (s.dataSubmissao ? new Date(s.dataSubmissao).getFullYear() === GF.year : true));
         const movExecutados = GF_MOV_EXECUTADOS.filter(m => m.rubricaId === r.id && m.ano === GF.year);
         // Lista combinada para "Faturas/Solicitações": mostra sempre o que REALMENTE aconteceu
         // (Movimentos Executados — o valor final e real, tenha ou não Solicitação por trás, que
@@ -13584,8 +13588,8 @@ function gfRenderSolicitacaoForm() {
             </div>
           </div>
           <div style="margin-bottom:16px">
-            <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">📅 Data Limite de Pagamento <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:4px">Prazo máximo para efetuar o pagamento</span></label>
-            <input type="date" id="gf-sol-data-limite" value="${sol?.dataLimitePagamento || ''}" style="padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;width:220px">
+            <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">📅 Data Limite de Pagamento <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:4px">Prazo máximo para efetuar o pagamento — nunca depois de ${GF.year}; se sobrar para o ano seguinte, fica para Saldos Transitados</span></label>
+            <input type="date" id="gf-sol-data-limite" value="${sol?.dataLimitePagamento || (GF.year + '-12-31')}" max="${GF.year}-12-31" style="padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;width:220px">
           </div>
           
           <div>
@@ -13762,6 +13766,15 @@ async function gfSaveSolicitacao(id, estado) {
 
   if (!titulo || !projetoId || !rubricaId || valor <= 0 || !fornecedor) {
     showNotif('Preencha todos os campos obrigatórios', 'error');
+    return;
+  }
+
+  // A Data Limite de Pagamento nunca pode ultrapassar o ano em que a Solicitação está a ser
+  // criada — se sobrar valor para o ano seguinte, isso passa por Saldos Transitados, não por
+  // esticar a data de uma Solicitação existente. Validado aqui também (não só no `max` do
+  // campo) para cobrir edição manual da data.
+  if (dataLimite && new Date(dataLimite).getFullYear() > GF.year) {
+    showNotif(`A Data Limite de Pagamento não pode ser depois de ${GF.year}. Se o pagamento só acontece no ano seguinte, deve passar por Saldos Transitados de ${GF.year + 1}.`, 'error');
     return;
   }
 
