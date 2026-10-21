@@ -19321,6 +19321,7 @@ const PA_LIST_HISTORICO  = 'FJ_Parcerias_Historico';
 let PA_PARCEIROS = [];
 let PA_HISTORICO = [];
 let PA_SELECTED  = null;
+let PA_HIST_FILTRO = '';
 let _paLoaded = false;
 
 async function paInit(){
@@ -19473,6 +19474,7 @@ function paRenderLista(){
 }
 
 function paSelectParceiro(id){
+  if(PA_SELECTED!==id) PA_HIST_FILTRO="";
   PA_SELECTED=id;
   paRenderLista();
   paRenderDetalhe();
@@ -19489,7 +19491,7 @@ function paRenderDetalhe(){
   const estado=paCalcEstado(p);
   const inicio=paCalcDataInicio(p);
   const hist=paHistoricoDe(p.id).slice().sort((a,b)=>new Date(b.data)-new Date(a.data));
-  const filtroTipo=document.getElementById('pa-hist-filtro')?.value||'';
+  const filtroTipo=PA_HIST_FILTRO;
   const histFiltrado=filtroTipo?hist.filter(h=>h.tipo===filtroTipo):hist;
 
   wrap.innerHTML=`
@@ -19530,10 +19532,9 @@ function paRenderDetalhe(){
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <p style="font-size:15px;font-weight:500;margin:0">Histórico</p>
       <div style="display:flex;gap:8px">
-        <select class="flt" id="pa-hist-filtro" onchange="paRenderDetalhe()">
-          <option value="">Tipo: todos</option>
-          <option>Contacto</option><option>Reunião</option><option>Protocolo</option>
-          <option>Renovação</option><option>Término</option><option>Registo histórico</option>
+        <select class="flt" id="pa-hist-filtro" onchange="PA_HIST_FILTRO=this.value;paRenderDetalhe()">
+          <option value="" ${!PA_HIST_FILTRO?'selected':''}>Tipo: todos</option>
+          ${['Contacto','Reunião','Protocolo','Renovação','Término','Registo histórico'].map(t=>`<option${PA_HIST_FILTRO===t?' selected':''}>${t}</option>`).join('')}
         </select>
         <button class="btn btn-primary" onclick="paOpenNovoRegisto(${p.id})">+ Novo registo</button>
       </div>
