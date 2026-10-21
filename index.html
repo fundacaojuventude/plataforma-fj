@@ -10803,10 +10803,10 @@ function _gfOpCardHtml(p) {
     <div class="gf-op-card" draggable="true" ondragstart="gfOpDragStart(event,${p.id})"
          style="background:${bg};border:1px solid ${adiada ? '#F9CA8B' : 'transparent'};border-radius:8px;padding:8px 10px;margin-bottom:8px;cursor:grab">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
-        <div style="font-size:11px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(p.titulo || '').replace(/"/g, '&quot;')}">${origemIcon} ${p.titulo || '—'}</div>
+        <div style="font-size:11px;font-weight:600;flex:1;overflow-wrap:break-word">${origemIcon} ${p.titulo || '—'}</div>
         <span style="font-size:10px;color:${cor};font-weight:700;flex-shrink:0">${isReceb ? '+' : '-'}</span>
       </div>
-      <div style="font-size:10px;color:var(--text3);margin:2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.rubricaNome || p.solicitacaoNome || '—'}</div>
+      <div style="font-size:10px;color:var(--text3);margin:2px 0;overflow-wrap:break-word">${p.rubricaNome || p.solicitacaoNome || '—'}</div>
       <div style="display:flex;align-items:center;gap:4px;margin-top:4px">
         <input type="number" step="0.01" value="${p.valorPrevisto}" onchange="gfSaveParcelaCampo(${p.id},'ValorPrevisto',this.value)"
           style="width:70px;border:1px solid var(--border);border-radius:4px;padding:2px 4px;font-size:11px;text-align:right;background:#fff">
@@ -10818,6 +10818,7 @@ function _gfOpCardHtml(p) {
         <span style="font-size:9px;color:var(--text3)">${p.estado}</span>
         <div style="display:flex;gap:6px;align-items:center">
           ${adiada ? `<span title="${(p.justificacaoDesvio || '').replace(/"/g, '&quot;')}" style="font-size:10px;cursor:help">⏰${p.numAdiamentos}</span>` : ''}
+          ${p.solicitacaoId ? `<a onclick="gfOpenSolicitacaoViewModal(${p.solicitacaoId})" title="Ver solicitação" style="font-size:11px;cursor:pointer;color:var(--text3);text-decoration:none">👁️</a>` : ''}
           <a onclick="gfOpAbrirSplit(${p.id})" title="Dividir" style="font-size:11px;cursor:pointer;color:var(--text3);text-decoration:none">✂️</a>
           <a onclick="gfEliminarParcela(${p.id})" title="Eliminar" style="font-size:11px;cursor:pointer;color:#EF4444;text-decoration:none">✕</a>
         </div>
@@ -11442,6 +11443,12 @@ function _gfBuildPrevisoes(saldoAtual) {
       const solId = gfSolIdDaLinha(s);
       return solId ? `<a onclick="event.stopPropagation();gfOpenPlanoPagamentoModal(${solId})" title="Editar parcelas / datas de pagamento" style="cursor:pointer;font-size:12px;color:${cor};flex-shrink:0">📅</a>` : '';
     };
+    // Fase 28 — abre a Solicitação inteira (dados, aprovação, comentários) num popup por
+    // cima desta lista, sem sair das Previsões de Tesouraria.
+    const gfBtnVerSol = (s, cor) => {
+      const solId = gfSolIdDaLinha(s);
+      return solId ? `<a onclick="event.stopPropagation();gfOpenSolicitacaoViewModal(${solId})" title="Ver solicitação" style="cursor:pointer;font-size:12px;color:${cor};flex-shrink:0">👁️</a>` : '';
+    };
 
     // Fase 19 — agrupa uma lista de linhas (entradas/saídas/mensais) por projeto, maior
     // total primeiro, para ficar mais fácil perceber de onde vem cada valor na semana/mês.
@@ -11473,6 +11480,7 @@ function _gfBuildPrevisoes(saldoAtual) {
       <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
         <span style="font-weight:600;color:#A32D2D">-${fmt(s.valor)}</span>
         ${gfBtnPlano(s, '#A32D2D')}
+        ${gfBtnVerSol(s, '#A32D2D')}
       </span>
     </div>`, '#A32D2D');
 
@@ -11481,6 +11489,7 @@ function _gfBuildPrevisoes(saldoAtual) {
       <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
         <span style="font-weight:600;color:#059669">+${fmt(s.valor)}</span>
         ${gfBtnPlano(s, '#059669')}
+        ${gfBtnVerSol(s, '#059669')}
       </span>
     </div>`, '#059669');
 
@@ -11489,6 +11498,7 @@ function _gfBuildPrevisoes(saldoAtual) {
       <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
         <span style="font-weight:600;color:#A32D2D">-${fmt(m.valor)}</span>
         ${gfBtnPlano(m, '#A32D2D')}
+        ${gfBtnVerSol(m, '#A32D2D')}
       </span>
     </div>`, '#A32D2D');
 
@@ -11498,6 +11508,7 @@ function _gfBuildPrevisoes(saldoAtual) {
       <span style="display:flex;align-items:center;gap:6px;flex-shrink:0">
         <span style="font-weight:600;color:#059669">+${fmt(m.valor)}</span>
         ${gfBtnPlano(m, '#059669')}
+        ${gfBtnVerSol(m, '#059669')}
       </span>
     </div>`, '#059669');
 
@@ -13049,6 +13060,39 @@ function gfRenderPlanoPagamentoModalBody() {
   `.replace('margin-top:20px', 'margin-top:12px');
 }
 
+// ── Modal "Ver Solicitação" (Fase 28) — abre a vista completa da Solicitação (dados,
+// aprovação, comentários, plano de pagamento) num popup por cima da lista, pedido pelo Rui
+// para não ter de sair das Previsões de Tesouraria só para consultar/agir numa solicitação.
+// Reaproveita gfRenderSolicitacaoView(solId, {modal:true}) tal e qual.
+let _gfSolViewModalId = null;
+
+function gfOpenSolicitacaoViewModal(solId) {
+  _gfSolViewModalId = solId;
+  gfRenderSolicitacaoViewModalBody();
+  const modal = gfEl('gf-sol-view-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function gfCloseSolicitacaoViewModal() {
+  _gfSolViewModalId = null;
+  const modal = gfEl('gf-sol-view-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function gfVerSolicitacaoPaginaCompleta() {
+  if (_gfSolViewModalId == null) return;
+  GF.solicitacao = _gfSolViewModalId;
+  gfCloseSolicitacaoViewModal();
+  gfNav('solicitacao-view');
+}
+
+function gfRenderSolicitacaoViewModalBody() {
+  const body = gfEl('gf-sol-view-modal-body');
+  if (!body) return;
+  if (_gfSolViewModalId == null) { body.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text3);font-size:13px">Solicitação não encontrada.</div>'; return; }
+  body.innerHTML = gfRenderSolicitacaoView(_gfSolViewModalId, { modal: true });
+}
+
 // Estado efémero do formulário de plano de pagamento, guardado em _gfParcCalc com
 // chave de texto 'sol_<id>' para não colidir com as chaves numéricas das rúbricas (Fase 2).
 function gfGetPlanoPagamentoState(sol) {
@@ -14208,8 +14252,13 @@ async function gfPeAlterarSolicitacao(id) {
   }
 }
 
-function gfRenderSolicitacaoView() {
-  const sol = GF_SOLICITACOES.find(s => s.id === GF.solicitacao);
+function gfRenderSolicitacaoView(solIdParam, opts) {
+  // Fase 28 — solIdParam/opts permitem reaproveitar esta mesma vista dentro do popup "Ver
+  // Solicitação" acionado a partir das Previsões de Tesouraria, com o id da linha clicada,
+  // sem depender de GF.solicitacao (que continua a ser usado quando chamada sem argumentos,
+  // como acontece na navegação normal para a página de detalhe).
+  opts = opts || {};
+  const sol = GF_SOLICITACOES.find(s => s.id === (solIdParam != null ? solIdParam : GF.solicitacao));
   if (!sol) return '<p style="padding:40px;text-align:center">Solicitação não encontrada</p>';
   
   const solProj = GF_PROJETOS.find(p => p.id === sol.projetoId);
@@ -14226,13 +14275,15 @@ function gfRenderSolicitacaoView() {
   const canApproveDF = _financeRole === 'df' && (isFinanceiro ? ['Submetido', 'Aprovado Dir.', 'Pendente Informação'].includes(sol.estado) : ['Aprovado Dir.', 'Pendente Informação'].includes(sol.estado));
   
   return `
+    ${opts.modal ? '' : `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--text3)">
       <a onclick="gfNav('home')" style="color:var(--blue);cursor:pointer">Início</a>
       <span>›</span>
       <a onclick="gfNav('solicitacoes')" style="color:var(--blue);cursor:pointer">Solicitações</a>
       <span>›</span><span>${sol.codigo}</span>
     </div>
-    
+    `}
+
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
       <div>
         <div style="font-size:20px;font-weight:600">${sol.titulo}</div>
@@ -20008,6 +20059,26 @@ init();
     </div>
     <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
       <button class="btn" onclick="gfClosePlanoPagamentoModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL VER SOLICITAÇÃO (Fase 28) ════════════════════════════ -->
+<div id="gf-sol-view-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:920px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);margin:1rem">
+    <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:16px;font-weight:600">👁️ Ver Solicitação</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">Dados, aprovação e comentários desta solicitação</div>
+      </div>
+      <button onclick="gfCloseSolicitacaoViewModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">×</button>
+    </div>
+    <div id="gf-sol-view-modal-body" style="padding:20px 24px">
+      <div style="color:var(--text3);font-size:13px">A carregar...</div>
+    </div>
+    <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;gap:8px">
+      <button class="btn" onclick="gfVerSolicitacaoPaginaCompleta()">Abrir página completa ↗</button>
+      <button class="btn" onclick="gfCloseSolicitacaoViewModal()">Fechar</button>
     </div>
   </div>
 </div>
