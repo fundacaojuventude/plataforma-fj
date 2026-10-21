@@ -10024,6 +10024,37 @@ function _gfGetPagamentosMensaisRH() {
   return pagamentos;
 }
 
+// Fase 20 — espelho de _gfGetPagamentosMensais, mas para rúbricas de RECEITA marcadas
+// como "mensal" (receita recorrente: rendas, mensalidades, contratos mensais, etc.).
+function _gfGetEntradasMensais() {
+  const anoAtual = new Date().getFullYear();
+  const entradas = [];
+  GF_RUBRICAS_MASTER
+    .filter(r => r.rubricaMensal && r.estado === 'Ativo' && r.tipo === 'Receita')
+    .forEach(r => {
+      for (const ano of [anoAtual, anoAtual + 1]) {
+        const orc = gfOrcamentoAnoRubrica(r.id, ano);
+        if (!orc || !(orc.recOrc > 0)) continue;
+        const valorBase = orc.recOrc / 12;
+        for (let mes = 1; mes <= 12; mes++) {
+          const dia = Math.min(r.diaPagamento, new Date(ano, mes, 0).getDate());
+          const data = new Date(ano, mes - 1, dia);
+          entradas.push({
+            data,
+            valor: valorBase,
+            titulo: r.titulo,
+            fornecedor: r.projetoNome || '—',
+            dataLimitePagamento: data.toISOString().split('T')[0],
+            _isMensal: true,
+            _rubricaId: r.id,
+            projetoNome: r.projetoNome || '—'
+          });
+        }
+      }
+    });
+  return entradas;
+}
+
 function _gfGetPagamentosMensais() {
   const anoAtual = new Date().getFullYear();
   const pagamentos = [];
@@ -11147,6 +11178,7 @@ function _gfBuildPrevisoes(saldoAtual) {
 
   // Pagamentos recorrentes de rubricas mensais
   const pagamentosMensais = _gfGetPagamentosMensais();
+  const entradasMensaisAll = _gfGetEntradasMensais(); // Fase 20
 
   const hoje = new Date(); hoje.setHours(0,0,0,0);
 
@@ -11214,18 +11246,23 @@ function _gfBuildPrevisoes(saldoAtual) {
     };
     const saidas = dividas.filter(filterRange);
     const entradas = receitas.filter(filterRange);
-    // Pagamentos mensais: sempre por data exata, sem acumular vencidos
+    // Pagamentos/recebimentos mensais: sempre por data exata, sem acumular vencidos
     const mensais = pagamentosMensais.filter(pm => {
+      const d = pm.data;
+      return d >= p.ini && d <= p.fim;
+    });
+    const entradasMensais = entradasMensaisAll.filter(pm => { // Fase 20
       const d = pm.data;
       return d >= p.ini && d <= p.fim;
     });
     const totalSaidas = saidas.reduce((a, s) => a + (s.valor || 0), 0);
     const totalEntradas = entradas.reduce((a, s) => a + (s.valor || 0), 0);
     const totalMensais = mensais.reduce((a, m) => a + (m.valor || 0), 0);
+    const totalEntradasMensais = entradasMensais.reduce((a, m) => a + (m.valor || 0), 0); // Fase 20
     const saldoIni = saldoCorrente;
-    saldoCorrente = saldoCorrente + totalEntradas - totalSaidas - totalMensais;
+    saldoCorrente = saldoCorrente + totalEntradas + totalEntradasMensais - totalSaidas - totalMensais;
     const vencidos = i === 0 ? saidas.filter(s => new Date(s.dataLimitePagamento) < p.ini) : [];
-    return { ...p, saidas, entradas, mensais, totalSaidas, totalEntradas, totalMensais, saldoIni, saldoFim: saldoCorrente, vencidos };
+    return { ...p, saidas, entradas, mensais, entradasMensais, totalSaidas, totalEntradas, totalMensais, totalEntradasMensais, saldoIni, saldoFim: saldoCorrente, vencidos };
   });
 
   // ── Cards resumo ────────────────────────────────────────────
@@ -11233,11 +11270,12 @@ function _gfBuildPrevisoes(saldoAtual) {
     const cor = p.saldoFim < 0 ? '#A32D2D' : p.saldoFim < saldoAtual * 0.2 ? '#633806' : '#27500A';
     const bord = p.saldoFim < 0 ? '#FCA5A5' : 'var(--border)';
     const totalSaidasTot = p.totalSaidas + p.totalMensais;
+    const totalEntradasTot = p.totalEntradas + p.totalEntradasMensais; // Fase 20
     return `<div style="background:var(--bg2);border:0.5px solid ${bord};border-radius:8px;padding:12px 14px">
       <div style="font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px">${p.label}</div>
       <div style="font-size:15px;font-weight:700;color:${cor}">${fmt(p.saldoFim)}</div>
       <div style="font-size:11px;color:var(--text3);margin-top:2px">${fmtDate(p.ini)} – ${fmtDate(p.fim)}</div>
-      ${p.totalEntradas > 0 ? `<div style="font-size:10px;color:#059669;margin-top:3px">+${fmt(p.totalEntradas)}</div>` : ''}
+      ${totalEntradasTot > 0 ? `<div style="font-size:10px;color:#059669;margin-top:3px">+${fmt(totalEntradasTot)}</div>` : ''}
       ${totalSaidasTot > 0 ? `<div style="font-size:10px;color:#A32D2D">-${fmt(totalSaidasTot)}</div>` : ''}
     </div>`;
   }).join('');
@@ -11275,13 +11313,16 @@ function _gfBuildPrevisoes(saldoAtual) {
         .map(([nome, itens]) => ({ nome, itens, total: itens.reduce((a, it) => a + (it.valor || 0), 0) }))
         .sort((a, b) => b.total - a.total);
     };
+    // Fase 20 — cada grupo de projeto vem fechado por defeito; clicar no cabeçalho abre/
+    // fecha só esse grupo (stopPropagation para não mexer no colapsar do período inteiro).
     const gfRenderGrupoProjeto = (items, renderRow, corTotal) => gfAgruparPorProjeto(items).map(g => `
       <div style="margin-top:7px">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:10px;font-weight:700;color:var(--text3);padding:3px 0;border-bottom:0.5px solid var(--border)">
-          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📁 ${g.nome}</span>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:10px;font-weight:700;color:var(--text3);padding:3px 0;border-bottom:0.5px solid var(--border);cursor:pointer"
+             onclick="event.stopPropagation();this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📁 ${g.nome} <span style="color:var(--text3);font-weight:400">(${g.itens.length})</span></span>
           <span style="color:${corTotal};flex-shrink:0">${fmt(g.total)}</span>
         </div>
-        ${g.itens.map(renderRow).join('')}
+        <div style="display:none">${g.itens.map(renderRow).join('')}</div>
       </div>`).join('');
 
     const rowsS = gfRenderGrupoProjeto(p.saidas, s => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;padding:2px 0 2px 12px;color:var(--text2)">
@@ -11305,8 +11346,14 @@ function _gfBuildPrevisoes(saldoAtual) {
       <span style="font-weight:600;flex-shrink:0;color:#A32D2D">-${fmt(m.valor)}</span>
     </div>`, '#A32D2D');
 
-    const semDetalhe = !p.saidas.length && !p.entradas.length && !p.mensais.length;
-    const liquidoTotal = p.totalEntradas - p.totalSaidas - p.totalMensais;
+    // Fase 20 — Entradas Mensais (receita recorrente), mesmo molde das Despesas Mensais.
+    const rowsEM = gfRenderGrupoProjeto(p.entradasMensais, m => `<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;padding:2px 0 2px 12px;color:var(--text2)">
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">🔄 ${m.titulo} <span style="color:var(--text3);font-size:10px">(rubrica mensal · dia ${m.data.getDate()})</span></span>
+      <span style="font-weight:600;flex-shrink:0;color:#059669">+${fmt(m.valor)}</span>
+    </div>`, '#059669');
+
+    const semDetalhe = !p.saidas.length && !p.entradas.length && !p.mensais.length && !p.entradasMensais.length;
+    const liquidoTotal = p.totalEntradas + p.totalEntradasMensais - p.totalSaidas - p.totalMensais;
 
     return `<div style="border:0.5px solid ${isNeg ? '#FCA5A5' : 'var(--border)'};border-radius:10px;overflow:hidden;margin-bottom:8px">
       <div style="padding:12px 16px;display:grid;grid-template-columns:1fr 110px 110px 110px 120px;gap:8px;align-items:center;cursor:pointer;background:${bgRow}"
@@ -11317,23 +11364,32 @@ function _gfBuildPrevisoes(saldoAtual) {
             ${i === 0 && periodo === 'semanal' ? '<span style="font-size:10px;background:#003087;color:#fff;padding:1px 7px;border-radius:10px;margin-left:6px">Atual</span>' : ''}
             ${p.vencidos.length ? `<span style="font-size:10px;background:#FCEBEB;color:#A32D2D;padding:1px 7px;border-radius:10px;margin-left:4px">⚠️ ${p.vencidos.length} vencido(s)</span>` : ''}
           </div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">${p.saidas.length + p.mensais.length} saída(s) · ${p.entradas.length} entrada(s)${p.mensais.length ? ` · ${p.mensais.length} mensal(is)` : ''}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${p.saidas.length + p.mensais.length} saída(s) · ${p.entradas.length + p.entradasMensais.length} entrada(s)${(p.mensais.length || p.entradasMensais.length) ? ` · ${p.mensais.length + p.entradasMensais.length} mensal(is)` : ''}</div>
         </div>
         <div style="text-align:right"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Saldo início</div><div style="font-size:12px;font-weight:600">${fmt(p.saldoIni)}</div></div>
-        <div style="text-align:right"><div style="font-size:10px;color:#059669;margin-bottom:2px">Entradas</div><div style="font-size:12px;font-weight:600">${fmtSinal(p.totalEntradas, false)}</div></div>
+        <div style="text-align:right"><div style="font-size:10px;color:#059669;margin-bottom:2px">Entradas</div><div style="font-size:12px;font-weight:600">${fmtSinal(p.totalEntradas + p.totalEntradasMensais, false)}</div></div>
         <div style="text-align:right"><div style="font-size:10px;color:#A32D2D;margin-bottom:2px">Saídas</div><div style="font-size:12px;font-weight:600">${fmtSinal(totalSaidasTot, true)}</div></div>
         <div style="text-align:right"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Saldo fim</div><div style="font-size:15px;font-weight:700;color:${corSaldo}">${fmt(p.saldoFim)}</div></div>
       </div>
       <div style="display:none;padding:10px 16px 14px;border-top:0.5px solid var(--border);background:${bgBody}">
         ${semDetalhe
           ? `<div style="font-size:11px;color:var(--text3)">Sem movimentos previstos neste período.</div>`
-          : `${p.entradas.length ? `<div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;margin-bottom:4px">▲ Entradas</div>${rowsE}` : ''}
-             ${p.saidas.length ? `<div style="font-size:10px;font-weight:700;color:#A32D2D;text-transform:uppercase;margin:${p.entradas.length?'8px':'0'} 0 4px">▼ Saídas pontuais</div>${rowsS}` : ''}
-             ${p.mensais.length ? `<div style="font-size:10px;font-weight:700;color:#A32D2D;text-transform:uppercase;margin:${(p.entradas.length||p.saidas.length)?'8px':'0'} 0 4px">🔄 Despesas Mensais</div>${rowsM}` : ''}
-             <div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--border);font-size:11px;display:flex;justify-content:space-between">
-               <span style="color:var(--text3)">Fluxo líquido</span>
-               <span style="font-weight:700;color:${liquidoTotal>=0?'#059669':'#A32D2D'}">${liquidoTotal>=0?'+':''}${fmt(liquidoTotal)}</span>
-             </div>`
+          : (() => {
+              // Fase 20 — ordem pedida: Despesas Mensais, Entradas Mensais, Entradas (pontuais),
+              // Saídas Pontuais. Só a primeira secção efetivamente mostrada fica sem margem
+              // superior; as seguintes levam 8px, tal como acontecia antes.
+              const blocos = [
+                p.mensais.length ? { titulo: '🔄 Despesas Mensais', cor: '#A32D2D', html: rowsM } : null,
+                p.entradasMensais.length ? { titulo: '🔄 Entradas Mensais', cor: '#059669', html: rowsEM } : null,
+                p.entradas.length ? { titulo: '▲ Entradas', cor: '#059669', html: rowsE } : null,
+                p.saidas.length ? { titulo: '▼ Saídas Pontuais', cor: '#A32D2D', html: rowsS } : null
+              ].filter(Boolean);
+              return blocos.map((b, bi) => `<div style="font-size:10px;font-weight:700;color:${b.cor};text-transform:uppercase;margin:${bi===0?'0':'8px'} 0 4px">${b.titulo}</div>${b.html}`).join('')
+                + `<div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--border);font-size:11px;display:flex;justify-content:space-between">
+                     <span style="color:var(--text3)">Fluxo líquido</span>
+                     <span style="font-weight:700;color:${liquidoTotal>=0?'#059669':'#A32D2D'}">${liquidoTotal>=0?'+':''}${fmt(liquidoTotal)}</span>
+                   </div>`;
+            })()
         }
       </div>
     </div>`;
