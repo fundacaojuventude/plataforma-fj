@@ -11480,7 +11480,7 @@ function gfExportOrcamentoCSV() {
 const GF_RUBRICAS_DUPLICADAS_SIAC_2027 = [251, 254, 257, 258, 259];
 
 async function gfMigrarRubricasAno2026() {
-  if (_financeRole !== 'df') { showNotif('Sem permissão para esta ação.', 'error'); return; }
+  if (_financeRole !== 'df' && _financeRole !== 'pe') { showNotif('Sem permissão para esta ação.', 'error'); return; }
   if (!confirm('Vai criar em FJ_RubricasAno a linha de 2026 de cada rúbrica ainda sem essa linha, com os valores atuais de FJ_Rubricas (EstadoAno = Aprovada). Idempotente — rúbricas que já tenham linha de 2026 são ignoradas. Continuar?')) return;
 
   const btn = event?.target; if (btn) { btn.disabled = true; btn.textContent = 'A migrar...'; }
@@ -11740,8 +11740,10 @@ function gfRenderOrcamento() {
             ${GF.bloqueado ? '🔒 Edições Bloqueadas' : '🔓 Edições Permitidas'}
           </button>
           <button class="btn btn-primary" style="background:var(--fj-orange);border-color:var(--fj-orange)" onclick="openBancoGlobalModal()">💰 Adicionar Fundos</button>
+        ` : ''}
+        ${(_financeRole === 'df' || _financeRole === 'pe') ? `
           <button class="btn" onclick="gfMigrarRubricasAno2026()" title="Cria em FJ_RubricasAno a linha de 2026 de cada rúbrica, a partir do valor orçamentado atual em FJ_Rubricas, e corrige as datas dos projetos sem DataInicio/DataFim. Idempotente — pode correr-se mais do que uma vez em segurança.">🗂️ Migrar Orçamento 2026</button>
-          ${(_financeRole === 'df' || _financeRole === 'pe') ? `<button class="btn" onclick="gfProporAnoSeguinte()" title="Cria linhas 'Proposta' em FJ_RubricasAno para ${GF.year + 1}, para as rúbricas ativas de projetos que continuam, com o valor de ${GF.year} como ponto de partida. Idempotente.">➡️ Propor ${GF.year + 1}</button>` : ''}
+          <button class="btn" onclick="gfProporAnoSeguinte()" title="Cria linhas 'Proposta' em FJ_RubricasAno para ${GF.year + 1}, para as rúbricas ativas de projetos que continuam, com o valor de ${GF.year} como ponto de partida. Idempotente.">➡️ Propor ${GF.year + 1}</button>
         ` : ''}
         ${[2024, 2025, 2026, 2027].map(y => `
           <button class="btn btn-sm ${y === GF.year ? '' : ''}" style="${y === GF.year ? 'background:var(--mod-financeiro);color:#fff;border-color:var(--mod-financeiro)' : ''}" onclick="gfMudarAno(${y})">${y}</button>
