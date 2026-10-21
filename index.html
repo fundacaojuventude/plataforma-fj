@@ -14271,8 +14271,10 @@ function gfRenderSolicitacaoView(solIdParam, opts) {
   // "Pendente Informação" conta como se ainda estivesse no respetivo patamar de aprovação —
   // assim quem marcou (ou o colega do mesmo nível) continua a poder decidir assim que o
   // esclarecimento chegar, em vez de a solicitação ficar presa nesse estado.
-  const canApproveDir = (_financeRole === 'area_director' || _financeRole === 'pca' || _financeRole === 'pe' || _financeRole === 'pe') && ['Submetido', 'Pendente Informação'].includes(sol.estado) && gfIsMyDepartamento(projDep);
-  const canApproveDF = _financeRole === 'df' && (isFinanceiro ? ['Submetido', 'Aprovado Dir.', 'Pendente Informação'].includes(sol.estado) : ['Aprovado Dir.', 'Pendente Informação'].includes(sol.estado));
+  const canApproveDir = (_financeRole === 'area_director' || _financeRole === 'pca' || _financeRole === 'pe') && ['Submetido', 'Pendente Informação'].includes(sol.estado) && gfIsMyDepartamento(projDep);
+  // Fase 31 — o PE pode também aprovar como Dir. Financeira (depois de aprovar como
+  // Diretor, ou diretamente em projetos do Financeiro, tal como a própria DF já podia).
+  const canApproveDF = (_financeRole === 'df' || _financeRole === 'pe') && (isFinanceiro ? ['Submetido', 'Aprovado Dir.', 'Pendente Informação'].includes(sol.estado) : ['Aprovado Dir.', 'Pendente Informação'].includes(sol.estado));
   
   return `
     ${opts.modal ? '' : `
@@ -14455,34 +14457,47 @@ function gfAppendComentario(sol, texto, rotulo) {
   return sol.comentarios ? sol.comentarios + '\n' + linha : linha;
 }
 
-async function gfAprovarSolicitacao(id) {
+// Fase 31 — "nível" da aprovação: 'dir' (Diretor de Área) ou 'df' (Dir. Financeira).
+// Para area_director/pca/df o nível é sempre o mesmo (fixo pelo papel, como sempre foi).
+// Só o PE tem os dois disponíveis — por isso só para o PE é preciso desambiguar: ou vem
+// explícito em nivelParam (os dois botões da lista de Aprovações, quando aparecem ao mesmo
+// tempo num projeto do Financeiro), ou infere-se o patamar ainda por fazer — primeiro o de
+// Diretor, só depois o de DF — tal como o botão único da página de detalhe precisa.
+async function gfAprovarSolicitacao(id, nivelParam) {
   const sol = GF_SOLICITACOES.find(s => s.id === id);
   if (!sol) { showNotif('Solicitação não encontrada', 'error'); return; }
   if (!confirm('Aprovar esta solicitação?')) return;
   try {
-    // VALIDAÇÃO: Diretor de Área só pode aprovar do seu departamento
-    if (_financeRole === 'area_director' || _financeRole === 'pca' || _financeRole === 'pe') {
-      const solProj = GF_PROJETOS.find(p => p.id === sol.projetoId);
-      const projDep = solProj?.dep || solProj?.departamento || '';
+    const solProj = GF_PROJETOS.find(p => p.id === sol.projetoId);
+    const projDep = solProj?.dep || solProj?.departamento || '';
+    const isFinanceiro = gfIsProjetoFinanceiro(sol.projetoId);
 
+    let nivel = nivelParam;
+    if (!nivel) {
+      if (_financeRole === 'area_director' || _financeRole === 'pca') nivel = 'dir';
+      else if (_financeRole === 'df') nivel = 'df';
+      else if (_financeRole === 'pe') {
+        const aprovDirFeito = sol.estado === 'Aprovado Dir.' || (sol.estado === 'Pendente Informação' && !!sol.aprovDirNome);
+        nivel = aprovDirFeito ? 'df' : 'dir';
+      }
+    }
+
+    if (nivel === 'dir') {
+      // VALIDAÇÃO: Diretor de Área só pode aprovar do seu departamento
       if (!gfIsMyDepartamento(projDep)) {
         showNotif('Apenas pode aprovar solicitações do departamento da sua equipa', 'error');
         return;
       }
-
       // VALIDAÇÃO: Estado deve ser "Submetido" (ou "Pendente Informação", se foi devolvida a este patamar)
       if (!['Submetido', 'Pendente Informação'].includes(sol.estado)) {
         showNotif('Esta solicitação não está no estado "Submetido"', 'error');
         return;
       }
-    }
-
-    // VALIDAÇÃO: DF não pode aprovar sem aprovação do Diretor primeiro
-    // EXCEÇÃO: projetos do departamento Financeiro (DF é a própria Diretora de Área)
-    if (_financeRole === 'df') {
-      const isFinanceiro = gfIsProjetoFinanceiro(sol.projetoId);
+    } else if (nivel === 'df') {
+      // VALIDAÇÃO: DF não pode aprovar sem aprovação do Diretor primeiro
+      // EXCEÇÃO: projetos do departamento Financeiro (DF é a própria Diretora de Área)
       if (isFinanceiro) {
-        // Fluxo de nível único: DF aprova diretamente
+        // Fluxo de nível único: aprova diretamente
       } else if (sol.estado === 'Submetido') {
         showNotif('⏳ Aguardando aprovação do Diretor de Área primeiro', 'warn');
         return;
@@ -14490,14 +14505,17 @@ async function gfAprovarSolicitacao(id) {
         showNotif('Esta solicitação não está pronta para aprovação da DF', 'error');
         return;
       }
+    } else {
+      showNotif('Não tem permissão para aprovar esta solicitação', 'error');
+      return;
     }
 
-    const novoEstado = (_financeRole === 'area_director' || _financeRole === 'pca' || _financeRole === 'pe') ? 'Aprovado Dir.' : 'Aprovado DF';
+    const novoEstado = nivel === 'dir' ? 'Aprovado Dir.' : 'Aprovado DF';
     const body = {
       __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' },
       Estado: novoEstado
     };
-    if (_financeRole === 'area_director' || _financeRole === 'pca' || _financeRole === 'pe') {
+    if (nivel === 'dir') {
       body.DataAprovDir = new Date().toISOString();
       body.AprovDirId = await getCurrentUserId();
     } else {
@@ -15124,10 +15142,12 @@ function gfRenderAprovacoes() {
         const isFinanceiro = projDep === 'Financeiro';
         const diretorArea = gfGetDiretorArea(projDep);
         const diretorAreaNome = s.aprovDirNome || diretorArea?.titulo || 'Diretor de Área';
-        const podeAprovarDir = (_financeRole === 'area_director' || _financeRole === 'pca' || _financeRole === 'pe' || _financeRole === 'pe') && !aprovDir && gfIsMyDepartamento(projDep);
+        const podeAprovarDir = (_financeRole === 'area_director' || _financeRole === 'pca' || _financeRole === 'pe') && !aprovDir && gfIsMyDepartamento(projDep);
         // DF aprova diretamente em projetos Financeiros (nível único); caso contrário, precisa de aprovação prévia do Dir. Área
-        const podeAprovarDF = _financeRole === 'df' && (isFinanceiro ? true : aprovDir);
-        const isPE = _financeRole === 'pe';
+        // Fase 31 — o PE pode aprovar também como DF (por isso pode aparecer com os dois
+        // botões ao mesmo tempo num projeto do Financeiro — 'dir' e 'df' nos onclick abaixo
+        // desambiguam qual dos dois patamares cada botão aprova).
+        const podeAprovarDF = (_financeRole === 'df' || _financeRole === 'pe') && (isFinanceiro ? true : aprovDir);
         
         return `
         <div class="card" style="margin-bottom:10px">
@@ -15154,10 +15174,10 @@ function gfRenderAprovacoes() {
             </div>
             <div style="display:flex;align-items:center;gap:12px">
               <span style="font-weight:600;color:var(--blue);white-space:nowrap">${gfFmt(s.valor)}</span>
-              ${podeAprovarDir ? `<button class="btn btn-sm" style="background:#10B981;color:white" onclick="gfAprovarSolicitacao(${s.id})">Aprovar</button>` : ''}
-              ${podeAprovarDF ? `<button class="btn btn-sm" style="background:#10B981;color:white" onclick="gfAprovarSolicitacao(${s.id})">Aprovar (Final)</button>` : ''}
-              ${isPE ? `<span style="font-size:12px;color:#8B5CF6;font-weight:500">👁️ Visualização PE</span>` : ''}
-              ${!podeAprovarDir && !podeAprovarDF && !isPE ? `<span style="font-size:12px;color:var(--text3)">Aguarda ${aprovDir ? 'DF' : 'Diretor'}</span>` : ''}
+              ${podeAprovarDir ? `<button class="btn btn-sm" style="background:#10B981;color:white" onclick="gfAprovarSolicitacao(${s.id}, 'dir')">Aprovar</button>` : ''}
+              ${podeAprovarDF ? `<button class="btn btn-sm" style="background:#10B981;color:white" onclick="gfAprovarSolicitacao(${s.id}, 'df')">Aprovar (Final)</button>` : ''}
+              <a onclick="gfOpenSolicitacaoViewModal(${s.id})" title="Ver / editar solicitação" style="cursor:pointer;font-size:12px;color:#8B5CF6;font-weight:500;text-decoration:none">👁️ Ver</a>
+              ${!podeAprovarDir && !podeAprovarDF ? `<span style="font-size:12px;color:var(--text3)">Aguarda ${aprovDir ? 'DF' : 'Diretor'}</span>` : ''}
             </div>
           </div>
         </div>
@@ -19340,7 +19360,10 @@ async function gfPendConfirmarSelecionados() {
 
   const btn = gfEl('gf-pend-confirmar-btn');
   if (btn) btn.disabled = true;
-  const solicitacoesTocadas = new Set();
+  // Fase 30 — por Solicitação tocada nesta leva, soma o valor afeto (pode haver mais do que
+  // um pendente desta leva para a mesma Solicitação) e guarda a data do último movimento,
+  // para dar à sincronização de parcelas abaixo — mesmos dados que gfSubmitAfetar já usa.
+  const solicitacoesTocadas = new Map();
   let ok = 0, falhas = 0;
 
   for (let i = 0; i < prontos.length; i++) {
@@ -19348,7 +19371,10 @@ async function gfPendConfirmarSelecionados() {
     if (btn) btn.textContent = `A confirmar ${i + 1}/${prontos.length}...`;
     try {
       const solId = await gfPendGravarLinha(m, o);
-      if (solId) solicitacoesTocadas.add(solId);
+      if (solId) {
+        const prev = solicitacoesTocadas.get(solId) || { valor: 0, dataEfetiva: m.dataMovimento };
+        solicitacoesTocadas.set(solId, { valor: prev.valor + Math.abs(m.importancia || 0), dataEfetiva: m.dataMovimento });
+      }
       delete GF_PEND_EDIT[m.id];
       ok++;
     } catch (e) {
@@ -19360,11 +19386,21 @@ async function gfPendConfirmarSelecionados() {
   // Recarrega uma única vez, já com todos os Movimentos Executados desta leva criados
   await gfLoadAll();
 
+  // Fase 30 — antes de verificar se alguma Solicitação ficou 100% paga, tenta casar o valor
+  // afeto com a(s) parcela(s) mais antigas do Plano de Pagamento cuja soma bata certo (mesma
+  // lógica já usada em "Repartir" — gfSubmitAfetar/_gfSincronizarParcelaPorValor). Sem isto,
+  // a parcela "Prevista" ficava para sempre no Operacional/Previsões de Tesouraria mesmo
+  // depois de o movimento bancário já estar afeto a esta Solicitação.
+  for (const [solId, { valor, dataEfetiva }] of solicitacoesTocadas) {
+    try { await _gfSincronizarParcelaPorValor(solId, valor, dataEfetiva); }
+    catch (e) { console.error('Erro ao casar parcela por valor', solId, e); }
+  }
+
   // Solicitações cujo saldo por pagar chegou a 0 → passam a "Pago"
   // (try/catch por solicitação: uma falha aqui não pode impedir o resto do fluxo
   // de terminar nem ficar silenciosa — antes não havia tratamento de erro nesta parte)
   let erroPago = false;
-  for (const solId of solicitacoesTocadas) {
+  for (const [solId, { dataEfetiva }] of solicitacoesTocadas) {
     const sol = GF_SOLICITACOES.find(s => s.id === solId);
     if (sol && sol.estado !== 'Pago' && gfSolicitacaoSaldoPorPagar(sol) <= 0.005) {
       try {
@@ -19373,6 +19409,9 @@ async function gfPendConfirmarSelecionados() {
           { __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' }, Estado: 'Pago', DataPago: new Date().toISOString() },
           'MERGE'
         );
+        // Fase 30 — só agora (movimento bancário real afeto) é que a(s) parcela(s) de
+        // Tesouraria por liquidar desta Solicitação passam a Paga/Recebida.
+        await _gfSincronizarParcelasPagas(sol.id, dataEfetiva);
       } catch (e) {
         erroPago = true;
         console.error('Erro ao marcar solicitação como Paga', sol.id, e);
