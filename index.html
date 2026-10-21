@@ -8997,9 +8997,12 @@ function gfOrcamentoAnoRubrica(rubricaId, ano) {
       rubricaAnoId: linha.Id
     };
   }
+  // Fix (2026-10): a rede de segurança só depende de não existir uma linha PARA ESTE
+  // ano (já verificado acima, em `linha`) — a existência de linhas de OUTROS anos (ex.:
+  // uma rúbrica que já tem uma linha de 2027 criada antes de "Migrar Orçamento 2026" ter
+  // corrido) é irrelevante e não deve bloquear o fallback legado deste ano.
   const m = GF_RUBRICAS_MASTER.find(r => r.id === rubricaId);
-  const temAlgumaLinha = GF_RUBRICAS_ANO_ROWS.some(a => a.RubricaIdId === rubricaId);
-  if (m && !temAlgumaLinha && m._anoLegado === ano) {
+  if (m && m._anoLegado === ano) {
     return { despOrc: m._despOrcLegado, recOrc: m._recOrcLegado, estadoAno: 'Aprovada', aprovadoPor: '', dataAprovacao: null, rubricaAnoId: null };
   }
   return null;
@@ -11487,8 +11490,11 @@ async function gfMigrarRubricasAno2026() {
     const existentesRes = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items?$select=RubricaIdId&$filter=Ano eq 2026&$top=2000`);
     const jaTem2026 = new Set((existentesRes.d?.results || []).map(r => r.RubricaIdId));
 
-    const candidatas = GF_RUBRICAS.filter(r =>
-      r.ano === 2026 &&
+    // Fase 18 — a fonte é a mestre (GF_RUBRICAS_MASTER), com o valor legado ainda em
+    // FJ_Rubricas (_anoLegado/_despOrcLegado/_recOrcLegado); GF_RUBRICAS já não garante
+    // conter 2026 antes desta migração correr (só reflete o que já estiver em FJ_RubricasAno).
+    const candidatas = GF_RUBRICAS_MASTER.filter(r =>
+      r._anoLegado === 2026 &&
       !GF_RUBRICAS_DUPLICADAS_SIAC_2027.includes(r.id) &&
       r.titulo && // exclui os 3 itens vazios/corrompidos (sem título nem projeto)
       !jaTem2026.has(r.id)
@@ -11501,8 +11507,8 @@ async function gfMigrarRubricasAno2026() {
         Title: `${r.titulo} - 2026`,
         RubricaIdId: r.id,
         Ano: 2026,
-        DespOrcamentada: r.despOrc || 0,
-        RecOrcamentada: r.recOrc || 0,
+        DespOrcamentada: r._despOrcLegado || 0,
+        RecOrcamentada: r._recOrcLegado || 0,
         EstadoAno: 'Aprovada',
         NotasAno: '[MIG-2026] Criado automaticamente a partir do valor já orçamentado em FJ_Rubricas (orçamento em vigor, considerado já aprovado).'
       };
@@ -11518,7 +11524,7 @@ async function gfMigrarRubricasAno2026() {
     // Marcar (não eliminar) as 5 rúbricas de 2027 já absorvidas pela sua par de 2026.
     let marcadas = 0;
     for (const id of GF_RUBRICAS_DUPLICADAS_SIAC_2027) {
-      const r = GF_RUBRICAS.find(x => x.id === id);
+      const r = GF_RUBRICAS_MASTER.find(x => x.id === id);
       if (!r || r.titulo.startsWith('[DUPLICADO 2027 — pode eliminar]')) continue; // já marcada antes
       try {
         await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items(${id})`, {
@@ -11532,13 +11538,86 @@ async function gfMigrarRubricasAno2026() {
       }
     }
 
-    showNotif(`Migração 2026: ${criadas} linha(s) criada(s) em FJ_RubricasAno, ${candidatas.length - criadas - erros} já existiam, ${marcadas} rúbrica(s) duplicada(s) de 2027 marcada(s) para eliminares manualmente.${erros ? ` ${erros} erro(s) — ver consola.` : ''}`, erros ? 'error' : 'success');
+    // Fase 18, ponto 3 — projetos sem DataInicio/DataFim ficam, por decisão do Rui,
+    // visíveis só em 2026 (exceto FIRST LEGO League, que continua em 2027). Idempotente:
+    // nunca sobrescreve um projeto que já tenha DataInicio preenchida.
+    const GF_PROJ_DATAS_FIXUP = [
+      { id: 41, inicio: '2026-01-01', fim: '2026-12-31' }, // Nova Delegação de Lisboa
+      { id: 42, inicio: '2026-01-01', fim: '2026-12-31' }, // Canal de Comunicação
+      { id: 43, inicio: '2026-01-01', fim: '2026-12-31' }, // "Semelhante ao Pacto Mais e Melhor Emprego para os Jovens"
+      { id: 44, inicio: '2026-01-01', fim: '2026-12-31' }, // Academia FJ - Escola Vasco Faria (Porto)
+      { id: 46, inicio: '2026-01-01', fim: '2027-12-31' }, // FIRST LEGO League — continua em 2027
+      { id: 48, inicio: '2026-01-01', fim: '2026-12-31' }  // YOUTH LAB
+    ];
+    let datasCorrigidas = 0;
+    for (const fx of GF_PROJ_DATAS_FIXUP) {
+      const p = GF_PROJETOS.find(x => x.id === fx.id);
+      if (!p || p.dataInicio) continue; // sem o projeto, ou já tem datas — não sobrescreve
+      try {
+        await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Projetos')/items(${fx.id})`, {
+          __metadata: { type: 'SP.Data.FJ_x005f_ProjetosListItem' },
+          DataInicio: fx.inicio + 'T00:00:00Z',
+          DataFim: fx.fim + 'T00:00:00Z'
+        }, 'MERGE');
+        datasCorrigidas++;
+      } catch (e) { console.warn('Fixup datas projeto', fx.id, e.message); }
+    }
+
+    showNotif(`Migração 2026: ${criadas} linha(s) criada(s) em FJ_RubricasAno, ${candidatas.length - criadas - erros} já existiam, ${marcadas} rúbrica(s) duplicada(s) de 2027 marcada(s) para eliminares manualmente, ${datasCorrigidas} projeto(s) com datas corrigidas.${erros ? ` ${erros} erro(s) — ver consola.` : ''}`, erros ? 'error' : 'success');
     await gfLoadAll();
     gfRender();
   } catch (e) {
     showNotif('Erro na migração: ' + e.message, 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '🗂️ Migrar Orçamento 2026'; }
+  }
+}
+
+// Fase 18, ponto 5 — "Propor ano seguinte": cria linhas "Proposta" em FJ_RubricasAno para
+// o ano GF.year+1, para as rúbricas ativas de projetos que continuam nesse ano (ver
+// gfProjetoVisivelNoAno), com o valor orçamentado de GF.year como ponto de partida.
+// Idempotente — ignora rúbricas que já tenham linha para o ano seguinte.
+async function gfProporAnoSeguinte() {
+  if (_financeRole !== 'df' && _financeRole !== 'pe') { showNotif('Sem permissão para esta ação.', 'error'); return; }
+  const anoAtual = GF.year, anoSeguinte = GF.year + 1;
+  if (!confirm(`Vai criar linhas "Proposta" em FJ_RubricasAno para ${anoSeguinte}, para as rúbricas ativas de projetos que continuam em ${anoSeguinte}, com o valor de ${anoAtual} como ponto de partida. Rúbricas que já tenham linha de ${anoSeguinte} são ignoradas. Continuar?`)) return;
+
+  const btn = event?.target; if (btn) { btn.disabled = true; btn.textContent = 'A propor...'; }
+  try {
+    await gfGarantirAnoRubricasCarregado(anoSeguinte);
+    const existentesRes = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items?$select=RubricaIdId&$filter=Ano eq ${anoSeguinte}&$top=2000`);
+    const jaTem = new Set((existentesRes.d?.results || []).map(r => r.RubricaIdId));
+
+    let criadas = 0, semProjetoAtivo = 0;
+    for (const r of GF_RUBRICAS_MASTER) {
+      if (r.estado !== 'Ativo' || jaTem.has(r.id) || !r.titulo) continue;
+      const orcAtual = gfOrcamentoAnoRubrica(r.id, anoAtual);
+      if (!orcAtual || (!orcAtual.despOrc && !orcAtual.recOrc)) continue; // sem orçamento este ano, nada para propor
+      const proj = GF_PROJETOS.find(p => p.id === r.projetoId);
+      if (proj && !gfProjetoVisivelNoAno(proj, anoSeguinte)) { semProjetoAtivo++; continue; }
+      const body = {
+        __metadata: { type: 'SP.Data.FJ_x005f_RubricasAnoListItem' },
+        Title: `${r.titulo} - ${anoSeguinte}`,
+        RubricaIdId: r.id,
+        Ano: anoSeguinte,
+        DespOrcamentada: orcAtual.despOrc || 0,
+        RecOrcamentada: orcAtual.recOrc || 0,
+        EstadoAno: 'Proposta',
+        NotasAno: `[PROP-${anoSeguinte}] Criado a partir do valor de ${anoAtual} (ponto de partida).`
+      };
+      try {
+        await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items`, body, 'POST');
+        criadas++;
+      } catch (e) { console.warn('Propor ano seguinte', r.id, e.message); }
+    }
+
+    showNotif(`Proposto ${anoSeguinte}: ${criadas} linha(s) criada(s) em Proposta. ${semProjetoAtivo} rúbrica(s) ignorada(s) por o projeto não continuar em ${anoSeguinte}.`, 'success');
+    await gfGarantirAnoRubricasCarregado(anoSeguinte);
+    gfRender();
+  } catch (e) {
+    showNotif('Erro: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = `➡️ Propor ${anoAtual + 1}`; }
   }
 }
 
@@ -11661,7 +11740,8 @@ function gfRenderOrcamento() {
             ${GF.bloqueado ? '🔒 Edições Bloqueadas' : '🔓 Edições Permitidas'}
           </button>
           <button class="btn btn-primary" style="background:var(--fj-orange);border-color:var(--fj-orange)" onclick="openBancoGlobalModal()">💰 Adicionar Fundos</button>
-          <button class="btn" onclick="gfMigrarRubricasAno2026()" title="Cria em FJ_RubricasAno a linha de 2026 de cada rúbrica, a partir do valor orçamentado atual em FJ_Rubricas. Idempotente — pode correr-se mais do que uma vez em segurança.">🗂️ Migrar Orçamento 2026</button>
+          <button class="btn" onclick="gfMigrarRubricasAno2026()" title="Cria em FJ_RubricasAno a linha de 2026 de cada rúbrica, a partir do valor orçamentado atual em FJ_Rubricas, e corrige as datas dos projetos sem DataInicio/DataFim. Idempotente — pode correr-se mais do que uma vez em segurança.">🗂️ Migrar Orçamento 2026</button>
+          ${(_financeRole === 'df' || _financeRole === 'pe') ? `<button class="btn" onclick="gfProporAnoSeguinte()" title="Cria linhas 'Proposta' em FJ_RubricasAno para ${GF.year + 1}, para as rúbricas ativas de projetos que continuam, com o valor de ${GF.year} como ponto de partida. Idempotente.">➡️ Propor ${GF.year + 1}</button>` : ''}
         ` : ''}
         ${[2024, 2025, 2026, 2027].map(y => `
           <button class="btn btn-sm ${y === GF.year ? '' : ''}" style="${y === GF.year ? 'background:var(--mod-financeiro);color:#fff;border-color:var(--mod-financeiro)' : ''}" onclick="gfMudarAno(${y})">${y}</button>
@@ -12953,10 +13033,23 @@ function gfRenderRubricaForm() {
         </div>
         
         <div>
-          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Ano Orçamental <span style="color:#EF4444">*</span></label>
-          <select id="gf-rub-ano" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
-            ${[2024, 2025, 2026, 2027].map(y => `<option value="${y}" ${(rub?.ano || GF.year) === y ? 'selected' : ''}>${y}</option>`).join('')}
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Ano</label>
+          <div style="padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:14px;color:var(--text2)">${GF.year} <span style="font-size:11px;color:var(--text3)">— o ano em vista no Orçamento; muda o ano lá para criar/editar noutro ano</span></div>
+        </div>
+
+        <div>
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Estado do Orçamento de ${GF.year}</label>
+          ${(_financeRole === 'df' || _financeRole === 'pe') ? `
+          <select id="gf-rub-estado-ano" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+            <option value="Proposta" ${(rub?.estadoAno || 'Proposta') === 'Proposta' ? 'selected' : ''}>Proposta</option>
+            <option value="Aprovada" ${rub?.estadoAno === 'Aprovada' ? 'selected' : ''}>Aprovada</option>
+            <option value="Fechada" ${rub?.estadoAno === 'Fechada' ? 'selected' : ''}>Fechada</option>
           </select>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">Só com orçamento "Aprovada" para o ano da Data Limite de Pagamento se pode submeter uma Solicitação nesta rúbrica.</div>
+          ` : `
+          <input type="hidden" id="gf-rub-estado-ano" value="${rub?.estadoAno || 'Proposta'}">
+          <div style="padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:14px;color:var(--text2)">${rub?.estadoAno || 'Proposta'} <span style="font-size:11px;color:var(--text3)">— só a Diretora Financeira ou o Presidente Executivo podem alterar</span></div>
+          `}
         </div>
         
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -13035,19 +13128,21 @@ async function gfSaveRubrica(id) {
     return;
   }
   const titulo = gfVal('gf-rub-titulo').trim();
-  const ano = parseInt(gfVal('gf-rub-ano'));
   const estado = gfVal('gf-rub-estado');
   const despOrc = gfValN('gf-rub-desp-orc');
   const recOrc = gfValN('gf-rub-rec-orc');
-  
+  const estadoAnoInput = gfVal('gf-rub-estado-ano') || 'Proposta';
+  const ano = GF.year; // Fase 18 — cria/edita sempre o orçamento do ano em vista no Orçamento
+
   if (!titulo) { showNotif('Título obrigatório', 'error'); return; }
   if (!GF.project) { showNotif('Projeto não definido', 'error'); return; }
-  
+
+  const rubExistente = id ? GF_RUBRICAS.find(r => r.id === id) : null;
+
   // VALIDAÇÃO: Se orçamento está bloqueado, apenas DF pode editar valores orçamentados
   if (GF.bloqueado && _financeRole !== 'df') {
     if (id) {
-      const rubOriginal = GF_RUBRICAS.find(r => r.id === id);
-      if (rubOriginal && (despOrc !== rubOriginal.despOrc || recOrc !== rubOriginal.recOrc)) {
+      if (rubExistente && (despOrc !== rubExistente.despOrc || recOrc !== rubExistente.recOrc)) {
         showNotif('⚠️ Orçamento bloqueado! Apenas a Diretora Financeira pode alterar valores orçamentados.', 'error');
         return;
       }
@@ -13056,37 +13151,58 @@ async function gfSaveRubrica(id) {
       return;
     }
   }
-  
-  const body = {
+
+  // Só a DF ou o PE podem mudar o EstadoAno (o formulário nem mostra o select aos outros papéis).
+  const estadoAno = (_financeRole === 'df' || _financeRole === 'pe') ? estadoAnoInput : (rubExistente?.estadoAno || 'Proposta');
+
+  // ── Rúbrica mestre (FJ_Rubricas, Fase 18) — Título, Projeto e classificação, sem ano ──
+  const bodyMestre = {
     __metadata: { type: 'SP.Data.FJ_x005f_RubricasListItem' },
     Title: titulo,
     ProjetoIdId: GF.project,
-    AnoOrcamental: ano,
-    Estado: estado,
-    DespOrcamentada: despOrc,
-    RecOrcamentada: recOrc
+    Estado: estado
   };
 
   // Classificação de Tesouraria (Fase 1) — campos só existem no formulário para
   // quem tem gfCanViewTesouraria(); para os outros utilizadores não se tocam.
-  if (gfEl('gf-rub-categoria-tes')) body.CategoriaTesouraria = gfVal('gf-rub-categoria-tes') || '';
+  if (gfEl('gf-rub-categoria-tes')) bodyMestre.CategoriaTesouraria = gfVal('gf-rub-categoria-tes') || '';
   if (gfEl('gf-rub-padrao-tes')) {
     const padraoTes = gfVal('gf-rub-padrao-tes') || '';
-    body.PadraoTesouraria = padraoTes;
+    bodyMestre.PadraoTesouraria = padraoTes;
     // Mantém o antigo RubricaMensal sincronizado para não quebrar _gfGetPagamentosMensais().
-    body.RubricaMensal = padraoTes === 'Fixa mensal';
+    bodyMestre.RubricaMensal = padraoTes === 'Fixa mensal';
   }
-  if (gfEl('gf-rub-dia-pag')) body.DiaPagamento = parseInt(gfVal('gf-rub-dia-pag')) || 15;
-  if (gfEl('gf-rub-fixa')) body.RubricaFixa = gfEl('gf-rub-fixa').checked;
+  if (gfEl('gf-rub-dia-pag')) bodyMestre.DiaPagamento = parseInt(gfVal('gf-rub-dia-pag')) || 15;
+  if (gfEl('gf-rub-fixa')) bodyMestre.RubricaFixa = gfEl('gf-rub-fixa').checked;
 
   try {
+    let rubricaId = id;
     if (id) {
-      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items(${id})`, body, 'MERGE');
-      showNotif('Rúbrica atualizada', 'success');
+      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items(${id})`, bodyMestre, 'MERGE');
     } else {
-      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items`, body, 'POST');
-      showNotif('Rúbrica criada', 'success');
+      const res = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items`, bodyMestre, 'POST');
+      rubricaId = (await res.json()).d.Id;
     }
+
+    // ── Orçamento do ano em vista (FJ_RubricasAno, Fase 18) — cria a linha se ainda não
+    // existir para esta rúbrica+ano (rubricaAnoId vem do join em gfOrcamentoAnoRubrica),
+    // ou atualiza a já existente. ──
+    const bodyAno = {
+      __metadata: { type: 'SP.Data.FJ_x005f_RubricasAnoListItem' },
+      Title: `${titulo} - ${ano}`,
+      DespOrcamentada: despOrc,
+      RecOrcamentada: recOrc,
+      EstadoAno: estadoAno
+    };
+    if (rubExistente?.rubricaAnoId) {
+      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items(${rubExistente.rubricaAnoId})`, bodyAno, 'MERGE');
+    } else {
+      bodyAno.RubricaIdId = rubricaId;
+      bodyAno.Ano = ano;
+      await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items`, bodyAno, 'POST');
+    }
+
+    showNotif(id ? 'Rúbrica atualizada' : 'Rúbrica criada', 'success');
     await gfLoadAll();
     gfNav('orcamento-rubricas');
   } catch (e) {
@@ -13663,6 +13779,18 @@ async function gfSaveSolicitacao(id, estado) {
     }
   }
   
+  // Fase 18, ponto 2 — só se pode submeter uma Solicitação numa rúbrica com orçamento
+  // "Aprovada" para o ano da Data Limite de Pagamento (sem data definida, usa o ano em
+  // vista no Orçamento). Rascunhos ("Rascunho") não passam por este gate.
+  if (estado === 'Submetido') {
+    const anoRef = dataLimite ? new Date(dataLimite).getFullYear() : GF.year;
+    const orcAno = gfOrcamentoAnoRubrica(rubricaId, anoRef);
+    if (!orcAno || orcAno.estadoAno !== 'Aprovada') {
+      showNotif(`Esta rúbrica não tem orçamento "Aprovada" para ${anoRef} — não é possível submeter (${orcAno ? `estado atual: ${orcAno.estadoAno}` : 'sem linha de orçamento para esse ano'}).`, 'error');
+      return;
+    }
+  }
+
   // Validar disponível (apenas para Despesa)
   if (tipoSolicitacao === 'Despesa' && estado === 'Submetido') {
     const rub = GF_RUBRICAS.find(r => r.id === rubricaId);
@@ -18004,9 +18132,13 @@ function gfRenderModelosReparticao() {
 // (importado do Excel via Power Automate para FJ_MovimentosBancarios) que a
 // equipa financeira afeta a uma ou várias rúbricas — com ou sem Solicitação.
 
-function gfOpenAfetarModal(movId) {
+async function gfOpenAfetarModal(movId) {
   const m = GF_MOV_PENDENTES.find(x => x.id === movId);
   if (!m) return;
+  // Fase 18 — garante que o orçamento do ano deste movimento já está carregado (pode ser
+  // um ano fora da janela GF.year-1..GF.year+1 que o gfLoadAll traz por defeito).
+  const anoMov = m.dataMovimento ? new Date(m.dataMovimento).getFullYear() : GF.year;
+  await gfGarantirAnoRubricasCarregado(anoMov);
   GF_AFETAR = { movimento: movId, repartida: false, linhas: [{ projetoId: null, rubricaId: null, solicitacaoId: null, pct: 100 }], modo: 'normal', rhFase: 1, rhLinhas: [] };
   document.getElementById('gf-afetar-modal').style.display = 'flex';
   gfRenderAfetarModal();
@@ -18028,7 +18160,7 @@ function gfAfetarIniciarRH() {
   GF_AFETAR.repartida = true;
   GF_AFETAR.rhLinhas = GF_RH_BASE.length
     ? GF_RH_BASE.map(l => {
-        const rub = GF_RUBRICAS.find(r => r.projetoId === l.projetoId && r.titulo === l.rubricaTitulo && r.ano === ano && r.estado === 'Ativo');
+        const rub = GF_RUBRICAS_MASTER.find(r => r.projetoId === l.projetoId && r.titulo === l.rubricaTitulo && r.estado === 'Ativo'); // Fase 18 — título já não varia por ano
         return {
           projetoId: l.projetoId, rubricaId: rub ? rub.id : null, solicitacaoId: null, valor: 0,
           _avisoBase: rub ? null : `Não foi encontrada a rúbrica "${l.rubricaTitulo}" de ${l.projetoNome || 'projeto'} ativa em ${ano} — seleciona manualmente.`
@@ -18163,7 +18295,7 @@ function gfAfetarAplicarModelo(modeloId) {
 
   let naoResolvidas = 0;
   const linhas = modelo.linhas.map(l => {
-    const rub = GF_RUBRICAS.find(r => r.projetoId === l.projetoId && r.titulo === l.rubricaTitulo && r.ano === ano && r.estado === 'Ativo');
+    const rub = GF_RUBRICAS_MASTER.find(r => r.projetoId === l.projetoId && r.titulo === l.rubricaTitulo && r.estado === 'Ativo'); // Fase 18 — título já não varia por ano
     if (!rub) naoResolvidas++;
     return {
       projetoId: l.projetoId,
@@ -18227,9 +18359,12 @@ function gfAfetarPctChange(idx) {
 // valor previsto para este tipo ficam assinaladas — a seleção pede confirmação extra
 // (ver gfConfirmarRubricaSemValor), em vez de ficarem simplesmente escondidas.
 function gfAfetarRubOptions(projId, tipo, ano, selectedId) {
-  const rubs = GF_RUBRICAS.filter(r => r.projetoId === projId && r.ano === ano && r.estado === 'Ativo');
+  // Fase 18 — a rúbrica mestre já não varia por ano; o valor orçamentado desse ano
+  // específico vem de gfOrcamentoAnoRubrica (independente do ano em vista no Orçamento).
+  const rubs = GF_RUBRICAS_MASTER.filter(r => r.projetoId === projId && r.estado === 'Ativo');
   if (!rubs.length) return `<option value="">Sem rúbricas ativas em ${ano}</option>`;
-  const temValor = r => tipo === 'Receita' ? (r.recOrc || 0) > 0 : (r.despOrc || 0) > 0;
+  const valorAno = r => gfOrcamentoAnoRubrica(r.id, ano);
+  const temValor = r => { const v = valorAno(r); return tipo === 'Receita' ? (v?.recOrc || 0) > 0 : (v?.despOrc || 0) > 0; };
   const comValor = rubs.filter(temValor).sort((a, b) => a.titulo.localeCompare(b.titulo));
   const semValor = rubs.filter(r => !temValor(r)).sort((a, b) => a.titulo.localeCompare(b.titulo));
   const opt = r => `<option value="${r.id}" ${selectedId === r.id ? 'selected' : ''}>${r.titulo}${temValor(r) ? '' : ' (sem valor previsto)'}</option>`;
