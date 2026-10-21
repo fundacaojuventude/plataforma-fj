@@ -12029,8 +12029,11 @@ function gfRenderRubricas() {
         const recOrc = r.recOrc || 0;
         const despDisp = despOrc - desp.usadoReal; // disponível real (comprometido por pagar + executado no banco)
         const despPct = despOrc > 0 ? Math.round((desp.processada / despOrc) * 100) : 0;
-        const solicitacoes = gfGetSolicitacoes(r.id);
-        const movExecutados = GF_MOV_EXECUTADOS.filter(m => m.rubricaId === r.id);
+        // Fase 18 — mesmo critério de ano de gfCalcDespesa/gfCalcReceita (filtra pela Data Limite
+        // de Pagamento da Solicitação, ou pelo ano do Movimento Executado), para a tabela de
+        // baixo nunca mostrar linhas de anos diferentes do que a caixa-resumo acima já soma.
+        const solicitacoes = gfGetSolicitacoes(r.id).filter(s => s.dataLimitePagamento ? new Date(s.dataLimitePagamento).getFullYear() === GF.year : true);
+        const movExecutados = GF_MOV_EXECUTADOS.filter(m => m.rubricaId === r.id && m.ano === GF.year);
         // Lista combinada para "Faturas/Solicitações": mostra sempre o que REALMENTE aconteceu
         // (Movimentos Executados — o valor final e real, tenha ou não Solicitação por trás, que
         // pode diferir do valor pedido) e, de cada Solicitação, só o saldo que ainda falta
