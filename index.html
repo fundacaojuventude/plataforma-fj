@@ -12268,6 +12268,10 @@ function gfRenderRubricas() {
               ${(() => {
                 let hist = [];
                 try { hist = JSON.parse(r.historicoAlteracoes || '[]'); } catch(e) { hist = []; }
+                // Fase 18 — o histórico vive na rúbrica mestre e é partilhado entre anos; só
+                // mostra as entradas do ano em vista. Entradas antigas, de antes desta correção,
+                // não têm `ano` gravado — assume-se 2026 (o único ano que existia até agora).
+                hist = hist.filter(h => (h.ano || 2026) === GF.year);
                 if (!hist.length) return '';
                 return `
                 <div style="margin-bottom:16px">
@@ -14966,11 +14970,42 @@ async function gfReaplicarAlteracao(id) {
   }
 }
 
+// Escreve numa rúbrica o delta (positivo ou negativo) do seu orçamento de Despesa no ano
+// de execução — cria a linha em FJ_RubricasAno se ainda não existir (idêntico ao que
+// "Migrar Orçamento 2026"/"Propor Ano Seguinte" já fazem), ou faz MERGE à já existente.
+// Fase 18 — substitui a escrita antiga, direta em FJ_Rubricas.DespOrcamentada, que deixou
+// de ter qualquer efeito assim que a rúbrica já tenha uma linha em FJ_RubricasAno para o ano.
+async function gfEscreverDeltaOrcamentoAno(rubricaId, ano, deltaDesp, titulo) {
+  const orcAtual = gfOrcamentoAnoRubrica(rubricaId, ano);
+  const novoValor = Math.max(0, (orcAtual?.despOrc || 0) + deltaDesp);
+  if (orcAtual?.rubricaAnoId) {
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items(${orcAtual.rubricaAnoId})`, {
+      __metadata: { type: 'SP.Data.FJ_x005f_RubricasAnoListItem' },
+      DespOrcamentada: novoValor
+    }, 'MERGE');
+  } else {
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items`, {
+      __metadata: { type: 'SP.Data.FJ_x005f_RubricasAnoListItem' },
+      Title: `${titulo} - ${ano}`,
+      RubricaIdId: rubricaId,
+      Ano: ano,
+      DespOrcamentada: novoValor,
+      RecOrcamentada: orcAtual?.recOrc || 0,
+      EstadoAno: orcAtual?.estadoAno || 'Aprovada'
+    }, 'POST');
+  }
+  return novoValor;
+}
+
 // Aplica a alteração orçamental - diminui origem, aumenta destino.
 // Idempotente por rúbrica: cada perna só é escrita se ainda não estiver no histórico dessa
 // rúbrica (ver gfAlteracaoLegAplicada) — chamar duas vezes para a mesma Alteração é seguro.
+// Fase 18 — "executar" uma Alteração afeta o orçamento do ANO DE EXECUÇÃO (hoje), em
+// FJ_RubricasAno, não o ano "nominal" da rúbrica mestre nem o ano que porventura esteja
+// selecionado no ecrã do Orçamento.
 async function gfAplicarAlteracaoOrcamental(alt) {
   const origens = GF_ALTERACOES_ORIGENS.filter(o => o.alteracaoId === alt.id);
+  const ano = new Date().getFullYear();
   const dataHoje = new Date().toLocaleDateString('pt-PT');
   const destRub = GF_RUBRICAS.find(r => r.id === alt.destRubricaId);
   const destProj = GF_PROJETOS.find(p => p.id === alt.destProjetoId);
@@ -14981,13 +15016,16 @@ async function gfAplicarAlteracaoOrcamental(alt) {
     if (!rub) continue;
     if (gfAlteracaoLegAplicada(o.origRubricaId, alt.id)) continue; // já aplicado — não repetir
 
-    const novoValor = Math.max(0, (rub.despOrc || 0) - o.valor);
+    await gfEscreverDeltaOrcamentoAno(o.origRubricaId, ano, -o.valor, rub.titulo);
 
-    // Histórico acumulado (JSON array em texto)
+    // Histórico acumulado (JSON array em texto) — continua na rúbrica mestre (partilhado
+    // entre anos), mas cada entrada passa a trazer o seu próprio `ano` para a tabela do
+    // Orçamento a conseguir filtrar pelo ano em vista.
     let hist = [];
     try { hist = JSON.parse(rub.historicoAlteracoes || '[]'); } catch(e) { hist = []; }
     hist.push({
       data: dataHoje,
+      ano,
       tipo: 'saída',
       valor: o.valor,
       contraparteProj: destProj?.nome || alt.destProjetoNome || '—',
@@ -14998,14 +15036,13 @@ async function gfAplicarAlteracaoOrcamental(alt) {
 
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items(${o.origRubricaId})`, {
       __metadata: { type: 'SP.Data.FJ_x005f_RubricasListItem' },
-      DespOrcamentada: novoValor,
       HistoricoAlteracoes: JSON.stringify(hist)
     }, 'MERGE');
   }
 
   // ── Aumentar valor na rúbrica destino e registar histórico ──
   if (destRub && !gfAlteracaoLegAplicada(alt.destRubricaId, alt.id)) {
-    const novoValor = (destRub.despOrc || 0) + alt.valorTotal;
+    await gfEscreverDeltaOrcamentoAno(alt.destRubricaId, ano, alt.valorTotal, destRub.titulo);
 
     // Construir resumo das origens para o histórico
     const origemDesc = origens.map(o => {
@@ -15018,6 +15055,7 @@ async function gfAplicarAlteracaoOrcamental(alt) {
     try { hist = JSON.parse(destRub.historicoAlteracoes || '[]'); } catch(e) { hist = []; }
     hist.push({
       data: dataHoje,
+      ano,
       tipo: 'entrada',
       valor: alt.valorTotal,
       contraparteProj: origemDesc,
@@ -15028,7 +15066,6 @@ async function gfAplicarAlteracaoOrcamental(alt) {
 
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items(${alt.destRubricaId})`, {
       __metadata: { type: 'SP.Data.FJ_x005f_RubricasListItem' },
-      DespOrcamentada: novoValor,
       HistoricoAlteracoes: JSON.stringify(hist)
     }, 'MERGE');
   }
