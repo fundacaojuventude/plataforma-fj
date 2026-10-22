@@ -859,6 +859,10 @@ th.au-mp-n{background:var(--bg3)}
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="14" height="10" rx="1"/><path d="M4 4V3a1 1 0 011-1h6a1 1 0 011 1v1"/><line x1="8" y1="8" x2="8" y2="12"/><line x1="6" y1="10" x2="10" y2="10"/></svg>
         Dívida a Fornecedores
       </div>
+      <div class="nav-item" id="gf-nav-receber" onclick="gfNav('tesouraria-receber')" style="color:rgba(255,255,255,.75);padding-left:1.25rem;display:none">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="14" height="10" rx="1"/><path d="M8 7v4M6.5 9.5L8 11l1.5-1.5"/><path d="M4 4V3a1 1 0 011-1h6a1 1 0 011 1v1"/></svg>
+        Valores a Receber
+      </div>
       <div class="nav-item" id="gf-nav-previsoes" onclick="gfNav('tesouraria-previsoes')" style="color:rgba(255,255,255,.75);padding-left:1.25rem;display:none">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="1,12 5,7 9,9 15,3"/><line x1="1" y1="15" x2="15" y2="15"/></svg>
         Previsões de Tesouraria
@@ -9784,6 +9788,113 @@ function gfSolicitacaoSaldoPorPagar(sol) {
   return Math.max(0, Math.round((valor - ligado) * 100) / 100);
 }
 
+// ══════════ Fase 59 — vista "Por despesa" (junta o que na prática é a mesma despesa ou receita) ══════════
+let GF_DESP_CFG = {};      // chave automática -> nome do grupo, ou '__solo' (não agrupar)
+let GF_DESP_CFG_IDS = {};  // chave automática -> Id em FJ_Configuracoes
+let _gfDespCfgCarregada = false;
+function gfNormTxt(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim(); }
+function gfEnc(t) { return encodeURIComponent(t).replace(/'/g, '%27'); }
+// Tira o que muda de linha para linha na mesma despesa: "Parcela 2/3 - ", "Pagamento - ", o projeto
+// ou o mês entre parênteses, "(rubrica mensal · dia 9)" e o sufixo "- valor em dívida".
+function gfNomeDespesaBase(t) {
+  let x = String(t || '').trim();
+  x = x.replace(/^(parcela manual|parcela|pagamento|recebimento|ocorr[eê]ncia)\s*(\d+\s*\/\s*\d+)?\s*[-–—]\s*/i, '');
+  x = x.replace(/\s*\([^)]*\)/g, '');
+  x = x.replace(/\s*[-–—]\s*valor em d[ií]vida\s*$/i, '');
+  x = x.replace(/\s+/g, ' ').trim();
+  return x || String(t || '').trim();
+}
+function gfVistaDespesa() { try { return localStorage.getItem('gfVistaDespesa') === '1'; } catch (e) { return false; } }
+function gfDataDoItem(it) {
+  const d = it.data instanceof Date ? it.data : (it.dataLimitePagamento ? new Date(it.dataLimitePagamento) : (it.dataPrevista ? new Date(it.dataPrevista) : null));
+  return d && !isNaN(d) ? d : null;
+}
+// chave do grupo: tipo (D/R) + nome (automático ou o escolhido) + mês — a renda de meses diferentes nunca se junta
+function gfClassificarDespesa(it, tag) {
+  const nomeBase = gfNomeDespesaBase(it.titulo || it.fornecedor || '');
+  const ak = gfNormTxt(nomeBase);
+  const ov = GF_DESP_CFG[ak];
+  const d = gfDataDoItem(it);
+  const mes = d ? d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') : 's/data';
+  if (ov === '__solo') return { ak, nome: nomeBase, ov, chave: 'solo|' + tag + '|' + (it.id || it._chave || nomeBase) + '|' + Math.round((it.valor || it.valorPrevisto || 0) * 100) + '|' + mes };
+  const nome = ov || nomeBase;
+  return { ak, nome, ov, chave: tag + '|' + gfNormTxt(nome) + '|' + mes };
+}
+function gfAgruparDespesas(items, tag, valorFn) {
+  valorFn = valorFn || (x => x.valor || 0);
+  const m = new Map();
+  items.forEach(it => {
+    const c = gfClassificarDespesa(it, tag);
+    let g = m.get(c.chave);
+    if (!g) { g = { chave: c.chave, nome: c.nome, aks: new Set(), itens: [], total: 0, projetos: new Set(), manual: false }; m.set(c.chave, g); }
+    g.aks.add(c.ak); g.itens.push(it); g.total += valorFn(it); g.projetos.add(it.projetoNome || '(sem projeto)');
+    if (c.ov && c.ov !== '__solo') g.manual = true;
+  });
+  return [...m.values()].map(g => {
+    // possível duplicação: exatamente o mesmo valor em projetos diferentes
+    const porValor = new Map();
+    g.itens.forEach(it => { const v = Math.round(valorFn(it) * 100); const pj = it.projetoNome || '(sem projeto)'; if (!porValor.has(v)) porValor.set(v, new Set()); porValor.get(v).add(pj); });
+    g.dupProj = Math.max(1, ...[...porValor.values()].map(x => x.size));
+    g.possivelDuplicado = g.dupProj > 1; // mesmo valor em vários projetos = repartição em partes iguais
+    const porProj = new Map();
+    g.itens.forEach(it => { const pj = it.projetoNome || '(sem projeto)'; porProj.set(pj, (porProj.get(pj) || 0) + valorFn(it)); });
+    g.reparto = [...porProj.entries()].map(([projeto, total]) => ({ projeto, total, pct: g.total ? Math.round(total / g.total * 1000) / 10 : 0 })).sort((a, b) => b.total - a.total);
+    g.aks = [...g.aks];
+    return g;
+  }).sort((a, b) => b.total - a.total);
+}
+// Repartição por projeto (ex.: renda dividida a meio entre dois projetos), em texto neutro
+function gfRepartoTexto(g) {
+  return g.reparto.map(r => `${r.projeto} ${String(r.pct).replace('.', ',')}% (${gfFmt(r.total)})`).join(' · ');
+}
+function gfAvisoDuplicado(g) {
+  if (g.projetos.size < 2) return '';
+  const rotulo = g.possivelDuplicado ? `÷ partes iguais por ${g.dupProj} projetos` : `repartida por ${g.projetos.size} projetos`;
+  return ` <span title="${gfRepartoTexto(g).replace(/"/g, '&quot;')}" style="color:var(--text3);font-weight:500">${rotulo}</span>`;
+}
+async function gfCarregarDespCfg(force) {
+  if (_gfDespCfgCarregada && !force) return;
+  try {
+    const d = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$filter=startswith(Title,'GF_Desp_')&$select=Id,Title,Valor&$top=1000`);
+    GF_DESP_CFG = {}; GF_DESP_CFG_IDS = {};
+    (d.d?.results || []).forEach(r => { const ak = (r.Title || '').slice('GF_Desp_'.length); if (r.Valor) { GF_DESP_CFG[ak] = r.Valor; GF_DESP_CFG_IDS[ak] = r.Id; } });
+  } catch (e) { console.warn('gfCarregarDespCfg', e); }
+  _gfDespCfgCarregada = true;
+}
+async function gfDespCfgSet(ak, valor) {
+  const lst = `${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items`;
+  const id = GF_DESP_CFG_IDS[ak];
+  if (!valor) { if (id) { await spWrite(`${lst}(${id})`, null, 'DELETE'); delete GF_DESP_CFG_IDS[ak]; } delete GF_DESP_CFG[ak]; return; }
+  const body = { __metadata: { type: 'SP.Data.FJ_x005f_ConfiguracoesListItem' }, Title: 'GF_Desp_' + ak, Valor: valor };
+  if (id) { await spWrite(`${lst}(${id})`, body, 'MERGE'); }
+  else { const r = await spWrite(lst, body, 'POST'); const j = await r.json(); GF_DESP_CFG_IDS[ak] = j.d?.Id; }
+  GF_DESP_CFG[ak] = valor;
+}
+async function gfDespEditar(encAks, encNome) {
+  const aks = JSON.parse(decodeURIComponent(encAks));
+  const atual = decodeURIComponent(encNome);
+  const r = prompt('Nome da despesa. Todas as linhas com o mesmo nome ficam juntas.\n\nPara juntar este grupo a outro, escreve o nome do outro grupo.\nPara desagrupar estas linhas, escreve - (hífen).\nPara repor o agrupamento automático, deixa vazio.', atual);
+  if (r === null) return;
+  const t = r.trim();
+  const v = t === '-' ? '__solo' : t;
+  try {
+    for (const ak of aks) await gfDespCfgSet(ak, v);
+    showNotif('Agrupamento guardado.', 'success');
+    gfRefreshVistaAtual();
+  } catch (e) { showNotif('Erro ao guardar o agrupamento: ' + e.message, 'error'); }
+}
+function gfSetVistaDespesa(v) { try { localStorage.setItem('gfVistaDespesa', v ? '1' : '0'); } catch (e) { } gfRefreshVistaAtual(); }
+function gfRefreshVistaAtual() {
+  if (GF.screen === 'tesouraria-previsoes') gfRenderTesourariaPrevisoes();
+  else if (GF.screen === 'tesouraria-operacional') gfRefreshOperacional();
+  else gfRender();
+}
+function gfToggleVistaHtml(rotuloBase) {
+  const v = gfVistaDespesa();
+  const st = a => `padding:7px 14px;border:1px solid var(--border2);border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;background:${a ? 'var(--fj-blue)' : 'var(--bg2)'};color:${a ? '#fff' : 'var(--text2)'};font-family:inherit`;
+  return `<span style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap"><span style="font-size:11px;color:var(--text3)">Agrupar:</span><button style="${st(!v)}" onclick="gfSetVistaDespesa(false)">${rotuloBase}</button><button style="${st(v)}" onclick="gfSetVistaDespesa(true)" title="Junta as linhas que na prática são a mesma despesa ou receita">Por despesa</button></span>`;
+}
+
 // Fase 58 — o que falta pagar de uma Solicitação e como está planeado.
 // "Por pagar" = valor menos o já ligado em Movimentos Executados. As parcelas ainda não
 // realizadas (Prevista) devem somar esse mesmo valor; sem nenhuma parcela, não há previsão de pagamento.
@@ -9904,6 +10015,7 @@ function gfCalcDisponivelParaAlteracao(rubricaId) {
 
 // ── NAVIGATION ──
 function gfNav(screen, params = {}) {
+  if (/^tesouraria/.test(screen) && !_gfDespCfgCarregada) gfCarregarDespCfg().then(() => { if (GF.screen === screen) gfRender(); });
   GF.screen = screen;
   Object.assign(GF, params);
   gfRender();
@@ -9923,6 +10035,7 @@ function gfNav(screen, params = {}) {
     'direcao':              'gf-nav-direcao',
     'configuracoes':        'gf-nav-configuracoes',
     'tesouraria-divida':    'gf-nav-divida',
+    'tesouraria-receber':   'gf-nav-receber',
     'tesouraria-previsoes': 'gf-nav-previsoes',
     'tesouraria-operacional': 'gf-nav-operacional',
     'tesouraria-rh':        'gf-nav-quadro-rh',
@@ -9954,7 +10067,7 @@ function gfUpdateSidebarNav() {
   if (cfg) cfg.style.display = _financeRole === 'pe' ? 'flex' : 'none';
   // Tesouraria: apenas Financeiro ou PE
   const canTes = gfCanViewTesouraria();
-  const tesIds = ['gf-nav-tesouraria-lbl', 'gf-nav-divida', 'gf-nav-previsoes', 'gf-nav-operacional', 'gf-nav-quadro-rh'];
+  const tesIds = ['gf-nav-tesouraria-lbl', 'gf-nav-divida', 'gf-nav-receber', 'gf-nav-previsoes', 'gf-nav-operacional', 'gf-nav-quadro-rh'];
   tesIds.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = canTes ? (id === 'gf-nav-tesouraria-lbl' ? 'block' : 'flex') : 'none';
@@ -9996,6 +10109,7 @@ function _gfRenderImpl() {
     case 'faturas': html = gfRenderFaturas(); break;
     case 'configuracoes': html = gfRenderConfiguracoes(); break;
     case 'tesouraria-divida': html = gfRenderTesourariaDivida(); break;
+    case 'tesouraria-receber': html = gfRenderTesourariaDivida('Receita'); break;
     case 'tesouraria-operacional': html = gfRenderTesourariaOperacional(); break;
     case 'tesouraria-rh': html = gfRenderQuadroRH(); break;
     case 'tesouraria-rh-form': html = gfRenderColaboradorForm(); break;
@@ -10175,7 +10289,8 @@ async function gfDividaSaveDate(id) {
 // ══════════════════════════════════════════════════════════════
 // TESOURARIA — DÍVIDA A FORNECEDORES
 // ══════════════════════════════════════════════════════════════
-function gfRenderTesourariaDivida() {
+function gfRenderTesourariaDivida(tipo = 'Despesa') {
+  const REC = tipo === 'Receita';
   if (!gfCanViewTesouraria()) {
     return `<div style="padding:2rem;text-align:center;color:var(--text3)">Não tem permissão para aceder a esta secção.</div>`;
   }
@@ -10188,7 +10303,7 @@ function gfRenderTesourariaDivida() {
   // (ou for um registo anterior a essa proteção), a Solicitação ficava presa aqui para
   // sempre mesmo já estando paga — com este saldo, desaparece assim que o estiver de facto.
   const dividas = GF_SOLICITACOES.filter(s =>
-    ESTADOS_DIVIDA.includes(s.estado) && s.tipoSolicitacao === 'Despesa' && gfSolicitacaoSaldoPorPagar(s) > 0.005
+    ESTADOS_DIVIDA.includes(s.estado) && s.tipoSolicitacao === tipo && gfSolicitacaoSaldoPorPagar(s) > 0.005
   );
   const prev = new Map(dividas.map(s => [s.id, gfPrevisaoSolicitacao(s)]));
   const total = dividas.reduce((a, s) => a + prev.get(s.id).porPagar, 0);
@@ -10212,7 +10327,7 @@ function gfRenderTesourariaDivida() {
     return `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:${bg};color:${fg}">${estado}</span>`;
   };
 
-  const rows = dividas.length ? dividas.map(s => {
+  const rowHtml = s => {
     const prazo = s.dataLimitePagamento;
     const prazoDate = prazo ? new Date(prazo) : null;
     const vencida = prazoDate && prazoDate < hoje;
@@ -10226,7 +10341,7 @@ function gfRenderTesourariaDivida() {
       : `<span style="background:#EAF3DE;color:#27500A;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500">OK</span>`;
     const pv = prev.get(s.id);
     const planoBadge = pv.semPrevisao
-      ? `<span title="Ainda não há parcelas nem previsão de pagamento desta dívida" style="background:#FAEEDA;color:#633806;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap">Sem previsão de pagamento</span>`
+      ? `<span title="Ainda não há parcelas nem previsão ${REC ? 'de recebimento' : 'de pagamento'}" style="background:#FAEEDA;color:#633806;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap">Sem previsão ${REC ? 'de recebimento' : 'de pagamento'}</span>`
       : (Math.abs(pv.dif) > 0.005 && !s.recorrente)
       ? `<span title="As parcelas por pagar somam ${gfFmt(pv.soma)} e faltam pagar ${gfFmt(pv.porPagar)}" style="background:#FCEBEB;color:#A32D2D;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap">Parcelas ${pv.dif > 0 ? 'abaixo' : 'acima'} em ${gfFmt(Math.abs(pv.dif))}</span>`
       : `<span style="background:#EAF3DE;color:#27500A;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap">${pv.nPrevistas} parcela(s) ✓</span>`;
@@ -10252,31 +10367,65 @@ function gfRenderTesourariaDivida() {
         <button class="btn btn-sm" onclick="gfOpenPlanoPagamentoModal(${s.id})" title="Parcelar / editar datas de pagamento" style="margin-left:4px">📅</button>
       </td>
     </tr>`;
-  }).join('') : `<tr><td colspan="11"><div class="empty" style="padding:2rem">Não existem solicitações aprovadas e por pagar.</div></td></tr>`;
+  };
+  const vazio = `<tr><td colspan="11"><div class="empty" style="padding:2rem">${REC ? 'Não existem receitas aprovadas e por receber.' : 'Não existem solicitações aprovadas e por pagar.'}</div></td></tr>`;
+  let rows;
+  if (!dividas.length) rows = vazio;
+  else if (!gfVistaDespesa()) rows = dividas.map(rowHtml).join('');
+  else {
+    // Fase 59 — uma linha por despesa real; ao abrir mostra as solicitações que a compõem
+    const grupos = gfAgruparDespesas(dividas.map(s => ({ ...s, valor: prev.get(s.id).porPagar, _sol: s })), REC ? 'R' : 'D');
+    rows = grupos.map((g, gi) => {
+      const sols = g.itens.map(x => x._sol);
+      const pvs = sols.map(x => prev.get(x.id));
+      const valorTot = pvs.reduce((a, x) => a + x.valor, 0), pagoTot = pvs.reduce((a, x) => a + x.pago, 0);
+      const nSem = pvs.filter(x => x.semPrevisao).length;
+      const nDif = sols.filter(x => !x.recorrente && !prev.get(x.id).semPrevisao && Math.abs(prev.get(x.id).dif) > 0.005).length;
+      const datas = sols.map(x => x.dataLimitePagamento).filter(Boolean).sort();
+      const badge = nSem
+        ? `<span style="background:#FAEEDA;color:#633806;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap">${nSem} sem previsão</span>`
+        : nDif ? `<span style="background:#FCEBEB;color:#A32D2D;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap">${nDif} com parcelas ≠ saldo</span>`
+        : `<span style="background:#EAF3DE;color:#27500A;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500">✓</span>`;
+      const projs = [...g.projetos];
+      const filhos = sols.map(x => rowHtml(x).replace('<tr style="', `<tr data-gdv="${gi}" style="display:none;`)).join('');
+      return `<tr style="background:var(--bg3);cursor:pointer" onclick="document.querySelectorAll('[data-gdv=&quot;${gi}&quot;]').forEach(t=>t.style.display=t.style.display==='none'?'table-row':'none')">
+        <td></td>
+        <td style="font-weight:600">▸ 🧾 ${g.nome}${gfAvisoDuplicado(g)}</td>
+        <td style="font-size:12px;color:var(--text3)">${sols.length} solicitação(ões)</td>
+        <td style="font-size:12px">${projs.length > 1 ? projs.length + ' projetos' : projs[0]}</td>
+        <td style="text-align:right;color:var(--text2)">${gfFmt(valorTot)}${pagoTot > 0.005 ? `<div style="font-size:10px;color:var(--green-mid)">${REC ? 'recebido' : 'pago'} ${gfFmt(pagoTot)}</div>` : ''}</td>
+        <td style="font-weight:700;color:#1E40AF;text-align:right">${gfFmt(g.total)}</td>
+        <td>${badge}</td><td></td>
+        <td style="font-size:12px">${datas.length ? gfDate(datas[0]) : '—'}</td><td></td>
+        <td><a onclick="event.stopPropagation();gfDespEditar('${gfEnc(JSON.stringify(g.aks))}','${gfEnc(g.nome)}')" title="Mudar o agrupamento desta despesa" style="cursor:pointer">✎</a></td>
+      </tr>${filhos}`;
+    }).join('');
+  }
 
   return `
     <div style="margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <div>
-        <div style="font-size:22px;font-weight:600;margin-bottom:4px">💳 Dívida a Fornecedores</div>
-        <div style="font-size:13px;color:var(--text3)">Despesas aprovadas aguardando pagamento (o valor mostrado é o que ainda falta pagar)</div>
+        <div style="font-size:22px;font-weight:600;margin-bottom:4px">${REC ? '💰 Valores a Receber (Clientes)' : '💳 Dívida a Fornecedores'}</div>
+        <div style="font-size:13px;color:var(--text3)">${REC ? 'Receitas aprovadas ainda por receber (o valor mostrado é o que ainda falta receber)' : 'Despesas aprovadas aguardando pagamento (o valor mostrado é o que ainda falta pagar)'}</div>
       </div>
+      <div>${gfToggleVistaHtml(REC ? 'Por solicitação' : 'Por solicitação')}</div>
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
       <div class="card" style="padding:16px">
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Total em dívida (por pagar)</div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">${REC ? 'Total a receber' : 'Total em dívida (por pagar)'}</div>
         <div style="font-size:22px;font-weight:700;color:#1E40AF">${gfFmt(total)}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:4px">${dividas.length} solicitação(ões)${totalPago > 0.005 ? ' · já pago ' + gfFmt(totalPago) : ''}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">${dividas.length} solicitação(ões)${totalPago > 0.005 ? ' · ' + (REC ? 'já recebido' : 'já pago') + ' ' + gfFmt(totalPago) : ''}</div>
       </div>
       <div class="card" style="padding:16px;${semPrevisao.length ? 'border-color:#F2C27A;background:#FFFBF2' : ''}">
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Sem previsão de pagamento</div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Sem previsão de ${REC ? 'recebimento' : 'pagamento'}</div>
         <div style="font-size:22px;font-weight:700;color:${semPrevisao.length ? '#633806' : 'var(--text)'}">${gfFmt(totalSemPrevisao)}</div>
         <div style="font-size:12px;color:var(--text3);margin-top:4px">${semPrevisao.length} solicitação(ões) sem parcelas</div>
       </div>
       <div class="card" style="padding:16px;${vencidas > 0 ? 'border-color:#FCA5A5;background:#FFF8F8' : ''}">
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Prazos vencidos</div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">${REC ? 'Recebimentos vencidos' : 'Prazos vencidos'}</div>
         <div style="font-size:22px;font-weight:700;color:${vencidas > 0 ? '#A32D2D' : 'var(--text)'}">${vencidas}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:4px">Pagamento em atraso</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">${REC ? 'Recebimento em atraso' : 'Pagamento em atraso'}</div>
       </div>
       <div class="card" style="padding:16px">
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Sem data limite</div>
@@ -10293,8 +10442,8 @@ function gfRenderTesourariaDivida() {
           <col style="width:8%"><col style="width:8%"><col style="width:7%"><col style="width:5%">
         </colgroup>
         <thead><tr>
-          <th>Código</th><th>Título</th><th>Fornecedor</th>
-          <th>Projeto</th><th style="text-align:right">Valor</th><th style="text-align:right">Por pagar</th><th>Previsão</th><th>Estado</th>
+          <th>Código</th><th>Título</th><th>${REC ? 'Cliente' : 'Fornecedor'}</th>
+          <th>Projeto</th><th style="text-align:right">Valor</th><th style="text-align:right">${REC ? 'Por receber' : 'Por pagar'}</th><th>Previsão</th><th>Estado</th>
           <th>Data Limite</th><th>Prazo</th><th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
@@ -11408,6 +11557,32 @@ function _gfOpCardHtml(p) {
   `;
 }
 
+// Fase 59 — na vista "Por despesa" os cartões da mesma despesa ficam num só grupo (que se abre para os ver e editar)
+function _gfOpCardsHtml(parcelas) {
+  if (!gfVistaDespesa()) return parcelas.map(p => _gfOpCardHtml(p)).join('');
+  const itens = parcelas.map(p => ({
+    ...p,
+    titulo: p.titulo || p.solicitacaoNome || p.rubricaNome || '',
+    valor: p.valorPrevisto || 0,
+    data: p.dataPrevista ? new Date(p.dataPrevista) : null,
+    projetoNome: (GF_RUBRICAS_MASTER.find(r => r.id === p.rubricaId)?.projetoNome) || '(sem projeto)'
+  }));
+  return gfAgruparDespesas(itens, 'M').map(g => {
+    const recebe = g.itens[0].tipo === 'Recebimento';
+    const cor = recebe ? '#059669' : '#A32D2D';
+    if (g.itens.length === 1) return _gfOpCardHtml(g.itens[0]);
+    return `
+      <details style="margin-bottom:8px;border:1px dashed ${cor};border-radius:8px;padding:6px 8px;background:#fff">
+        <summary style="cursor:pointer;font-size:11px;font-weight:600;overflow-wrap:break-word;list-style:none">
+          🧾 ${g.nome}
+          <div style="font-size:10px;font-weight:400;color:var(--text3)">${g.itens.length} parcelas${g.projetos.size > 1 ? ' · ' + g.projetos.size + ' projetos' : ''} · <b style="color:${cor}">${recebe ? '+' : '-'}${gfFmt(g.total)}</b>${gfAvisoDuplicado(g)}
+            <a onclick="event.preventDefault();event.stopPropagation();gfDespEditar('${gfEnc(JSON.stringify(g.aks))}','${gfEnc(g.nome)}')" title="Mudar o agrupamento desta despesa" style="cursor:pointer;margin-left:4px">✎</a></div>
+        </summary>
+        <div style="margin-top:6px">${g.itens.map(it => `<div style="font-size:9px;color:var(--text3);margin:2px 0 1px">📁 ${it.projetoNome}</div>` + _gfOpCardHtml(it)).join('')}</div>
+      </details>`;
+  }).join('');
+}
+
 function gfRenderTesourariaOperacional() {
   if (!gfCanViewTesouraria()) {
     return `<div style="padding:2rem;text-align:center;color:var(--text3)">Não tem permissão para aceder a esta secção.</div>`;
@@ -11427,7 +11602,7 @@ function gfRenderTesourariaOperacional() {
         <div style="font-size:12px;font-weight:700;margin-bottom:2px;color:#A32D2D">⚠️ Em atraso</div>
         <div style="font-size:10px;color:var(--text3);margin-bottom:8px">antes de ${fmtCurta(semanas[0].ini)} · ${emAtraso.length} parcela(s)${nSemPlanoAtraso ? ` + ${nSemPlanoAtraso} sem plano` : ''} · conta na Semana 1 das Previsões</div>
         <div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #FCA5A5">${resumo.cabecalho}</div>
-        <div style="flex:1;min-height:40px">${emAtraso.map(p => _gfOpCardHtml(p)).join('')}${_gfOpExtrasHtml(extrasAtraso)}</div>
+        <div style="flex:1;min-height:40px">${_gfOpCardsHtml(emAtraso)}${_gfOpExtrasHtml(extrasAtraso)}</div>
         <div style="font-size:10px;color:var(--text3);margin-top:4px">Muda a data, arrasta para uma semana, divide ou elimina. As solicitações sem plano resolvem-se com o 📅.</div>
       </div>`;
   })() : '';
@@ -11444,7 +11619,7 @@ function gfRenderTesourariaOperacional() {
         <div style="font-size:10px;color:var(--text3);margin-bottom:8px">${s.datas}</div>
         <div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">${resumo.cabecalho}</div>
         <div style="flex:1;min-height:40px">
-          ${parcelas.length ? parcelas.map(p => _gfOpCardHtml(p)).join('') : (extrasHtml ? '' : `<div style="font-size:10px;color:var(--text3);text-align:center;padding:12px 0">Sem parcelas</div>`)}
+          ${parcelas.length ? _gfOpCardsHtml(parcelas) : (extrasHtml ? '' : `<div style="font-size:10px;color:var(--text3);text-align:center;padding:12px 0">Sem parcelas</div>`)}
           ${extrasHtml}
         </div>
         <button class="btn btn-sm" onclick="gfOpAdicionarNaSemana(${i})" style="margin-top:8px;font-size:11px">+ Parcela</button>
@@ -11469,6 +11644,10 @@ function gfRenderTesourariaOperacional() {
       </div>
     </div>
     <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:16px">
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em">Ver</label>
+        ${gfToggleVistaHtml('Por parcela')}
+      </div>
       <div>
         <label style="display:block;font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em">Tipo</label>
         <div style="display:flex;gap:6px">
@@ -12158,7 +12337,20 @@ function _gfBuildPrevisoes(saldoAtual) {
     };
     // Fase 20 — cada grupo de projeto vem fechado por defeito; clicar no cabeçalho abre/
     // fecha só esse grupo (stopPropagation para não mexer no colapsar do período inteiro).
-    const gfRenderGrupoProjeto = (items, renderRow, corTotal) => gfAgruparPorProjeto(items).map(g => `
+    // Fase 59 — vista "Por despesa": uma linha por despesa real (junta projetos/rúbricas/solicitações)
+    const gfRenderGrupoDespesa = (items, renderRow, corTotal) => gfAgruparDespesas(items, corTotal === '#059669' ? 'R' : 'D').map(g => {
+      const sub = `${g.itens.length} linha(s)${g.projetos.size > 1 ? ' · ' + g.projetos.size + ' projetos' : ''}`;
+      return `
+      <div data-gfgrpw style="margin-top:7px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:10px;font-weight:700;color:var(--text3);padding:3px 0;border-bottom:0.5px solid var(--border);cursor:pointer"
+             onclick="event.stopPropagation();this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🧾 ${g.nome} <span style="color:var(--text3);font-weight:400">(${sub})</span>${gfAvisoDuplicado(g)}</span>
+          <span style="display:flex;align-items:center;gap:6px;flex-shrink:0"><span style="color:${corTotal}">${fmt(g.total)}</span><a onclick="event.stopPropagation();gfDespEditar('${gfEnc(JSON.stringify(g.aks))}','${gfEnc(g.nome)}')" title="Mudar o agrupamento desta despesa" style="cursor:pointer;font-weight:400">✎</a></span>
+        </div>
+        <div style="display:none">${g.itens.map(it => `<div style="font-size:9px;color:var(--text3);padding-left:12px;margin-top:2px">📁 ${it.projetoNome || '(sem projeto)'}</div>` + renderRow(it)).join('')}</div>
+      </div>`;
+    }).join('');
+    const gfRenderGrupoProjeto = (items, renderRow, corTotal) => gfVistaDespesa() ? gfRenderGrupoDespesa(items, renderRow, corTotal) : gfAgruparPorProjeto(items).map(g => `
       <div data-gfgrpw style="margin-top:7px">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:10px;font-weight:700;color:var(--text3);padding:3px 0;border-bottom:0.5px solid var(--border);cursor:pointer"
              onclick="event.stopPropagation();this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
@@ -12278,7 +12470,8 @@ function _gfBuildPrevisoes(saldoAtual) {
         <a href="javascript:void(0)" onclick="gfClassificarRubricasFixas()" style="font-size:11px;color:var(--text3);text-decoration:underline;margin-top:4px;display:inline-block">⚙️ Classificar rúbricas novas como Fixas/Com Solicitação (automático, só nas ainda não classificadas)</a><br>
         <a href="javascript:void(0)" onclick="gfGerarSolicitacoesFixas()" style="font-size:11px;color:var(--text3);text-decoration:underline;margin-top:4px;display:inline-block">⚙️ Gerar Solicitações mensais para rúbricas fixas (mantém a Dívida a Fornecedores completa)</a>
       </div>
-      <div style="display:flex;gap:6px;align-items:center">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        ${gfToggleVistaHtml('Por projeto')}<span style="width:10px"></span>
         <button style="${btnStyle('semanal')}" onclick="gfSetPrevPeriodo('semanal')">Semanal</button>
         <button style="${btnStyle('mensal')}" onclick="gfSetPrevPeriodo('mensal')">Mensal</button>
         <button style="${btnStyle('trimestral')}" onclick="gfSetPrevPeriodo('trimestral')">Trimestral</button>
