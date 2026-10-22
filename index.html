@@ -1787,7 +1787,7 @@ tr:hover td{background:var(--bg3)}
         <div class="stats" id="stats-sem" style="margin-bottom:1rem"></div>
         <div class="table-wrap">
           <table>
-            <colgroup><col style="width:36px"><col style="width:26%"><col style="width:13%"><col style="width:11%"><col style="width:9%"><col style="width:10%"><col style="width:17%"><col style="width:11%"></colgroup>
+            <colgroup><col style="width:36px"><col style="width:22%"><col style="width:12%"><col style="width:10%"><col style="width:9%"><col style="width:10%"><col style="width:13%"><col style="width:152px"></colgroup>
             <thead><tr><th></th><th>Tarefa</th><th>Responsável</th><th>Data limite</th><th>Prioridade</th><th>Estado</th><th>Notas</th><th>Ações</th></tr></thead>
             <tbody id="tbody-sem"></tbody>
           </table>
@@ -7850,7 +7850,7 @@ function _semTarefaRow(t,hoje,isDir){
     <td style="padding:7px 4px">${estB(t.prioridade)}</td>
     <td style="padding:7px 4px">${estB(t.estado)}</td>
     <td style="padding:7px 4px">${notasHtml}</td>
-    <td style="padding:7px 4px"><button class="btn btn-sm" onclick="openTarView('${t.id}')" title="Ver tarefa">👁 Ver</button>${canEdit?`<button class="btn btn-sm" onclick="openTarFormEdit('${t.id}')" style="margin-left:3px">Editar</button><button class="btn btn-sm btn-danger" onclick="delPlTarefa('${t.id}')" style="margin-left:3px">✕</button>`:''}</td>
+    <td style="padding:7px 4px;overflow:visible;text-overflow:clip;white-space:nowrap"><button class="btn btn-sm" onclick="openTarView('${t.id}')" title="Ver tarefa">👁 Ver</button>${canEdit?`<button class="btn btn-sm" onclick="openTarFormEdit('${t.id}')" style="margin-left:3px">Editar</button><button class="btn btn-sm btn-danger" onclick="delPlTarefa('${t.id}')" style="margin-left:3px">✕</button>`:''}</td>
   </tr>`;
 }
 
