@@ -564,7 +564,7 @@ tr:hover td{background:var(--bg3)}
 .au-ban{font-size:12px;padding:6px 10px;border-radius:6px;background:#eef0f4;color:var(--text2);margin-bottom:6px}
 .au-ban-b{background:#E6F1FB;color:#0C447C}.au-ban-g{background:#E1F5EE;color:#0F6E56}.au-ban-r{background:#FDE8E8;color:#b42318}
 .au-chip-estado{font-size:11px;font-weight:600;padding:3px 9px;border-radius:12px;background:#eef0f4;color:var(--text2)}
-.au-chip-estado.Submetido{background:#FFF3E0;color:#B35C00}.au-chip-estado.Validado{background:#E1F5EE;color:#0F6E56}.au-chip-estado.Devolvido{background:#FDE8E8;color:#b42318}.au-chip-estado.Reaberto{background:#E6F1FB;color:#0C447C}
+.au-chip-estado.Submetido{background:#FFF3E0;color:#B35C00}.au-chip-estado.ValidadoN1{background:#E6F1FB;color:#0C447C}.au-nota-he{font-size:11px;color:var(--text3);font-style:italic;margin-top:8px}.au-chip-estado.Validado{background:#E1F5EE;color:#0F6E56}.au-chip-estado.Devolvido{background:#FDE8E8;color:#b42318}.au-chip-estado.Reaberto{background:#E6F1FB;color:#0C447C}
 @media(max-width:900px){.au-ponto-grid{grid-template-columns:1fr!important}}
 .au-mp-wrap{overflow-x:auto;border:0.5px solid var(--border);border-radius:var(--r-lg);background:var(--bg)}
 .au-mp{border-collapse:separate;border-spacing:0;font-size:11px;width:100%;table-layout:auto!important}
@@ -894,6 +894,10 @@ th.au-mp-n{background:var(--bg3)}
   <div class="nav-item" id="au-nav-ponto" onclick="auNav('ponto')" style="color:rgba(255,255,255,.75)">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/><path d="M8 4v4.5l3 1.5"/></svg>
     O meu ponto
+  </div>
+  <div class="nav-item" id="au-nav-arquivo" onclick="auNav('arquivo')" style="color:rgba(255,255,255,.75)">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 4a1.5 1.5 0 011.5-1.5h3l1.5 1.5H13A1.5 1.5 0 0114.5 5.5V12A1.5 1.5 0 0113 13.5H3A1.5 1.5 0 011.5 12V4z"/></svg>
+    Arquivo de folhas
   </div>
   <div class="nav-item" id="au-nav-analise" onclick="auNav('analise')" style="color:rgba(255,255,255,.75)">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="1.5,13 5.5,8 9,10.5 14.5,3"/><line x1="1.5" y1="15" x2="14.5" y2="15"/></svg>
@@ -2200,6 +2204,12 @@ th.au-mp-n{background:var(--bg3)}
   <div class="au-page" id="au-page-ponto">
     <div class="page-title">O meu ponto</div>
     <div id="au-ponto-wrap"></div>
+  </div>
+
+  <!-- ARQUIVO DE FOLHAS -->
+  <div class="au-page" id="au-page-arquivo">
+    <div class="page-title">Arquivo de folhas de ponto</div>
+    <div id="au-arquivo-wrap"></div>
   </div>
 
   <!-- ANÁLISE DE TEMPO -->
@@ -3679,8 +3689,7 @@ function showApp(){
     if(isMembroFJ()){
       const coTab = document.getElementById('tab-co');
       if(coTab) coTab.style.display = 'none';
-      const auTab = document.getElementById('tab-au');
-      if(auTab) auTab.style.display = 'none';
+      // Ausências e Ponto: visível para todos os colaboradores (cada um vê só o seu; aprovação e gestão dependem da configuração)
     }
   });
   
@@ -9775,6 +9784,19 @@ function gfSolicitacaoSaldoPorPagar(sol) {
   return Math.max(0, Math.round((valor - ligado) * 100) / 100);
 }
 
+// Fase 58 — o que falta pagar de uma Solicitação e como está planeado.
+// "Por pagar" = valor menos o já ligado em Movimentos Executados. As parcelas ainda não
+// realizadas (Prevista) devem somar esse mesmo valor; sem nenhuma parcela, não há previsão de pagamento.
+function gfPrevisaoSolicitacao(sol) {
+  const porPagar = gfSolicitacaoSaldoPorPagar(sol);
+  const valor = Math.round((sol.valor || 0) * 100) / 100;
+  const pago = Math.max(0, Math.round((valor - porPagar) * 100) / 100);
+  const previstas = gfParcelasDaSolicitacao(sol.id).filter(p => !GF_PARCELAS_REALIZADAS.includes(p.estado));
+  const soma = Math.round(previstas.reduce((a, p) => a + (p.valorPrevisto || 0), 0) * 100) / 100;
+  const dif = Math.round((porPagar - soma) * 100) / 100; // >0 faltam planear; <0 excesso
+  return { valor, pago, porPagar, nPrevistas: previstas.length, soma, dif, previstas, semPrevisao: previstas.length === 0 };
+}
+
 // Estados de solicitação que já contam como "aprovada" / "processada" (por ordem do fluxo)
 const GF_ESTADOS_APROVADA_TIER = ['Aprovado Dir.', 'Aprovado DF', 'Aprovado', 'Processado', 'Pago'];
 const GF_ESTADOS_PROCESSADA_TIER = ['Processado', 'Pago'];
@@ -10000,8 +10022,8 @@ function gfRenderHome() {
   // KPIs de Tesouraria (apenas para Financeiro/PE)
   const canTes = gfCanViewTesouraria();
   const ESTADOS_DIVIDA = ['Aprovado DF', 'Aprovado', 'Processado'];
-  const dividas = canTes ? GF_SOLICITACOES.filter(s => ESTADOS_DIVIDA.includes(s.estado) && s.tipoSolicitacao === 'Despesa') : [];
-  const totalDivida = dividas.reduce((a, s) => a + (s.valor || 0), 0);
+  const dividas = canTes ? GF_SOLICITACOES.filter(s => ESTADOS_DIVIDA.includes(s.estado) && s.tipoSolicitacao === 'Despesa' && gfSolicitacaoSaldoPorPagar(s) > 0.005) : [];
+  const totalDivida = dividas.reduce((a, s) => a + gfSolicitacaoSaldoPorPagar(s), 0);
   const hoje = new Date(); hoje.setHours(0,0,0,0);
   const dividasVencidas = dividas.filter(s => s.dataLimitePagamento && new Date(s.dataLimitePagamento) < hoje).length;
   
@@ -10168,7 +10190,11 @@ function gfRenderTesourariaDivida() {
   const dividas = GF_SOLICITACOES.filter(s =>
     ESTADOS_DIVIDA.includes(s.estado) && s.tipoSolicitacao === 'Despesa' && gfSolicitacaoSaldoPorPagar(s) > 0.005
   );
-  const total = dividas.reduce((a, s) => a + (s.valor || 0), 0);
+  const prev = new Map(dividas.map(s => [s.id, gfPrevisaoSolicitacao(s)]));
+  const total = dividas.reduce((a, s) => a + prev.get(s.id).porPagar, 0);
+  const totalPago = dividas.reduce((a, s) => a + prev.get(s.id).pago, 0);
+  const semPrevisao = dividas.filter(s => prev.get(s.id).semPrevisao);
+  const totalSemPrevisao = semPrevisao.reduce((a, s) => a + prev.get(s.id).porPagar, 0);
   const semPrazo = dividas.filter(s => !s.dataLimitePagamento).length;
   const hoje = new Date(); hoje.setHours(0,0,0,0);
   const vencidas = dividas.filter(s => {
@@ -10198,12 +10224,20 @@ function gfRenderTesourariaDivida() {
       : proxima
       ? `<span style="background:#FAEEDA;color:#633806;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500">⏰ Esta semana</span>`
       : `<span style="background:#EAF3DE;color:#27500A;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500">OK</span>`;
+    const pv = prev.get(s.id);
+    const planoBadge = pv.semPrevisao
+      ? `<span title="Ainda não há parcelas nem previsão de pagamento desta dívida" style="background:#FAEEDA;color:#633806;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap">Sem previsão de pagamento</span>`
+      : (Math.abs(pv.dif) > 0.005 && !s.recorrente)
+      ? `<span title="As parcelas por pagar somam ${gfFmt(pv.soma)} e faltam pagar ${gfFmt(pv.porPagar)}" style="background:#FCEBEB;color:#A32D2D;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap">Parcelas ${pv.dif > 0 ? 'abaixo' : 'acima'} em ${gfFmt(Math.abs(pv.dif))}</span>`
+      : `<span style="background:#EAF3DE;color:#27500A;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap">${pv.nPrevistas} parcela(s) ✓</span>`;
     return `<tr style="${vencida ? 'background:#FFF8F8' : ''}" id="div-row-${s.id}">
       <td style="font-family:monospace;font-size:12px">${s.codigo || '—'}</td>
       <td style="font-weight:500">${s.titulo}</td>
       <td>${s.fornecedor || '—'}</td>
       <td>${s.projetoNome || '—'}</td>
-      <td style="font-weight:600;color:#1E40AF">${gfFmt(s.valor)}</td>
+      <td style="text-align:right;color:var(--text2)">${gfFmt(pv.valor)}${pv.pago > 0.005 ? `<div style="font-size:10px;color:var(--green-mid)">pago ${gfFmt(pv.pago)}</div>` : ''}</td>
+      <td style="font-weight:600;color:#1E40AF;text-align:right">${gfFmt(pv.porPagar)}</td>
+      <td>${planoBadge}</td>
       <td>${estadoBadge(s.estado)}</td>
       <td id="div-date-cell-${s.id}">
         <div style="display:flex;align-items:center;gap:6px">
@@ -10218,21 +10252,26 @@ function gfRenderTesourariaDivida() {
         <button class="btn btn-sm" onclick="gfOpenPlanoPagamentoModal(${s.id})" title="Parcelar / editar datas de pagamento" style="margin-left:4px">📅</button>
       </td>
     </tr>`;
-  }).join('') : `<tr><td colspan="9"><div class="empty" style="padding:2rem">Não existem solicitações aprovadas e por pagar.</div></td></tr>`;
+  }).join('') : `<tr><td colspan="11"><div class="empty" style="padding:2rem">Não existem solicitações aprovadas e por pagar.</div></td></tr>`;
 
   return `
     <div style="margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
       <div>
         <div style="font-size:22px;font-weight:600;margin-bottom:4px">💳 Dívida a Fornecedores</div>
-        <div style="font-size:13px;color:var(--text3)">Despesas aprovadas aguardando pagamento</div>
+        <div style="font-size:13px;color:var(--text3)">Despesas aprovadas aguardando pagamento (o valor mostrado é o que ainda falta pagar)</div>
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
       <div class="card" style="padding:16px">
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Total em dívida</div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Total em dívida (por pagar)</div>
         <div style="font-size:22px;font-weight:700;color:#1E40AF">${gfFmt(total)}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:4px">${dividas.length} solicitação(ões)</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">${dividas.length} solicitação(ões)${totalPago > 0.005 ? ' · já pago ' + gfFmt(totalPago) : ''}</div>
+      </div>
+      <div class="card" style="padding:16px;${semPrevisao.length ? 'border-color:#F2C27A;background:#FFFBF2' : ''}">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Sem previsão de pagamento</div>
+        <div style="font-size:22px;font-weight:700;color:${semPrevisao.length ? '#633806' : 'var(--text)'}">${gfFmt(totalSemPrevisao)}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">${semPrevisao.length} solicitação(ões) sem parcelas</div>
       </div>
       <div class="card" style="padding:16px;${vencidas > 0 ? 'border-color:#FCA5A5;background:#FFF8F8' : ''}">
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Prazos vencidos</div>
@@ -10249,13 +10288,13 @@ function gfRenderTesourariaDivida() {
     <div class="table-wrap">
       <table>
         <colgroup>
-          <col style="width:8%"><col style="width:22%"><col style="width:14%">
-          <col style="width:13%"><col style="width:10%"><col style="width:11%">
-          <col style="width:9%"><col style="width:8%"><col style="width:5%">
+          <col style="width:6%"><col style="width:17%"><col style="width:11%">
+          <col style="width:10%"><col style="width:8%"><col style="width:9%"><col style="width:11%">
+          <col style="width:8%"><col style="width:8%"><col style="width:7%"><col style="width:5%">
         </colgroup>
         <thead><tr>
           <th>Código</th><th>Título</th><th>Fornecedor</th>
-          <th>Projeto</th><th>Valor</th><th>Estado</th>
+          <th>Projeto</th><th style="text-align:right">Valor</th><th style="text-align:right">Por pagar</th><th>Previsão</th><th>Estado</th>
           <th>Data Limite</th><th>Prazo</th><th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
@@ -11884,13 +11923,15 @@ function _gfFontesPrevisao() {
   // Fase 24 — mesmo critério de saldo real da Dívida a Fornecedores: uma Solicitação cujo
   // Estado tenha ficado preso (ex.: "Processado") apesar de já ter saldo 0 (Movimento
   // Executado já ligado) deixa de aparecer como pagamento/recebimento futuro aqui.
+  // Fase 58 — conta o que ainda falta pagar (não o valor total já parcialmente pago)
+  const comSaldo = s => ({ ...s, valorTotal: s.valor, valor: gfSolicitacaoSaldoPorPagar(s) });
   const dividasBase = GF_SOLICITACOES.filter(s =>
     ESTADOS_TESOURARIA.includes(s.estado) && s.tipoSolicitacao === 'Despesa' && !solComPlano.has(s.id) && gfSolicitacaoSaldoPorPagar(s) > 0.005
-  );
+  ).map(comSaldo);
   // Receitas aprovadas ainda não recebidas
   const receitasBase = GF_SOLICITACOES.filter(s =>
     ESTADOS_TESOURARIA.includes(s.estado) && s.tipoSolicitacao === 'Receita' && !solComPlano.has(s.id) && gfSolicitacaoSaldoPorPagar(s) > 0.005
-  );
+  ).map(comSaldo);
 
   // Parcelas ainda por realizar ('Prevista') — tanto as de um Plano de Pagamento de uma
   // Solicitação como as lançadas diretamente numa Rúbrica no Operacional sem Solicitação
@@ -13799,7 +13840,9 @@ function gfRenderPlanoPagamento(sol) {
   const st = gfGetPlanoPagamentoState(sol);
   const parcelas = gfParcelasDaSolicitacao(sol.id);
   const soma = gfSomaParcelasSolicitacao(sol.id);
-  const dif = (sol.valor || 0) - soma;
+  const pv = gfPrevisaoSolicitacao(sol);
+  const usaSaldo = !sol.recorrente; // recorrentes mantêm o valor por ocorrência
+  const dif = usaSaldo ? pv.dif : (sol.valor || 0) - soma;
   // Solicitação já paga/recebida por inteiro — bloqueia todo o plano, não só as parcelas.
   const solFechada = sol.estado === 'Pago' || sol.estado === 'Recebido';
   const somaPaga = parcelas.filter(p => GF_PARCELAS_REALIZADAS.includes(p.estado)).reduce((s, p) => s + (p.valorConfirmado || p.valorPrevisto || 0), 0);
@@ -13841,8 +13884,11 @@ function gfRenderPlanoPagamento(sol) {
       `}
 
       <div style="font-size:12px;padding:8px 10px;border-radius:6px;background:${Math.abs(dif) < 0.01 ? 'var(--green-bg)' : '#FEF3C7'};color:${Math.abs(dif) < 0.01 ? '#065F46' : '#92400E'};margin-bottom:8px">
-        Parcelas somam ${soma.toFixed(2)}€ de ${(sol.valor || 0).toFixed(2)}€ solicitados${Math.abs(dif) < 0.01 ? ' ✓' : ` (${dif > 0 ? 'faltam' : 'excesso de'} ${Math.abs(dif).toFixed(2)}€)`}
-        ${somaPaga > 0 ? ` · já ${sol.tipoSolicitacao === 'Receita' ? 'recebido' : 'pago'}: ${somaPaga.toFixed(2)}€ · por ${sol.tipoSolicitacao === 'Receita' ? 'receber' : 'pagar'}: ${somaPorPagar.toFixed(2)}€` : ''}
+        ${usaSaldo
+          ? `Falta ${sol.tipoSolicitacao === 'Receita' ? 'receber' : 'pagar'} ${pv.porPagar.toFixed(2)}€ (de ${pv.valor.toFixed(2)}€ solicitados${pv.pago > 0.005 ? `, já ${sol.tipoSolicitacao === 'Receita' ? 'recebido' : 'pago'} ${pv.pago.toFixed(2)}€` : ''}). As parcelas por ${sol.tipoSolicitacao === 'Receita' ? 'receber' : 'pagar'} somam ${pv.soma.toFixed(2)}€${Math.abs(dif) < 0.01 ? ' ✓' : ` (${dif > 0 ? 'faltam planear' : 'excesso de'} ${Math.abs(dif).toFixed(2)}€)`}`
+          : `Parcelas somam ${soma.toFixed(2)}€ de ${(sol.valor || 0).toFixed(2)}€ solicitados${Math.abs(dif) < 0.01 ? ' ✓' : ` (${dif > 0 ? 'faltam' : 'excesso de'} ${Math.abs(dif).toFixed(2)}€)`}
+        ${somaPaga > 0 ? ` · já ${sol.tipoSolicitacao === 'Receita' ? 'recebido' : 'pago'}: ${somaPaga.toFixed(2)}€ · por ${sol.tipoSolicitacao === 'Receita' ? 'receber' : 'pagar'}: ${somaPorPagar.toFixed(2)}€` : ''}`}
+        ${usaSaldo && !solFechada && pv.nPrevistas > 0 && Math.abs(dif) >= 0.01 ? `<div style="margin-top:6px"><button class="btn btn-sm" onclick="gfAjustarPlanoAoSaldo(${sol.id})">Ajustar a última parcela ao valor em falta</button></div>` : ''}
       </div>
 
       ${parcelas.length ? `
@@ -13886,22 +13932,26 @@ async function gfGerarPlanoPagamento(solId) {
   if (!st) return;
   if (!sol.valor || sol.valor <= 0) { showNotif('Defina o valor da solicitação antes de gerar o plano.', 'error'); return; }
 
+  // Fase 58 — as parcelas passam a somar o que ainda falta pagar (não o valor total já parcialmente pago)
+  const pv0 = gfPrevisaoSolicitacao(sol);
+  const valorBase = sol.recorrente ? sol.valor : Math.round(Math.max(0, pv0.dif) * 100) / 100;
+  if (!sol.recorrente && valorBase <= 0.005) { showNotif(pv0.porPagar <= 0.005 ? 'Esta solicitação já está paga por inteiro.' : 'O que falta pagar já está todo coberto pelas parcelas existentes.', 'info'); return; }
   const existentes = gfParcelasDaSolicitacao(solId);
-  if (existentes.length && !confirm('Já existem parcelas para esta solicitação. Gerar novamente acrescenta outras (não substitui) — confirme para continuar.')) return;
+  if (existentes.length && !confirm(`Já existem parcelas para esta solicitação. Vão ser geradas parcelas apenas para o que ainda não está planeado (${valorBase.toFixed(2)}€) — confirme para continuar.`)) return;
 
   const tipo = sol.tipoSolicitacao === 'Receita' ? 'Recebimento' : 'Pagamento';
   const baseData = sol.dataLimitePagamento ? new Date(sol.dataLimitePagamento) : new Date();
   const itens = [];
 
   if (st.metodo === 'unico') {
-    itens.push({ data: baseData, valor: sol.valor, titulo: `Pagamento — ${sol.titulo}` });
+    itens.push({ data: baseData, valor: valorBase, titulo: `Pagamento — ${sol.titulo}` });
   } else if (st.metodo === 'split') {
     const n = st.numParcelasSplit || 2;
-    const valorParcela = +(sol.valor / n).toFixed(2);
+    const valorParcela = +(valorBase / n).toFixed(2);
     let somaAcumulada = 0;
     for (let i = 0; i < n; i++) {
       const data = new Date(baseData.getFullYear(), baseData.getMonth() + i, baseData.getDate());
-      const valor = (i === n - 1) ? +(sol.valor - somaAcumulada).toFixed(2) : valorParcela; // última parcela absorve o arredondamento
+      const valor = (i === n - 1) ? +(valorBase - somaAcumulada).toFixed(2) : valorParcela; // última parcela absorve o arredondamento
       somaAcumulada += valor;
       itens.push({ data, valor, titulo: `Parcela ${i + 1}/${n} — ${sol.titulo}` });
     }
@@ -13940,6 +13990,24 @@ async function gfGerarPlanoPagamento(solId) {
   } catch (e) {
     showNotif('Erro ao gerar plano de pagamento: ' + e.message, 'error');
   }
+}
+
+// Fase 58 — acerta a(s) última(s) parcela(s) por pagar para somarem exatamente o que falta pagar.
+async function gfAjustarPlanoAoSaldo(solId) {
+  const sol = GF_SOLICITACOES.find(s => s.id === solId);
+  if (!sol) return;
+  const pv = gfPrevisaoSolicitacao(sol);
+  if (!pv.nPrevistas || Math.abs(pv.dif) < 0.01) return;
+  const ultima = pv.previstas[pv.previstas.length - 1];
+  const novo = Math.round(((ultima.valorPrevisto || 0) + pv.dif) * 100) / 100;
+  if (novo < 0) { showNotif('A diferença é maior do que a última parcela: edita ou elimina as parcelas manualmente.', 'error'); return; }
+  try {
+    const body = { __metadata: { type: await _gfGetTesourariaParcelasType() }, ValorPrevisto: novo };
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${ultima.id})`, body, 'MERGE');
+    await gfRecarregar(['parcelas']);
+    gfRefreshCurrentForm();
+    showNotif('Plano ajustado ao valor em falta.', 'success');
+  } catch (e) { showNotif('Erro ao ajustar: ' + e.message, 'error'); }
 }
 
 async function gfAdicionarParcelaPagamentoManual(solId) {
@@ -16809,6 +16877,7 @@ function auNav(page){
   if(page==='pedidos')auRenderPedidos();
   if(page==='ponto')auPontoInit();
   if(page==='equipa')auEquipaInit();
+  if(page==='arquivo')auArquivoInit();
   if(page==='analise')auAnaliseInit();
   if(page==='mapa'){auRenderMapa();auMapaPrepararProjetos().then(()=>{if(document.getElementById('au-page-mapa')?.classList.contains('active'))auRenderMapa();});}
   if(page==='aprov-n1')auRenderN1();
@@ -17347,9 +17416,10 @@ const AU_ESQUEMA = [
     {n:'Percentagem',t:'Number'},{n:'Horas',t:'Number'}]},
   { lista:'FJ_PontoFechoMensal', campos:[
     {n:'Colaborador',t:'User'},{n:'AnoMes',t:'Text'},
-    {n:'Estado',t:'Choice',c:['Aberto','Submetido','Validado','Devolvido','Reaberto']},
-    {n:'DataSubmissao',t:'DateTime'},{n:'DataValidacao',t:'DateTime'},{n:'Validador',t:'User'},
-    {n:'Comentario',t:'Note'},{n:'FolhaExportadaEm',t:'DateTime'},{n:'FolhaDevolvidaEm',t:'DateTime'}]},
+    {n:'Estado',t:'Choice',c:['Aberto','Submetido','Validado N1','Validado','Devolvido','Reaberto']},
+    {n:'DataSubmissao',t:'DateTime'},{n:'DataValidacaoN1',t:'DateTime'},{n:'ValidadorN1',t:'User'},{n:'DataValidacao',t:'DateTime'},{n:'Validador',t:'User'},
+    {n:'Comentario',t:'Note'},{n:'FolhaExportadaEm',t:'DateTime'},{n:'FolhaDevolvidaEm',t:'DateTime'}],
+    escolhas:{Estado:['Validado N1']} },
   { lista:'FJ_Ausencias', existente:true, campos:[
     {n:'DataTrabalhada',t:'Date'},
     {n:'EstadoMarcacao',t:'Choice',c:['Proposta','Final']}],
@@ -17812,16 +17882,32 @@ async function auPontoCarregar(per,todos){
 async function auFechoCarregar(keys,todos){
   try{
     let f=keys.map(k=>`AnoMes eq '${k}'`).join(' or ');
-    const d=await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_PontoFechoMensal')/items?$select=*,Colaborador/EMail,Colaborador/Title,Validador/Title&$expand=Colaborador,Validador&$filter=${encodeURIComponent(f)}&$top=5000`);
+    const d=await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_PontoFechoMensal')/items?$select=*,Colaborador/EMail,Colaborador/Title,Validador/Title,ValidadorN1/Title&$expand=Colaborador,Validador,ValidadorN1&$filter=${encodeURIComponent(f)}&$top=5000`);
     AU_FECHOS=(d.d?.results||[]).map(r=>({id:r.Id,etag:r.__metadata?.etag||'*',email:(r.Colaborador?.EMail||'').toLowerCase(),nome:r.Colaborador?.Title||'',
-      key:r.AnoMes||'',estado:r.Estado||'Aberto',submetidoEm:r.DataSubmissao||'',validadoEm:r.DataValidacao||'',validador:r.Validador?.Title||'',
+      key:r.AnoMes||'',estado:r.Estado||'Aberto',submetidoEm:r.DataSubmissao||'',validadoEm:r.DataValidacao||'',validador:r.Validador?.Title||'',validadoN1Em:r.DataValidacaoN1||'',validadorN1:r.ValidadorN1?.Title||'',
       comentario:r.Comentario||'',exportadaEm:r.FolhaExportadaEm||'',devolvidaEm:r.FolhaDevolvidaEm||'',anexos:!!r.Attachments}));
   }catch(e){console.warn('auFechoCarregar',e);AU_FECHOS=[];}
 }
 function auFechoDe(email,key){return AU_FECHOS.find(f=>f.email===email&&f.key===key)||null;}
+
+// ══════════ Fase 57 — validação em dois níveis, arquivo de folhas ══════════
+const AU_NOTA_HE='Horas extras carecem de aprovação prévia do coordenador de equipa/projeto.';
+function auEstadoLabel(est){return est==='Validado N1'?'Validado 1.º nível':est;}
+function auChipEstado(est){est=est||'Aberto';return `<span class="au-chip-estado ${String(est).replace(/\s/g,'')}">${auEstadoLabel(est)}</span>`;}
+// Quem tem de validar o ponto de um colaborador: n1 (vazio quando o nível é saltado) e se precisa do 2.º nível
+function auPontoFluxo(email){return{n1:auPrecisaN1({colEmail:email}),n2:!auColabEhN2({colEmail:email})};}
+function auPodeAgirN1(email,f){
+  const fl=auPontoFluxo(email);const est=f?.estado||'Aberto';
+  return est==='Submetido'&&!!fl.n1&&(fl.n1===auMyEmail()||_auRole==='pe');
+}
+function auPodeAgirN2(email,f){
+  const fl=auPontoFluxo(email);const est=f?.estado||'Aberto';
+  if(!fl.n2)return false;
+  return (est==='Validado N1'||(est==='Submetido'&&!fl.n1))&&(auSouN2()||_auRole==='pe');
+}
 function auMesBloqueado(email,key){
   const f=auFechoDe(email,key);
-  return !!f&&['Submetido','Validado'].includes(f.estado);
+  return !!f&&['Submetido','Validado N1','Validado'].includes(f.estado);
 }
 // Tipo e descrição do dia para a folha e para o editor
 function auInfoDia(email,d){
@@ -17909,7 +17995,7 @@ function auRenderPonto(){
   // resumo do mês
   let totMin=0,diasTrab=0;
   auDiasEntre(per.ini,per.fim).forEach(x=>{const r=auPontoRegDe(me,x);if(r){const m=auCalcMinDia(r);if(m>0){totMin+=m;diasTrab++;}}});
-  const estadoChip=fecho?`<span class="au-chip-estado ${fecho.estado}">${fecho.estado}</span>`:'<span class="au-chip-estado Aberto">Aberto</span>';
+  const estadoChip=auChipEstado(fecho?.estado);
   const tabela=auDiasEntre(per.ini,per.fim).map(x=>{
     const i=auInfoDia(me,x);const r=auPontoRegDe(me,x);
     const m=r?auCalcMinDia(r):0;
@@ -17930,7 +18016,6 @@ function auRenderPonto(){
     <button class="btn btn-sm" onclick="auPontoMes(1)">›</button>
     ${estadoChip}
     <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
-      <button class="btn btn-sm" onclick="auFolhaPDF('${me}','${per.key}')">Exportar folha (PDF)</button>
       ${auFechoBotoesHtml?auFechoBotoesHtml(me,per,fecho,falta):''}
     </span>
   </div>
@@ -17940,6 +18025,7 @@ function auRenderPonto(){
     <div>
       <div style="display:flex;gap:18px;font-size:12px;color:var(--text2);margin-bottom:6px;flex-wrap:wrap"><span><b>${diasTrab}</b> dia(s) registados</span><span><b>${auFmtH(totMin)}</b> trabalhadas</span><span style="color:${falta.length?'var(--fj-orange)':'var(--green-mid)'}">${falta.length?falta.length+' dia(s) por registar':'Sem dias em falta'}</span></div>
       <div class="table-wrap" style="max-height:560px;overflow:auto"><table class="au-pt-tab"><thead><tr><th style="width:90px">Dia</th><th style="width:60px">Entrada</th><th style="width:60px">Saída</th><th style="width:60px;text-align:right">Horas</th><th>Observações</th><th>Distribuição</th><th style="width:28px"></th></tr></thead><tbody>${tabela}</tbody></table></div>
+      <div class="au-nota-he">${AU_NOTA_HE}</div>
     </div>
   </div>`;
   auPontoRecalc();
@@ -18203,6 +18289,10 @@ async function auFolhaDesenhar(doc,email,per,primeira){
     });
     y+=rh;
   });
+  y+=5.5;
+  doc.setFont('helvetica','italic');doc.setFontSize(8);doc.setTextColor(70);
+  doc.text(AU_NOTA_HE,M,y);
+  doc.setTextColor(30);
   y+=9;
   doc.setFont('helvetica','bold');doc.setFontSize(9.5);
   doc.text(`Data: ${auDMY(auHoje())}`,M+6,y);
@@ -18360,7 +18450,7 @@ async function auFechoGarantir(email,key){
   const body={__metadata:{type:await auGetListType(AU_FECHO_LIST)},Title:`${email} ${key}`,ColaboradorId:uid,AnoMes:key,Estado:'Aberto'};
   const r=await spWrite(`${SP}/_api/web/lists/getbytitle('${AU_FECHO_LIST}')/items`,body,'POST');
   const j=await r.json();
-  f={id:j.d?.Id,etag:'*',email,nome:auNomeDeEmail(email),key,estado:'Aberto',submetidoEm:'',validadoEm:'',validador:'',comentario:'',exportadaEm:'',devolvidaEm:'',anexos:false};
+  f={id:j.d?.Id,etag:'*',email,nome:auNomeDeEmail(email),key,estado:'Aberto',submetidoEm:'',validadoEm:'',validador:'',validadoN1Em:'',validadorN1:'',comentario:'',exportadaEm:'',devolvidaEm:'',anexos:false};
   AU_FECHOS.push(f);
   return f;
 }
@@ -18380,32 +18470,39 @@ async function auFechoSubmeter(){
   const me=auMyEmail();const per=_auPonto.per;
   const falta=auDiasEmFalta(me,per);
   if(falta.length){showNotif(`Faltam ${falta.length} dia(s) por registar (ex.: ${falta.slice(0,4).map(auDDMM).join(', ')}). Regista-os ou pede a ausência correspondente.`,'error');return;}
-  if(!confirm(`Submeter o ponto de ${per.label} (${auDMY(per.ini)} a ${auDMY(per.fim)})? Depois de submetido só o teu aprovador o pode devolver.`))return;
+  if(!confirm(`Submeter o ponto de ${per.label} (${auDMY(per.ini)} a ${auDMY(per.fim)})? Depois de submetido segue para validação (1.º nível e depois 2.º nível) e só um aprovador o pode devolver.`))return;
   try{
-    await auFechoSet(me,per.key,{Estado:'Submetido',DataSubmissao:new Date().toISOString(),Comentario:''});
-    const f=auFechoDe(me,per.key);Object.assign(f,{estado:'Submetido',submetidoEm:new Date().toISOString(),comentario:''});
-    showNotif('Mês submetido para validação.','success');auRenderPonto();
+    const fl=auPontoFluxo(me);const agora=new Date().toISOString();
+    const auto=!fl.n1&&!fl.n2; // ninguém para validar (ex.: responsável de RH sem aprovador de 1.º nível)
+    await auFechoSet(me,per.key,auto?{Estado:'Validado',DataSubmissao:agora,DataValidacao:agora,Comentario:''}:{Estado:'Submetido',DataSubmissao:agora,Comentario:''});
+    const f=auFechoDe(me,per.key);Object.assign(f,{estado:auto?'Validado':'Submetido',submetidoEm:agora,comentario:''});
+    showNotif(auto?'Mês submetido e validado automaticamente (sem aprovadores).':'Mês submetido para validação.','success');auRenderPonto();
   }catch(e){showNotif('Erro ao submeter: '+e.message,'error');}
 }
 function auFechoBotoesHtml(me,per,fecho,falta){
   const est=fecho?.estado||'Aberto';
   const pode=['Aberto','Devolvido','Reaberto'].includes(est);
+  const val=est==='Validado';
   return `${pode?`<button class="btn btn-sm btn-primary" onclick="auFechoSubmeter()">Submeter mês</button>`:''}
-    <button class="btn btn-sm" onclick="auFolhaDevolverUI()">Devolver folha assinada</button>`;
+    ${val?`<button class="btn btn-sm btn-primary" onclick="auFolhaPDF('${me}','${per.key}')">Exportar folha (PDF)</button>
+    <button class="btn btn-sm" onclick="auFolhaDevolverUI('${per.key}')">${fecho.devolvidaEm?'Substituir folha assinada':'Devolver folha assinada'}</button>`:''}
+    ${val&&fecho.anexos?`<button class="btn btn-sm" onclick="auFolhaVerAssinada('${me}','${per.key}')">Ver folha assinada</button>`:''}`;
 }
 function auFechoAvisoHtml(me,per,fecho,falta){
   const out=[];
   const hoje=auHoje();
   if(fecho?.estado==='Devolvido')out.push(`<div class="au-ban au-ban-r">O mês foi devolvido${fecho.validador?' por '+fecho.validador:''}${fecho.comentario?': '+fecho.comentario.replace(/</g,'&lt;'):'.'} Corrige e submete outra vez.</div>`);
-  if(fecho?.estado==='Submetido')out.push('<div class="au-ban au-ban-b">Mês submetido. Aguarda validação.</div>');
-  if(fecho?.estado==='Validado')out.push(`<div class="au-ban au-ban-g">Mês validado${fecho.validador?' por '+fecho.validador:''}.</div>`);
-  if(hoje>per.fim&&!fecho?.devolvidaEm)out.push(`<div class="au-ban" style="background:#FFF3E0;color:#B35C00">O período ${per.label} já fechou a ${auDMY(per.fim)}. Exporta a folha, assina-a e devolve-a aqui (botão <b>Devolver folha assinada</b>).${fecho?.exportadaEm?' Folha exportada a '+auDMY(fecho.exportadaEm.slice(0,10))+'.':''}</div>`);
+  if(fecho?.estado==='Submetido'){const fl=auPontoFluxo(me);out.push(`<div class="au-ban au-ban-b">Mês submetido. Aguarda validação ${fl.n1?'do 1.º nível ('+auNomeDeEmail(fl.n1)+')':'final'}.</div>`);}
+  if(fecho?.estado==='Validado N1')out.push(`<div class="au-ban au-ban-b">Validado pelo 1.º nível${fecho.validadorN1?' ('+fecho.validadorN1+')':''}. Aguarda a validação final.</div>`);
+  if(fecho?.estado==='Validado')out.push(`<div class="au-ban au-ban-g">Mês validado${fecho.validador?' por '+fecho.validador:''}.${fecho.devolvidaEm?'':' Já podes exportar a folha, assiná-la e devolvê-la aqui.'}</div>`);
+  if(hoje>per.fim&&['Aberto','Devolvido','Reaberto'].includes(fecho?.estado||'Aberto'))out.push(`<div class="au-ban" style="background:#FFF3E0;color:#B35C00">O período ${per.label} já fechou a ${auDMY(per.fim)}. Completa os dias em falta e submete o mês para validação.</div>`);
+  if(fecho?.estado==='Validado'&&!fecho.devolvidaEm&&fecho.exportadaEm)out.push(`<div class="au-ban" style="background:#FFF3E0;color:#B35C00">Folha exportada a ${auDMY(fecho.exportadaEm.slice(0,10))}. Falta devolvê-la assinada.</div>`);
   if(fecho?.devolvidaEm)out.push(`<div class="au-ban au-ban-g">Folha assinada devolvida a ${auDMY(fecho.devolvidaEm.slice(0,10))}.</div>`);
   return out.join('');
 }
 // Devolver folha assinada: escolhe-se o mês e o ano
-function auFolhaDevolverUI(){
-  const per=_auPonto.per||auPeriodoAtual();
+function auFolhaDevolverUI(key){
+  const per=key?auPeriodoDeKey(key):(_auPonto.per||auPeriodoAtual());
   const anoAt=new Date().getFullYear();
   const html=`<div style="display:flex;gap:8px;margin-bottom:10px">
       <select id="fd-mes" class="flt">${AU_MESES.map((n,i)=>`<option value="${i+1}" ${i+1===per.mes?'selected':''}>${n}</option>`).join('')}</select>
@@ -18424,7 +18521,9 @@ async function auFolhaDevolver(){
   try{
     const per=auPeriodo(ano,mes);
     await auFechoCarregar([per.key],false);
-    const f=await auFechoGarantir(me,per.key);
+    const fx=auFechoDe(me,per.key);
+    if(!fx||fx.estado!=='Validado'){showNotif(`O mês de ${per.label} ainda não está validado. Só podes devolver a folha assinada depois da validação final.`,'error');btn.disabled=false;btn.textContent='Devolver';return;}
+    const f=fx;
     await uploadAttachment(AU_FECHO_LIST,f.id,file);
     const agora=new Date().toISOString();
     await auFechoSet(me,per.key,{FolhaDevolvidaEm:agora});
@@ -18452,9 +18551,101 @@ async function auLembreteFolha(){
   await auFechoCarregar([alvo.key],false);
   const f=auFechoDe(me,alvo.key);
   if(f&&f.devolvidaEm)return;
+  const estL=f?.estado||'Aberto';
+  if(['Submetido','Validado N1'].includes(estL))return; // à espera de validação
   try{sessionStorage.setItem('fjLembreteFolha','1');}catch(e){}
+  if(estL!=='Validado'){
+    auMini('Ponto por submeter',`<div style="margin-bottom:10px">O período <b>${alvo.label}</b> (${auDMY(alvo.ini)} a ${auDMY(alvo.fim)}) já fechou e ainda não foi submetido${estL==='Devolvido'?' (foi devolvido para correção)':''}. Completa os dias em falta e submete o mês para validação.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="auMiniFechar();auIrPara('ponto')">Ir para o meu ponto</button><button class="btn" onclick="auMiniFechar()">Lembrar mais tarde</button></div>`);
+    return;
+  }
   auMini('Folha de ponto por devolver',`<div style="margin-bottom:10px">O período <b>${alvo.label}</b> (${auDMY(alvo.ini)} a ${auDMY(alvo.fim)}) já fechou. Exporta a tua folha, assina-a e devolve-a na plataforma.</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="auMiniFechar();auIrPara('ponto')">Ir para o meu ponto</button><button class="btn" onclick="auMiniFechar()">Lembrar mais tarde</button></div>`);
+}
+
+// ═════ Arquivo de folhas (histórico de meses submetidos, validados e folhas assinadas) ═════
+let _auArq={ano:new Date().getFullYear(),pessoa:'',estado:''};
+// Quem o utilizador pode consultar: RH/PE e CAdm veem todos; o aprovador de 1.º nível vê as suas pessoas; os restantes só o próprio
+function auArquivoPessoas(){
+  const me=auMyEmail();
+  let us=fjUtilizadores.filter(u=>u.email);
+  if(!auPodeAdministrar())us=us.filter(u=>u.email===me||AU_CFG.n1[u.email]===me);
+  return us.sort((a,b)=>(a.titulo||'').localeCompare(b.titulo||'','pt'));
+}
+async function auArquivoInit(){
+  const wrap=document.getElementById('au-arquivo-wrap');if(!wrap)return;
+  wrap.innerHTML='<div class="empty">A carregar…</div>';
+  try{
+    if(!(await auPontoListasOk())){wrap.innerHTML='<div class="empty">As listas do ponto ainda não existem no SharePoint (Gestão / RH → Preparar o SharePoint).</div>';return;}
+    if(!_auArq.pessoa)_auArq.pessoa=auMyEmail();
+    await auArquivoCarregar();
+    auRenderArquivo();
+  }catch(e){wrap.innerHTML=`<div class="empty">Erro: ${e.message}</div>`;}
+}
+async function auArquivoCarregar(){
+  const keys=[];for(let m=1;m<=12;m++)keys.push(auPeriodo(_auArq.ano,m).key);
+  await auFechoCarregar(keys,true);
+}
+function auArquivoMudar(campo,v){
+  _auArq[campo]=campo==='ano'?+v:v;
+  if(campo==='ano'){auArquivoInit();return;}
+  auRenderArquivo();
+}
+function auRenderArquivo(){
+  const wrap=document.getElementById('au-arquivo-wrap');if(!wrap)return;
+  const me=auMyEmail();const pessoas=auArquivoPessoas();
+  const ano=_auArq.ano,anoAt=new Date().getFullYear();
+  const alvo=_auArq.pessoa==='*'?pessoas:pessoas.filter(u=>u.email===_auArq.pessoa);
+  const soEu=_auArq.pessoa===me;
+  const hoje=auHoje();
+  const rows=[];
+  alvo.forEach(u=>{
+    for(let m=12;m>=1;m--){
+      const per=auPeriodo(ano,m);
+      if(per.ini>hoje)continue;
+      const f=auFechoDe(u.email,per.key);
+      if(!f&&!soEu)continue;
+      rows.push({u,per,f,est:f?.estado||'Aberto'});
+    }
+  });
+  const flt=_auArq.estado;
+  const vis=rows.filter(r=>{
+    if(!flt)return true;
+    if(flt==='__porDevolver')return r.est==='Validado'&&!r.f?.devolvidaEm;
+    return r.est===flt;
+  });
+  const podeVerPdf=(r)=>r.est==='Validado'?true:(r.u.email!==me&&(auPodeAdministrar()||AU_CFG.n1[r.u.email]===me));
+  const linhas=vis.map(r=>{
+    const f=r.f;const n1=f?.validadorN1?`${f.validadorN1}${f.validadoN1Em?' · '+auDMY(f.validadoN1Em.slice(0,10)):''}`:'—';
+    const fin=f?.validador&&r.est==='Validado'?`${f.validador}${f.validadoEm?' · '+auDMY(f.validadoEm.slice(0,10)):''}`:'—';
+    return `<tr>
+      ${soEu?'':`<td style="font-weight:500">${r.u.titulo||r.u.email}</td>`}
+      <td><b>${r.per.nome}</b></td>
+      <td style="font-size:11px;color:var(--text3)">${auDMY(r.per.ini)} a ${auDMY(r.per.fim)}</td>
+      <td>${auChipEstado(r.est)}</td>
+      <td>${f?.submetidoEm?auDMY(f.submetidoEm.slice(0,10)):'—'}</td>
+      <td style="font-size:11px">${n1}</td>
+      <td style="font-size:11px">${fin}</td>
+      <td style="text-align:center">${f?.devolvidaEm?`<span style="color:var(--green-mid)">✓ ${auDMY(f.devolvidaEm.slice(0,10))}</span>`:(r.est==='Validado'?'<span style="color:var(--fj-orange)">por devolver</span>':'—')}</td>
+      <td style="white-space:nowrap">
+        ${podeVerPdf(r)?`<button class="btn btn-sm" onclick="auFolhaPDF('${r.u.email}','${r.per.key}')">Folha (PDF)</button>`:''}
+        ${f?.anexos?`<button class="btn btn-sm" onclick="auFolhaVerAssinada('${r.u.email}','${r.per.key}')">Assinada</button>`:''}
+        ${r.u.email===me&&r.est==='Validado'?`<button class="btn btn-sm" onclick="auFolhaDevolverUI('${r.per.key}')">${f?.devolvidaEm?'Substituir':'Devolver assinada'}</button>`:''}
+        ${r.u.email===me&&['Aberto','Devolvido','Reaberto'].includes(r.est)?`<button class="btn btn-sm" onclick="_auPonto.per=auPeriodoDeKey('${r.per.key}');_auPonto.dia=null;auIrPara('ponto')">Abrir ponto</button>`:''}
+      </td></tr>`;
+  }).join('');
+  const opEst=[['','Todos os estados'],['__porDevolver','Folha por devolver assinada'],['Aberto','Aberto'],['Submetido','Submetido'],['Validado N1','Validado 1.º nível'],['Validado','Validado'],['Devolvido','Devolvido'],['Reaberto','Reaberto']];
+  const anos=[];for(let a=anoAt-3;a<=anoAt;a++)anos.push(a);
+  wrap.innerHTML=`<div class="toolbar" style="gap:8px;flex-wrap:wrap">
+      <select class="flt" onchange="auArquivoMudar('ano',this.value)">${anos.map(a=>`<option ${a===ano?'selected':''}>${a}</option>`).join('')}</select>
+      ${pessoas.length>1?`<select class="flt" onchange="auArquivoMudar('pessoa',this.value)">
+        <option value="${me}" ${soEu?'selected':''}>Os meus registos</option>
+        <option value="*" ${_auArq.pessoa==='*'?'selected':''}>${auPodeAdministrar()?'Todos os colaboradores':'Toda a minha equipa'}</option>
+        ${pessoas.filter(u=>u.email!==me).map(u=>`<option value="${u.email}" ${_auArq.pessoa===u.email?'selected':''}>${u.titulo||u.email}</option>`).join('')}</select>`:''}
+      <select class="flt" onchange="auArquivoMudar('estado',this.value)">${opEst.map(([v,t])=>`<option value="${v}" ${flt===v?'selected':''}>${t}</option>`).join('')}</select>
+      <span style="margin-left:auto;font-size:12px;color:var(--text3)">${vis.length} registo(s)</span></div>
+    ${vis.length?`<div class="table-wrap"><table class="au-pt-tab"><thead><tr>${soEu?'':'<th>Colaborador</th>'}<th>Mês</th><th>Período</th><th>Estado</th><th>Submetido em</th><th>Validação 1.º nível</th><th>Validação final</th><th style="text-align:center">Folha assinada</th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>`:'<div class="empty">Sem registos para estes filtros.</div>'}
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">${soEu?'Aqui ficam os teus meses de ponto: o estado de cada um, quem os validou e a folha assinada que devolveste. A folha só pode ser exportada depois da validação final.':'Cada pessoa consulta o seu arquivo; o aprovador de 1.º nível vê o das pessoas que aprova; o responsável de RH e o Presidente Executivo veem todos.'}</div>`;
 }
 // ═════ Ponto da equipa (validação) ═════
 let _auEq={per:null,todos:false};
@@ -18516,7 +18707,7 @@ function auRenderEquipa(){
     const sa=valores?auSubAlimDia(u.email):null;
     return `<tr>
       <td style="font-weight:500">${u.titulo||u.email}</td>
-      <td><span class="au-chip-estado ${est}">${est}</span></td>
+      <td>${auChipEstado(est)}</td>
       <td style="text-align:right">${regs.length}</td><td style="text-align:right">${auFmtH(min)}</td>
       <td style="text-align:right;color:${falta?'var(--fj-orange)':'var(--text3)'}">${falta||'—'}</td>
       <td style="text-align:center">${f?.devolvidaEm?`<span style="color:var(--green-mid)" title="${auDMY(f.devolvidaEm.slice(0,10))}">✓</span>`:'—'}</td>
@@ -18527,8 +18718,8 @@ function auRenderEquipa(){
       <td style="white-space:nowrap">
         <button class="btn btn-sm" onclick="auFolhaPDF('${u.email}','${per.key}')">Folha</button>
         ${f?.anexos?`<button class="btn btn-sm" onclick="auFolhaVerAssinada('${u.email}','${per.key}')">Assinada</button>`:''}
-        ${est==='Submetido'?`<button class="btn btn-sm btn-primary" onclick="auEquipaValidar('${u.email}')">Validar</button><button class="btn btn-sm" onclick="auEquipaDevolver('${u.email}')">Devolver</button>`:''}
-        ${['Validado','Submetido'].includes(est)&&auPodeAdministrar()?`<button class="btn btn-sm" onclick="auEquipaReabrir('${u.email}')">Reabrir</button>`:''}
+        ${(auPodeAgirN1(u.email,f)||auPodeAgirN2(u.email,f))?`<button class="btn btn-sm btn-primary" onclick="auEquipaValidar('${u.email}')">${auPodeAgirN1(u.email,f)&&auPontoFluxo(u.email).n2?'Validar 1.º nível':'Validar'}</button><button class="btn btn-sm" onclick="auEquipaDevolver('${u.email}')">Devolver</button>`:''}
+        ${['Validado N1','Validado','Submetido'].includes(est)&&auPodeAdministrar()?`<button class="btn btn-sm" onclick="auEquipaReabrir('${u.email}')">Reabrir</button>`:''}
       </td></tr>`;
   }).join('');
   wrap.innerHTML=`<div class="toolbar" style="gap:8px;flex-wrap:wrap">
@@ -18543,17 +18734,28 @@ function auRenderEquipa(){
   if(valores&&!GF_COLABORADORES.length&&!_auEq.carregouQP){_auEq.carregouQP=true;GF_CARREGADORES.colaboradores().then(()=>auRenderEquipa()).catch(()=>{});}
 }
 async function auEquipaValidar(email){
-  if(!auPodeValidar(email)){showNotif('Sem permissão.','error');return;}
-  const per=_auEq.per;
+  const per=_auEq.per;const f0=auFechoDe(email,per.key);
+  const n1=auPodeAgirN1(email,f0),n2=auPodeAgirN2(email,f0);
+  if(!n1&&!n2){showNotif('Sem permissão ou o mês não está à espera da tua validação.','error');return;}
   try{
-    const uid=await getCurrentUserId();
-    await auFechoSet(email,per.key,{Estado:'Validado',DataValidacao:new Date().toISOString(),ValidadorId:uid,Comentario:''});
-    const f=auFechoDe(email,per.key);Object.assign(f,{estado:'Validado',validador:auNomeDeEmail(auMyEmail()),comentario:''});
-    showNotif(`${auNomeDeEmail(email)}: ponto validado.`,'success');auRenderEquipa();
+    const uid=await getCurrentUserId();const agora=new Date().toISOString();const fl=auPontoFluxo(email);
+    let campos,novo;
+    if(n1&&(!fl.n2||!(auSouN2()||_auRole==='pe'))){ // só 1.º nível (ou o 1.º nível é o último)
+      if(fl.n2){campos={Estado:'Validado N1',DataValidacaoN1:agora,ValidadorN1Id:uid,Comentario:''};novo={estado:'Validado N1',validadoN1Em:agora,validadorN1:auNomeDeEmail(auMyEmail()),comentario:''};}
+      else{campos={Estado:'Validado',DataValidacaoN1:agora,ValidadorN1Id:uid,DataValidacao:agora,ValidadorId:uid,Comentario:''};novo={estado:'Validado',validadoN1Em:agora,validadorN1:auNomeDeEmail(auMyEmail()),validadoEm:agora,validador:auNomeDeEmail(auMyEmail()),comentario:''};}
+    }else if(n1){ // a mesma pessoa valida os dois níveis
+      campos={Estado:'Validado',DataValidacaoN1:agora,ValidadorN1Id:uid,DataValidacao:agora,ValidadorId:uid,Comentario:''};novo={estado:'Validado',validadoN1Em:agora,validadorN1:auNomeDeEmail(auMyEmail()),validadoEm:agora,validador:auNomeDeEmail(auMyEmail()),comentario:''};
+    }else{
+      campos={Estado:'Validado',DataValidacao:agora,ValidadorId:uid,Comentario:''};novo={estado:'Validado',validadoEm:agora,validador:auNomeDeEmail(auMyEmail()),comentario:''};
+    }
+    await auFechoSet(email,per.key,campos);
+    Object.assign(auFechoDe(email,per.key),novo);
+    showNotif(`${auNomeDeEmail(email)}: ${novo.estado==='Validado'?'ponto validado (final)':'validado no 1.º nível, segue para a validação final'}.`,'success');auRenderEquipa();
   }catch(e){showNotif('Erro: '+e.message,'error');}
 }
 async function auEquipaDevolver(email){
-  if(!auPodeValidar(email)){showNotif('Sem permissão.','error');return;}
+  const f0=auFechoDe(email,_auEq.per.key);
+  if(!(auPodeAgirN1(email,f0)||auPodeAgirN2(email,f0))){showNotif('Sem permissão ou o mês não está à espera da tua validação.','error');return;}
   const motivo=prompt('Motivo da devolução (o colaborador vai ver esta mensagem):');
   if(!motivo)return;
   try{
