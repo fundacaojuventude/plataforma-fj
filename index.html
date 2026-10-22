@@ -3374,6 +3374,7 @@ async function loadFJUtilizadores(){
       _financeDepts=[];
     }
     applyRoleVisibilityRN();
+    try{auAplicarVisAnalise();}catch(e){}
     setTimeout(()=>{try{auLembreteFolha();}catch(e){}},2500);
   }catch(e){
     console.warn('Erro ao carregar FJ_Utilizadores:', e.message);
@@ -16775,6 +16776,7 @@ function auSetupSidebar(){
   show('au-nav-aprov-n1',isN1?'flex':'none');
   show('au-nav-aprov-n2',isN2?'flex':'none');
   show('au-nav-equipa',(isN1||isN2||admin)?'flex':'none');
+  auAplicarVisAnalise();
   show('au-lbl-admin',admin?'block':'none');
   show('au-nav-admin',admin?'flex':'none');
 }
@@ -17071,7 +17073,7 @@ function auNav(page){
   if(page==='ponto')auPontoInit();
   if(page==='equipa')auEquipaInit();
   if(page==='arquivo')auArquivoInit();
-  if(page==='analise')auAnaliseInit();
+  if(page==='analise'){if(!auPodeVerAnalise()){showNotif('A análise de tempo está disponível para Diretores e para a equipa de Gestão.','error');return auNav('dashboard');}auAnaliseInit();}
   if(page==='mapa'){auRenderMapa();auMapaPrepararProjetos().then(()=>{if(document.getElementById('au-page-mapa')?.classList.contains('active'))auRenderMapa();});}
   if(page==='aprov-n1')auRenderN1();
   if(page==='aprov-n2')auRenderN2();
@@ -19107,9 +19109,18 @@ async function auMapaExportarPDFAnual(ano){
 }
 // ───── Análise de tempo ─────
 let _auAn={de:null,ate:null,area:'',colab:'',proj:'',soValidados:false,dados:null};
+// Análise de tempo: só Presidente Executivo, CAdm, Diretores e a equipa de Gestão (coordenadores)
+function auPodeVerAnalise(){
+  const c=userCargo(),eq=currentUserFJ?.equipa||[];
+  return auPodeAdministrar()||_financeRole==='pe'||c==='Presidente Executivo'||c==='Diretor'||eq.includes('CAdm')||eq.includes('E. Gestão');
+}
+function auAplicarVisAnalise(){
+  const v=auPodeVerAnalise()?'flex':'none';
+  ['au-nav-analise','pl-nav-analise-link'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display=v;});
+}
 function auAnaliseEscopo(){
   if(auPodeAdministrar()||_financeRole==='pe'||userCargo()==='Presidente Executivo')return fjUtilizadores.filter(u=>u.email);
-  if(userCargo()==='Diretor'){const eq=(currentUserFJ?.equipa||[]).filter(e=>e&&e!=='CAdm');return fjUtilizadores.filter(u=>u.email&&(u.email===auMyEmail()||(u.equipa||[]).some(e=>eq.includes(e))));}
+  if(userCargo()==='Diretor'||(currentUserFJ?.equipa||[]).includes('E. Gestão')){const eq=(currentUserFJ?.equipa||[]).filter(e=>e&&e!=='CAdm');return fjUtilizadores.filter(u=>u.email&&(u.email===auMyEmail()||(u.equipa||[]).some(e=>eq.includes(e))));}
   return fjUtilizadores.filter(u=>u.email===auMyEmail());
 }
 async function auAnaliseInit(){
