@@ -10195,9 +10195,23 @@ async function gfRenderTesourariaPrevisoes() {
   const saldoFonte = 'manual';
   const saldoData = null;
   try {
-    const dc = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$filter=Title eq 'SaldoCaixa'&$select=Id,Valor&$top=1`);
-    const cfg = dc.d?.results?.[0];
-    if (cfg) { saldoAtual = parseFloat(cfg.Valor) || 0; _gfSaldoCaixaId = cfg.Id; }
+    // Fase 44 — um só pedido: saldo + ocorrências mensais já marcadas como pagas
+    let linhas;
+    try {
+      const dc = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$filter=Title eq 'SaldoCaixa' or startswith(Title,'MensalPaga_')&$select=Id,Title,Valor&$top=500`);
+      linhas = dc.d?.results || [];
+    } catch (e1) {
+      const dc = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$filter=Title eq 'SaldoCaixa'&$select=Id,Title,Valor&$top=1`);
+      linhas = dc.d?.results || [];
+    }
+    _gfMensaisPagas = new Map();
+    for (const row of linhas) {
+      if (row.Title === 'SaldoCaixa') { saldoAtual = parseFloat(row.Valor) || 0; _gfSaldoCaixaId = row.Id; }
+      else if (/^MensalPaga_/.test(row.Title || '')) {
+        let info = {}; try { info = JSON.parse(row.Valor || '{}'); } catch (e2) { info = {}; }
+        _gfMensaisPagas.set(row.Title.slice('MensalPaga_'.length), { spId: row.Id, ...info });
+      }
+    }
   } catch(e) { /* lista pode não existir */ }
   _gfSaldoFonteCache = saldoFonte;
   _gfSaldoDataCache = saldoData;
@@ -10207,6 +10221,11 @@ async function gfRenderTesourariaPrevisoes() {
     app.innerHTML = `<div style="max-width:1200px;margin:0 auto;padding-top:12px">${_gfBuildPrevisoes(saldoAtual)}</div>`;
   }
 }
+
+// Fase 44 — ocorrências mensais automáticas marcadas como pagas/recebidas (FJ_Configuracoes,
+// Title 'MensalPaga_<chave>'). chave → { spId, v (valor), t (título), d (data) }.
+let _gfMensaisPagas = new Map();
+let _gfMensaisIndex = new Map(); // chave → linha mensal atual (para os botões)
 
 // Estado do selector de período das previsões
 let _gfPrevPeriodo = 'semanal';
@@ -10295,6 +10314,7 @@ function _gfGetPagamentosMensaisRH() {
           titulo: 'Vencimentos líquidos (Quadro de Pessoal)',
           fornecedor: `${ativos.length} colaborador(es)`,
           dataLimitePagamento: dataLiq.toISOString().split('T')[0],
+          _chave: `RH-liq-${ano}-${mes}`, // Fase 44
           _isMensal: true,
           _rubricaId: null,
           projetoNome: 'Recursos Humanos' // Fase 19 — sem projeto próprio; agrupado à parte
@@ -10315,6 +10335,7 @@ function _gfGetPagamentosMensaisRH() {
           titulo: 'Segurança Social + IRS (Quadro de Pessoal)',
           fornecedor: `Referente a ${nomeMes}`,
           dataLimitePagamento: dataContrib.toISOString().split('T')[0],
+          _chave: `RH-ss-${ano}-${mes}`, // Fase 44
           _isMensal: true,
           _rubricaId: null,
           projetoNome: 'Recursos Humanos' // Fase 19 — sem projeto próprio; agrupado à parte
@@ -10346,6 +10367,7 @@ function _gfGetEntradasMensais() {
             titulo: r.titulo,
             fornecedor: r.projetoNome || '—',
             dataLimitePagamento: data.toISOString().split('T')[0],
+            _chave: `ER${r.id}-${ano}-${mes}`, // Fase 44
             _isMensal: true,
             _rubricaId: r.id,
             projetoNome: r.projetoNome || '—'
@@ -10386,6 +10408,7 @@ function _gfGetPagamentosMensais() {
             titulo: r.titulo,
             fornecedor: r.projetoNome || '—',
             dataLimitePagamento: data.toISOString().split('T')[0],
+            _chave: `PD${r.id}-${ano}-${mes}`, // Fase 44
             _isMensal: true,
             _rubricaId: r.id,
             projetoNome: r.projetoNome || '—' // Fase 19 — agrupar por projeto nas Previsões de Tesouraria
@@ -11050,6 +11073,14 @@ function gfOpParcelaPassaFiltros(p) {
   return true;
 }
 
+// Fase 44 — parcelas ainda 'Previstas' com data anterior ao início do primeiro período visível.
+function gfOpParcelasEmAtraso(primeiroPeriodo) {
+  return GF_TESOURARIA_PARCELAS
+    .filter(p => p.estado === 'Prevista' && p.dataPrevista)
+    .filter(gfOpParcelaPassaFiltros)
+    .filter(p => new Date(p.dataPrevista) < primeiroPeriodo.ini)
+    .sort((a, b) => new Date(a.dataPrevista) - new Date(b.dataPrevista));
+}
 function gfOpParcelasDaSemana(semana) {
   return GF_TESOURARIA_PARCELAS
     .filter(p => p.estado !== 'Anulada' && p.dataPrevista)
@@ -11137,6 +11168,25 @@ function gfRenderTesourariaOperacional() {
   }
   const semanas = _gfOpGerarSemanas();
 
+  // Fase 44 — coluna "Em atraso": o que ficou por confirmar antes do período atual.
+  const emAtraso = gfOpParcelasEmAtraso(semanas[0]);
+  const colunaAtraso = emAtraso.length ? (() => {
+    const receb = emAtraso.filter(p => p.tipo === 'Recebimento').reduce((a, p) => a + (p.valorConfirmado || p.valorPrevisto || 0), 0);
+    const pag = emAtraso.filter(p => p.tipo === 'Pagamento').reduce((a, p) => a + (p.valorConfirmado || p.valorPrevisto || 0), 0);
+    const liq = receb - pag;
+    const fmtCurta = d => d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' });
+    return `
+      <div class="gf-op-coluna" style="min-width:190px;max-width:190px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:10px;padding:10px;display:flex;flex-direction:column">
+        <div style="font-size:12px;font-weight:700;margin-bottom:2px;color:#A32D2D">⚠️ Em atraso</div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:8px">antes de ${fmtCurta(semanas[0].ini)} · ${emAtraso.length} parcela(s)</div>
+        <div style="font-size:11px;font-weight:600;color:${liq < 0 ? '#A32D2D' : '#059669'};margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #FCA5A5">
+          Líquido: ${liq >= 0 ? '+' : ''}${gfFmt(liq)}
+        </div>
+        <div style="flex:1;min-height:40px">${emAtraso.map(p => _gfOpCardHtml(p)).join('')}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px">Muda a data, arrasta para uma semana, divide ou elimina.</div>
+      </div>`;
+  })() : '';
+
   const colunas = semanas.map((s, i) => {
     const parcelas = gfOpParcelasDaSemana(s);
     const totalReceb = parcelas.filter(p => p.tipo === 'Recebimento').reduce((a, p) => a + (p.valorConfirmado || p.valorPrevisto || 0), 0);
@@ -11197,7 +11247,7 @@ function gfRenderTesourariaOperacional() {
       </div>
     </div>
     <div style="overflow-x:auto;padding-bottom:8px">
-      <div style="display:flex;gap:10px">${colunas}</div>
+      <div style="display:flex;gap:10px">${colunaAtraso}${colunas}</div>
     </div>
   `;
 }
@@ -11532,6 +11582,72 @@ function gfExportTesourariaAnualCSV() {
   URL.revokeObjectURL(url);
 }
 
+// Fase 44 — volta a desenhar as Previsões mantendo abertos os períodos e os grupos de projeto
+// que estavam abertos (senão cada clique fechava tudo).
+function _gfRerenderPrevisoesMantendoAbertos() {
+  const app = gfEl('gf-app');
+  if (!app) return;
+  const abertos = [];
+  app.querySelectorAll('[data-gfper]').forEach(per => {
+    const corpo = per.querySelector('[data-gfperbody]');
+    const grupos = {};
+    per.querySelectorAll('[data-gfgrpw]').forEach(w => {
+      const nome = (w.firstElementChild?.firstElementChild?.textContent || '').replace(/\(\d+\)\s*$/, '').trim();
+      const n = grupos[nome] = (grupos[nome] || 0) + 1;
+      if (w.lastElementChild && w.lastElementChild.style.display !== 'none') (abertos.__g = abertos.__g || new Set()).add(per.dataset.gfper + '|' + nome + '|' + n);
+    });
+    if (corpo && corpo.style.display !== 'none') (abertos.__p = abertos.__p || new Set()).add(per.dataset.gfper);
+  });
+  const abertosP = abertos.__p || new Set(), abertosG = abertos.__g || new Set();
+  app.innerHTML = `<div style="max-width:1200px;margin:0 auto;padding-top:12px">${_gfBuildPrevisoes(_gfSaldoAtualCache)}</div>`;
+  app.querySelectorAll('[data-gfper]').forEach(per => {
+    const corpo = per.querySelector('[data-gfperbody]');
+    if (corpo && abertosP.has(per.dataset.gfper)) corpo.style.display = 'block';
+    const grupos = {};
+    per.querySelectorAll('[data-gfgrpw]').forEach(w => {
+      const nome = (w.firstElementChild?.firstElementChild?.textContent || '').replace(/\(\d+\)\s*$/, '').trim();
+      const n = grupos[nome] = (grupos[nome] || 0) + 1;
+      if (abertosG.has(per.dataset.gfper + '|' + nome + '|' + n) && w.lastElementChild) w.lastElementChild.style.display = 'block';
+    });
+  });
+}
+
+// Fase 44 — marca uma ocorrência mensal automática (Quadro de Pessoal / rúbrica mensal) como
+// paga/recebida: fica guardada em FJ_Configuracoes e deixa de contar na previsão.
+async function gfMarcarMensalPaga(chave) {
+  const m = _gfMensaisIndex.get(chave);
+  if (!m) { showNotif('Linha não encontrada. Recarrega as Previsões.', 'error'); return; }
+  if (_gfMensaisPagas.has(chave)) return;
+  const receita = String(chave).startsWith('ER');
+  if (!confirm(`Marcar como ${receita ? 'recebida' : 'paga'}?\n\n${m.titulo}\n${gfFmt(m.valor)} · dia ${m.data.toLocaleDateString('pt-PT')}\n\nDeixa de contar nas previsões e no saldo corrido. Podes desfazer a seguir.`)) return;
+  try {
+    const r = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items`, {
+      __metadata: { type: 'SP.Data.FJ_x005f_ConfiguracoesListItem' },
+      Title: 'MensalPaga_' + chave,
+      Valor: JSON.stringify({ v: Math.round((m.valor || 0) * 100) / 100, t: String(m.titulo || '').slice(0, 80), d: m.data.toISOString().split('T')[0] })
+    }, 'POST');
+    const d = await r.json();
+    _gfMensaisPagas.set(chave, { spId: d.d?.Id || null, v: m.valor, t: m.titulo });
+    showNotif(`Marcada como ${receita ? 'recebida' : 'paga'}. ✓`, 'success');
+    _gfRerenderPrevisoesMantendoAbertos();
+  } catch (e) {
+    showNotif('Erro ao guardar: ' + e.message + ' — Certifica-te que a lista FJ_Configuracoes existe no SharePoint.', 'error');
+  }
+}
+
+async function gfDesmarcarMensalPaga(chave) {
+  const reg = _gfMensaisPagas.get(chave);
+  if (!reg) return;
+  try {
+    if (reg.spId) await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${reg.spId})`, null, 'DELETE');
+    _gfMensaisPagas.delete(chave);
+    showNotif('A ocorrência voltou a contar na previsão.', 'success');
+    _gfRerenderPrevisoesMantendoAbertos();
+  } catch (e) {
+    showNotif('Erro ao desfazer: ' + e.message, 'error');
+  }
+}
+
 function gfSetPrevPeriodo(p) {
   _gfPrevPeriodo = p;
   const app = gfEl('gf-app');
@@ -11617,12 +11733,20 @@ function _gfBuildPrevisoes(saldoAtual) {
   // Pagamentos recorrentes de rubricas mensais — tanto os sintéticos (Padrão "Fixa mensal",
   // valor orçamentado dividido por 12) como os reais das rúbricas "Rúbrica fixa" (Fase 21:
   // Solicitação/parcela gerada a partir do Calendário de Parcelas).
-  const pagamentosMensais = _gfGetPagamentosMensais()
+  const pagamentosMensaisTodos = _gfGetPagamentosMensais()
     .concat(dividasBaseFixas.map(gfParaMensal))
     .concat(parcelasPontuaisFixas.filter(p => p.tipoSolicitacao === 'Despesa').map(gfParaMensal));
-  const entradasMensaisAll = _gfGetEntradasMensais() // Fase 20
+  const entradasMensaisTodas = _gfGetEntradasMensais() // Fase 20
     .concat(receitasBaseFixas.map(gfParaMensal))
     .concat(parcelasPontuaisFixas.filter(p => p.tipoSolicitacao === 'Receita').map(gfParaMensal));
+  // Fase 44 — ocorrências automáticas já marcadas como pagas/recebidas deixam de contar
+  const _foiMarcada = m => !!(m._chave && _gfMensaisPagas.has(m._chave));
+  _gfMensaisIndex = new Map();
+  pagamentosMensaisTodos.concat(entradasMensaisTodas).forEach(m => { if (m._chave) _gfMensaisIndex.set(m._chave, m); });
+  const pagamentosMensais = pagamentosMensaisTodos.filter(m => !_foiMarcada(m));
+  const entradasMensaisAll = entradasMensaisTodas.filter(m => !_foiMarcada(m));
+  const pagamentosMensaisPagos = pagamentosMensaisTodos.filter(_foiMarcada);
+  const entradasMensaisPagas = entradasMensaisTodas.filter(_foiMarcada);
 
   const hoje = new Date(); hoje.setHours(0,0,0,0);
 
@@ -11703,6 +11827,8 @@ function _gfBuildPrevisoes(saldoAtual) {
       const d = pm.data;
       return d >= p.ini && d <= p.fim;
     });
+    const mensaisPagas = pagamentosMensaisPagos.filter(pm => pm.data >= p.ini && pm.data <= p.fim); // Fase 44
+    const entradasMensaisPagasPeriodo = entradasMensaisPagas.filter(pm => pm.data >= p.ini && pm.data <= p.fim); // Fase 44
     const totalSaidas = saidas.reduce((a, s) => a + (s.valor || 0), 0);
     const totalEntradas = entradas.reduce((a, s) => a + (s.valor || 0), 0);
     const totalMensais = mensais.reduce((a, m) => a + (m.valor || 0), 0);
@@ -11710,7 +11836,7 @@ function _gfBuildPrevisoes(saldoAtual) {
     const saldoIni = saldoCorrente;
     saldoCorrente = saldoCorrente + totalEntradas + totalEntradasMensais - totalSaidas - totalMensais;
     const vencidos = i === 0 ? saidas.filter(s => new Date(s.dataLimitePagamento) < p.ini) : [];
-    return { ...p, saidas, entradas, mensais, entradasMensais, totalSaidas, totalEntradas, totalMensais, totalEntradasMensais, saldoIni, saldoFim: saldoCorrente, vencidos };
+    return { ...p, saidas, entradas, mensais, entradasMensais, mensaisPagas, entradasMensaisPagasPeriodo, totalSaidas, totalEntradas, totalMensais, totalEntradasMensais, saldoIni, saldoFim: saldoCorrente, vencidos };
   });
 
   // ── Cards resumo ────────────────────────────────────────────
@@ -11770,7 +11896,7 @@ function _gfBuildPrevisoes(saldoAtual) {
     // Fase 20 — cada grupo de projeto vem fechado por defeito; clicar no cabeçalho abre/
     // fecha só esse grupo (stopPropagation para não mexer no colapsar do período inteiro).
     const gfRenderGrupoProjeto = (items, renderRow, corTotal) => gfAgruparPorProjeto(items).map(g => `
-      <div style="margin-top:7px">
+      <div data-gfgrpw style="margin-top:7px">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:10px;font-weight:700;color:var(--text3);padding:3px 0;border-bottom:0.5px solid var(--border);cursor:pointer"
              onclick="event.stopPropagation();this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
           <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📁 ${g.nome} <span style="color:var(--text3);font-weight:400">(${g.itens.length})</span></span>
@@ -11803,6 +11929,7 @@ function _gfBuildPrevisoes(saldoAtual) {
         <span style="font-weight:600;color:#A32D2D">-${fmt(m.valor)}</span>
         ${gfBtnPlano(m, '#A32D2D')}
         ${gfBtnVerSol(m, '#A32D2D')}
+        ${m._chave ? `<a onclick="event.stopPropagation();gfMarcarMensalPaga('${m._chave}')" title="Marcar como paga: deixa de contar nesta previsão" style="cursor:pointer;font-size:12px;flex-shrink:0">✅</a>` : ''}
       </span>
     </div>`, '#A32D2D');
 
@@ -11813,13 +11940,29 @@ function _gfBuildPrevisoes(saldoAtual) {
         <span style="font-weight:600;color:#059669">+${fmt(m.valor)}</span>
         ${gfBtnPlano(m, '#059669')}
         ${gfBtnVerSol(m, '#059669')}
+        ${m._chave ? `<a onclick="event.stopPropagation();gfMarcarMensalPaga('${m._chave}')" title="Marcar como recebida: deixa de contar nesta previsão" style="cursor:pointer;font-size:12px;flex-shrink:0">✅</a>` : ''}
       </span>
     </div>`, '#059669');
+
+    // Fase 44 — ocorrências automáticas já marcadas como pagas/recebidas neste período
+    const gfLinhaMarcada = (m, receita) => {
+      const info = _gfMensaisPagas.get(m._chave) || {};
+      return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;padding:2px 0;color:var(--text3)">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">✓ ${m.titulo} <span style="font-size:10px">(${receita ? 'recebida' : 'paga'}, dia ${m.data.getDate()})</span></span>
+        <span style="display:flex;align-items:center;gap:8px;flex-shrink:0"><span>${fmt(m.valor)}</span>
+        <a onclick="event.stopPropagation();gfDesmarcarMensalPaga('${m._chave}')" title="Voltar a contar esta ocorrência na previsão" style="cursor:pointer;font-size:10px;text-decoration:underline">desfazer</a></span>
+      </div>`;
+    };
+    const notaMarcadas = (p.mensaisPagas.length || p.entradasMensaisPagasPeriodo.length)
+      ? `<div style="margin-top:8px;padding-top:6px;border-top:1px dashed var(--border)">
+           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:2px">Já tratadas (não contam na previsão)</div>
+           ${p.mensaisPagas.map(m => gfLinhaMarcada(m, false)).join('')}${p.entradasMensaisPagasPeriodo.map(m => gfLinhaMarcada(m, true)).join('')}
+         </div>` : '';
 
     const semDetalhe = !p.saidas.length && !p.entradas.length && !p.mensais.length && !p.entradasMensais.length;
     const liquidoTotal = p.totalEntradas + p.totalEntradasMensais - p.totalSaidas - p.totalMensais;
 
-    return `<div style="border:0.5px solid ${isNeg ? '#FCA5A5' : 'var(--border)'};border-radius:10px;overflow:hidden;margin-bottom:8px">
+    return `<div data-gfper="${i}" style="border:0.5px solid ${isNeg ? '#FCA5A5' : 'var(--border)'};border-radius:10px;overflow:hidden;margin-bottom:8px">
       <div style="padding:12px 16px;display:grid;grid-template-columns:1fr 110px 110px 110px 120px;gap:8px;align-items:center;cursor:pointer;background:${bgRow}"
            onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
         <div>
@@ -11835,9 +11978,9 @@ function _gfBuildPrevisoes(saldoAtual) {
         <div style="text-align:right"><div style="font-size:10px;color:#A32D2D;margin-bottom:2px">Saídas</div><div style="font-size:12px;font-weight:600">${fmtSinal(totalSaidasTot, true)}</div></div>
         <div style="text-align:right"><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Saldo fim</div><div style="font-size:15px;font-weight:700;color:${corSaldo}">${fmt(p.saldoFim)}</div></div>
       </div>
-      <div style="display:none;padding:10px 16px 14px;border-top:0.5px solid var(--border);background:${bgBody}">
+      <div data-gfperbody style="display:none;padding:10px 16px 14px;border-top:0.5px solid var(--border);background:${bgBody}">
         ${semDetalhe
-          ? `<div style="font-size:11px;color:var(--text3)">Sem movimentos previstos neste período.</div>`
+          ? `<div style="font-size:11px;color:var(--text3)">Sem movimentos previstos neste período.</div>${notaMarcadas}`
           : (() => {
               // Fase 20 — ordem pedida: Despesas Mensais, Entradas Mensais, Entradas (pontuais),
               // Saídas Pontuais. Só a primeira secção efetivamente mostrada fica sem margem
@@ -11852,7 +11995,7 @@ function _gfBuildPrevisoes(saldoAtual) {
                 + `<div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--border);font-size:11px;display:flex;justify-content:space-between">
                      <span style="color:var(--text3)">Fluxo líquido</span>
                      <span style="font-weight:700;color:${liquidoTotal>=0?'#059669':'#A32D2D'}">${liquidoTotal>=0?'+':''}${fmt(liquidoTotal)}</span>
-                   </div>`;
+                   </div>` + notaMarcadas;
             })()
         }
       </div>
@@ -14487,25 +14630,49 @@ async function gfSaveSolicitacao(id, estado) {
 // Fase 25 — painel do Presidente Executivo para corrigir Valor/Rúbrica de uma Solicitação
 // já aprovada/processada/paga (o botão "Editar" normal só existe para Rascunho/Pendente/
 // Submetido). Fica sempre fechado por defeito; abre com o ✏️ junto ao valor.
-function gfRenderPePainelAlterar(sol) {
-  const rubsProjeto = GF_RUBRICAS_MASTER
-    .filter(r => r.projetoId === sol.projetoId && (r.estado === 'Ativo' || r.id === sol.rubricaId))
+function gfPeProjetosOptions(sol) {
+  const projs = filterFinanceProjects(GF_PROJETOS).slice();
+  if (!projs.some(p => p.id === sol.projetoId)) { const atual = GF_PROJETOS.find(p => p.id === sol.projetoId); if (atual) projs.push(atual); }
+  projs.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt'));
+  return projs.map(p => `<option value="${p.id}" ${sol.projetoId === p.id ? 'selected' : ''}>${p.nome}</option>`).join('');
+}
+function gfPeRubricasOptions(projetoId, sol) {
+  const rubs = GF_RUBRICAS_MASTER
+    .filter(r => r.projetoId === projetoId && (r.estado === 'Ativo' || r.id === sol.rubricaId))
     .sort((a, b) => (a.titulo || '').localeCompare(b.titulo || '', 'pt'));
+  const placeholder = projetoId === sol.projetoId ? '' : '<option value="">Selecionar...</option>';
+  return placeholder + rubs.map(r => `<option value="${r.id}" ${sol.rubricaId === r.id ? 'selected' : ''}>${r.titulo}</option>`).join('');
+}
+// Mudou o projeto no painel: a lista de rúbricas passa a ser a do novo projeto.
+function gfPeProjetoMudou(id) {
+  const sol = GF_SOLICITACOES.find(s => s.id === id);
+  const sel = document.getElementById('gf-pe-edit-rubrica-' + id);
+  if (!sol || !sel) return;
+  sel.innerHTML = gfPeRubricasOptions(parseInt(gfVal('gf-pe-edit-projeto-' + id)) || sol.projetoId, sol);
+}
+function gfRenderPePainelAlterar(sol) {
   return `
     <div id="gf-pe-painel-${sol.id}" class="card" style="display:none;background:#F5F3FF;border-color:#C4B5FD;margin-bottom:16px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:4px">✏️ Alterar valor ou rúbrica <span style="font-weight:400;color:var(--text3)">(Presidente Executivo — disponível em qualquer estado; fica registado no histórico)</span></div>
-      <div style="display:grid;grid-template-columns:1fr 2fr;gap:16px;margin-top:12px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">✏️ Alterar valor, projeto ou rúbrica <span style="font-weight:400;color:var(--text3)">(Presidente Executivo, disponível em qualquer estado; fica registado no histórico)</span></div>
+      <div style="display:grid;grid-template-columns:1fr 2fr 2fr;gap:16px;margin-top:12px">
         <div>
           <label style="display:block;font-size:12px;font-weight:500;margin-bottom:6px">Valor (€)</label>
           <input type="number" id="gf-pe-edit-valor-${sol.id}" value="${sol.valor}" min="0" step="0.01" style="width:100%;padding:8px 10px;border:1px solid var(--border2);border-radius:6px;font-size:13px;background:#fff">
         </div>
         <div>
+          <label style="display:block;font-size:12px;font-weight:500;margin-bottom:6px">Projeto</label>
+          <select id="gf-pe-edit-projeto-${sol.id}" onchange="gfPeProjetoMudou(${sol.id})" style="width:100%;padding:8px 10px;border:1px solid var(--border2);border-radius:6px;font-size:13px;background:#fff">
+            ${gfPeProjetosOptions(sol)}
+          </select>
+        </div>
+        <div>
           <label style="display:block;font-size:12px;font-weight:500;margin-bottom:6px">Rúbrica</label>
           <select id="gf-pe-edit-rubrica-${sol.id}" style="width:100%;padding:8px 10px;border:1px solid var(--border2);border-radius:6px;font-size:13px;background:#fff">
-            ${rubsProjeto.map(r => `<option value="${r.id}" ${sol.rubricaId === r.id ? 'selected' : ''}>${r.titulo}</option>`).join('')}
+            ${gfPeRubricasOptions(sol.projetoId, sol)}
           </select>
         </div>
       </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px">Ao mudar de projeto ou rúbrica, as parcelas do Plano de Pagamento e os movimentos executados desta solicitação acompanham a alteração.</div>
       <div style="margin-top:12px">
         <label style="display:block;font-size:12px;font-weight:500;margin-bottom:6px">Motivo da alteração <span style="color:#EF4444">*</span></label>
         <textarea id="gf-pe-edit-motivo-${sol.id}" rows="2" placeholder="Porquê esta correção..." style="width:100%;padding:8px 10px;border:1px solid var(--border2);border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;background:#fff"></textarea>
@@ -14529,35 +14696,80 @@ async function gfPeAlterarSolicitacao(id) {
   if (!sol) { showNotif('Solicitação não encontrada', 'error'); return; }
 
   const novoValor = gfValN('gf-pe-edit-valor-' + id);
+  const novoProjetoId = parseInt(gfVal('gf-pe-edit-projeto-' + id)) || sol.projetoId;
   const novaRubricaId = parseInt(gfVal('gf-pe-edit-rubrica-' + id));
   const motivo = gfVal('gf-pe-edit-motivo-' + id).trim();
 
   if (!novoValor || novoValor <= 0) { showNotif('Indique um valor válido', 'error'); return; }
   if (!novaRubricaId) { showNotif('Selecione uma rúbrica', 'error'); return; }
+  const rubNova = GF_RUBRICAS_MASTER.find(r => r.id === novaRubricaId);
+  if (!rubNova || rubNova.projetoId !== novoProjetoId) { showNotif('A rúbrica escolhida não pertence ao projeto escolhido.', 'error'); return; }
   if (!motivo) { showNotif('Indique o motivo da alteração — fica registado no histórico', 'error'); return; }
 
   const valorMudou = Math.round(novoValor * 100) !== Math.round((sol.valor || 0) * 100);
   const rubricaMudou = novaRubricaId !== sol.rubricaId;
-  if (!valorMudou && !rubricaMudou) { showNotif('Não há nenhuma alteração para guardar.', 'error'); return; }
+  const projetoMudou = novoProjetoId !== sol.projetoId;
 
-  const rubNovaNome = GF_RUBRICAS_MASTER.find(r => r.id === novaRubricaId)?.titulo || '';
-  if (!confirm(`Confirmar alteração desta solicitação?${valorMudou ? `\nValor: ${gfFmt(sol.valor)} → ${gfFmt(novoValor)}` : ''}${rubricaMudou ? `\nRúbrica: "${sol.rubricaNome}" → "${rubNovaNome}"` : ''}`)) return;
+  // Fase 43 — o que está afeto a esta Solicitação e ainda não está no novo projeto/rúbrica
+  // (inclui sobras de alterações antigas, que só mexiam na Solicitação).
+  const parcelasAMover = GF_TESOURARIA_PARCELAS.filter(p => p.solicitacaoId === id && p.rubricaId !== novaRubricaId);
+  const movsAMover = GF_MOV_EXECUTADOS.filter(m => m.solicitacaoId === id && (m.rubricaId !== novaRubricaId || m.projetoId !== novoProjetoId));
+  if (!valorMudou && !rubricaMudou && !projetoMudou && !parcelasAMover.length && !movsAMover.length) { showNotif('Não há nenhuma alteração para guardar.', 'error'); return; }
+
+  if (rubricaMudou && !gfConfirmarRubricaSemValor(novaRubricaId, sol.tipoSolicitacao || 'Despesa')) return;
+
+  const projNovoNome = GF_PROJETOS.find(p => p.id === novoProjetoId)?.nome || '';
+  const rubNovaNome = rubNova.titulo || '';
+  const totalMovs = movsAMover.reduce((a, m) => a + (m.valor || 0), 0);
+  const linhasAfetas = [];
+  if (parcelasAMover.length) linhasAfetas.push(`${parcelasAMover.length} parcela(s) do Plano de Pagamento`);
+  if (movsAMover.length) linhasAfetas.push(`${movsAMover.length} movimento(s) executado(s) (${gfFmt(totalMovs)})`);
+  if (!confirm(`Confirmar alteração desta solicitação?${valorMudou ? `\nValor: ${gfFmt(sol.valor)} → ${gfFmt(novoValor)}` : ''}${projetoMudou ? `\nProjeto: "${sol.projetoNome}" → "${projNovoNome}"` : ''}${rubricaMudou ? `\nRúbrica: "${sol.rubricaNome}" → "${rubNovaNome}"` : ''}${linhasAfetas.length ? `\n\nVão acompanhar a alteração: ${linhasAfetas.join(' e ')}.` : ''}${valorMudou ? '\n\nAs parcelas não são recalculadas por causa do novo valor: confirma o Plano de Pagamento depois.' : ''}`)) return;
 
   const partes = [];
   if (valorMudou) partes.push(`Valor alterado de ${gfFmt(sol.valor)} para ${gfFmt(novoValor)}`);
+  if (projetoMudou) partes.push(`Projeto alterado de "${sol.projetoNome || '—'}" para "${projNovoNome || '—'}"`);
   if (rubricaMudou) partes.push(`Rúbrica alterada de "${sol.rubricaNome || '—'}" para "${rubNovaNome || '—'}"`);
+  if (!partes.length) partes.push('Projeto/rúbrica das parcelas e movimentos acertados com a solicitação');
+  if (parcelasAMover.length || movsAMover.length) partes.push(`acompanharam a alteração: ${parcelasAMover.length} parcela(s) e ${movsAMover.length} movimento(s) executado(s)`);
   const texto = `${partes.join('; ')} — Motivo: ${motivo}`;
 
   try {
     const body = {
       __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' },
       Valor: novoValor,
+      ProjetoIdId: novoProjetoId,
       RubricaIdId: novaRubricaId,
-      Comentarios: gfAppendComentario(sol, texto, 'Alteração de valor/rúbrica (PE)')
+      Comentarios: gfAppendComentario(sol, texto, 'Alteração de valor/projeto/rúbrica (PE)')
     };
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${id})`, body, 'MERGE');
-    showNotif('Solicitação alterada e registada no histórico. ✓', 'success');
-    await gfRecarregar(['solicitacoes']); // Fase 37 — só o que esta ação altera
+
+    // Acompanhar parcelas e movimentos executados (até 4 gravações em paralelo; cada item
+    // tem o seu try/catch, por isso uma falha não impede as restantes).
+    const parcelasOk = new Set(), movsOk = new Set();
+    if (parcelasAMover.length) {
+      const parcType = await _gfGetTesourariaParcelasType();
+      await gfComLimiteConcorrencia(parcelasAMover, async (p) => {
+        try {
+          await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${p.id})`, { __metadata: { type: parcType }, RubricaIdId: novaRubricaId }, 'MERGE');
+          parcelasOk.add(p.id);
+        } catch (e) { console.error('Erro ao mover parcela', p.id, e); }
+      }, 4);
+    }
+    if (movsAMover.length) {
+      await gfComLimiteConcorrencia(movsAMover, async (m) => {
+        try {
+          await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosExecutados')/items(${m.id})`, { __metadata: { type: 'SP.Data.FJ_x005f_MovimentosExecutadosListItem' }, ProjetoIdId: novoProjetoId, RubricaIdId: novaRubricaId }, 'MERGE');
+          movsOk.add(m.id);
+        } catch (e) { console.error('Erro ao mover movimento executado', m.id, e); }
+      }, 4);
+      // Atualiza em memória só os que foram gravados (nova lista, para os totais em cache refazerem)
+      if (movsOk.size) GF_MOV_EXECUTADOS = GF_MOV_EXECUTADOS.map(m => movsOk.has(m.id) ? { ...m, projetoId: novoProjetoId, projetoNome: projNovoNome, rubricaId: novaRubricaId, rubricaNome: rubNovaNome } : m);
+    }
+    const porMover = (parcelasAMover.length - parcelasOk.size) + (movsAMover.length - movsOk.size);
+    if (porMover) showNotif(`Solicitação alterada, mas ${porMover} item(ns) associado(s) (parcelas/movimentos) não foram movidos. Guarda outra vez com os mesmos valores para repetir.`, 'error');
+    else showNotif('Solicitação alterada e registada no histórico. ✓', 'success');
+    await gfRecarregar(['solicitacoes', 'parcelas']);
     gfRender();
   } catch (e) {
     showNotif('Erro ao alterar solicitação: ' + e.message, 'error');
@@ -14608,7 +14820,7 @@ function gfRenderSolicitacaoView(solIdParam, opts) {
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <div style="font-size:24px;font-weight:600;color:var(--blue)">${gfFmt(sol.valor)}</div>
-        ${_financeRole === 'pe' ? `<a onclick="gfPeTogglePainel(${sol.id})" title="Alterar valor ou rúbrica — fica registado no histórico" style="cursor:pointer;font-size:17px;color:var(--text3)">✏️</a>` : ''}
+        ${_financeRole === 'pe' ? `<a onclick="gfPeTogglePainel(${sol.id})" title="Alterar valor, projeto ou rúbrica — fica registado no histórico" style="cursor:pointer;font-size:17px;color:var(--text3)">✏️</a>` : ''}
       </div>
     </div>
 
@@ -18961,6 +19173,7 @@ function gfAfetarRHProjChange(idx) {
   GF_AFETAR.rhLinhas[idx].projetoId = parseInt(gfVal(`gf-afetar-rh-proj-${idx}`)) || null;
   GF_AFETAR.rhLinhas[idx].rubricaId = null;
   GF_AFETAR.rhLinhas[idx].solicitacaoId = null;
+  GF_AFETAR.rhLinhas[idx].parcelaId = null;
   gfRenderAfetarModal();
 }
 
@@ -18971,11 +19184,18 @@ function gfAfetarRHRubChange(idx) {
   if (novoId && !gfConfirmarRubricaSemValor(novoId, tipoMov)) { gfRenderAfetarModal(); return; }
   GF_AFETAR.rhLinhas[idx].rubricaId = novoId;
   GF_AFETAR.rhLinhas[idx].solicitacaoId = null;
+  GF_AFETAR.rhLinhas[idx].parcelaId = null;
   gfRenderAfetarModal();
 }
 
 function gfAfetarRHSolChange(idx) {
   GF_AFETAR.rhLinhas[idx].solicitacaoId = parseInt(gfVal(`gf-afetar-rh-sol-${idx}`)) || null;
+  GF_AFETAR.rhLinhas[idx].parcelaId = null;
+  gfRenderAfetarModal(); // Fase 45 — ativa o campo Parcela
+}
+function gfAfetarRHParcChange(idx) {
+  GF_AFETAR.rhLinhas[idx].parcelaId = parseInt(gfVal(`gf-afetar-rh-parc-${idx}`)) || null;
+  gfRenderAfetarModal();
 }
 
 function gfAfetarRHValorChange(idx) {
@@ -18984,31 +19204,42 @@ function gfAfetarRHValorChange(idx) {
 }
 
 function gfAfetarRHLinhaRow(o, idx, movTipo, movAno) {
+  const sel = 'width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px';
+  const lab = 'display:block;font-size:11px;color:var(--text3);margin-bottom:4px';
   return `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 110px 40px;gap:10px;margin-bottom:10px;padding:14px;background:#F8FAFC;border-radius:8px;border:1px solid var(--border)">
+    <div style="display:grid;grid-template-columns:1fr 110px 40px;gap:10px;margin-bottom:10px;padding:14px;background:#F8FAFC;border-radius:8px;border:1px solid var(--border)">
       ${o._avisoBase ? `<div style="grid-column:1/-1;font-size:11px;color:#991B1B;background:#FEE2E2;border-radius:4px;padding:6px 8px">⚠ ${o._avisoBase}</div>` : ''}
-      <div>
-        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Projeto</label>
-        <select id="gf-afetar-rh-proj-${idx}" onchange="gfAfetarRHProjChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px">
-          <option value="">Selecionar...</option>
-          ${gfProjetosOptions(o.projetoId)}
-        </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label style="${lab}">Projeto</label>
+          <select id="gf-afetar-rh-proj-${idx}" onchange="gfAfetarRHProjChange(${idx})" style="${sel}">
+            <option value="">Selecionar...</option>
+            ${gfProjetosOptions(o.projetoId)}
+          </select>
+        </div>
+        <div>
+          <label style="${lab}">Rúbrica</label>
+          <select id="gf-afetar-rh-rub-${idx}" onchange="gfAfetarRHRubChange(${idx})" style="${sel}" ${!o.projetoId ? 'disabled' : ''}>
+            ${o.projetoId ? gfAfetarRubOptions(o.projetoId, movTipo, movAno, o.rubricaId) : '<option value="">Selecionar projeto...</option>'}
+          </select>
+        </div>
+        <div>
+          <label style="${lab}">Solicitação (opcional)</label>
+          <select id="gf-afetar-rh-sol-${idx}" onchange="gfAfetarRHSolChange(${idx})" style="${sel}" ${!o.rubricaId ? 'disabled' : ''}>
+            ${o.rubricaId ? gfAfetarSolOptions(o.rubricaId, o.solicitacaoId) : '<option value="">—</option>'}
+          </select>
+        </div>
+        <div>
+          <label style="${lab}">Parcela (opcional)</label>
+          <select id="gf-afetar-rh-parc-${idx}" onchange="gfAfetarRHParcChange(${idx})" style="${sel}" ${!o.solicitacaoId ? 'disabled' : ''}>
+            ${gfPendParcelaOptions(o.solicitacaoId, o.parcelaId)}
+          </select>
+        </div>
+        ${gfAfetarParcelaAviso(o.parcelaId, gfAfetarValorAfetoParcela(o.parcelaId))}
       </div>
       <div>
-        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Rúbrica</label>
-        <select id="gf-afetar-rh-rub-${idx}" onchange="gfAfetarRHRubChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px" ${!o.projetoId ? 'disabled' : ''}>
-          ${o.projetoId ? gfAfetarRubOptions(o.projetoId, movTipo, movAno, o.rubricaId) : '<option value="">Selecionar projeto...</option>'}
-        </select>
-      </div>
-      <div>
-        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Solicitação (opcional)</label>
-        <select id="gf-afetar-rh-sol-${idx}" onchange="gfAfetarRHSolChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px" ${!o.rubricaId ? 'disabled' : ''}>
-          ${o.rubricaId ? gfAfetarSolOptions(o.rubricaId, o.solicitacaoId) : '<option value="">—</option>'}
-        </select>
-      </div>
-      <div>
-        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Valor (€)</label>
-        <input type="number" id="gf-afetar-rh-valor-${idx}" value="${o.valor || ''}" min="0" step="0.01" onchange="gfAfetarRHValorChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px">
+        <label style="${lab}">Valor (€)</label>
+        <input type="number" id="gf-afetar-rh-valor-${idx}" value="${o.valor || ''}" min="0" step="0.01" onchange="gfAfetarRHValorChange(${idx})" style="${sel}">
       </div>
       <div style="display:flex;align-items:flex-end">
         ${GF_AFETAR.rhLinhas.length > 1 ? `<button onclick="gfAfetarRHRemoveLinha(${idx})" style="width:36px;height:36px;border:none;background:#FEE2E2;color:#991B1B;border-radius:4px;cursor:pointer;font-size:18px;font-weight:bold" title="Remover">×</button>` : ''}
@@ -19094,6 +19325,7 @@ function gfAfetarProjChange(idx) {
   GF_AFETAR.linhas[idx].projetoId = parseInt(gfVal(`gf-afetar-proj-${idx}`)) || null;
   GF_AFETAR.linhas[idx].rubricaId = null;
   GF_AFETAR.linhas[idx].solicitacaoId = null;
+  GF_AFETAR.linhas[idx].parcelaId = null;
   gfRenderAfetarModal();
 }
 
@@ -19107,11 +19339,18 @@ function gfAfetarRubChange(idx) {
   }
   GF_AFETAR.linhas[idx].rubricaId = novoId;
   GF_AFETAR.linhas[idx].solicitacaoId = null;
+  GF_AFETAR.linhas[idx].parcelaId = null;
   gfRenderAfetarModal();
 }
 
 function gfAfetarSolChange(idx) {
   GF_AFETAR.linhas[idx].solicitacaoId = parseInt(gfVal(`gf-afetar-sol-${idx}`)) || null;
+  GF_AFETAR.linhas[idx].parcelaId = null;
+  gfRenderAfetarModal(); // Fase 45 — ativa o campo Parcela
+}
+function gfAfetarParcChange(idx) {
+  GF_AFETAR.linhas[idx].parcelaId = parseInt(gfVal(`gf-afetar-parc-${idx}`)) || null;
+  gfRenderAfetarModal();
 }
 
 function gfAfetarPctChange(idx) {
@@ -19163,32 +19402,49 @@ function gfAfetarSolOptions(rubricaId, selectedId) {
 
 function gfAfetarLinhaRow(o, idx, movTipo, movAno) {
   const repartida = GF_AFETAR.repartida;
+  // Valor desta linha (para o aviso da parcela): % sobre o total do movimento, ou sobre o que
+  // sobra depois dos valores fixos no 2.º passo do Afetar RH.
+  const mov = GF_MOV_PENDENTES.find(x => x.id === GF_AFETAR.movimento);
+  const totalMov = Math.abs(mov?.importancia || 0);
+  const base = GF_AFETAR.modo === 'rh' ? totalMov - (GF_AFETAR.rhLinhas || []).reduce((a, l) => a + (l.valor || 0), 0) : totalMov;
+  const valorLinha = Math.round(base * (o.pct || 0) / 100 * 100) / 100;
+  const sel = 'width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px';
+  const lab = 'display:block;font-size:11px;color:var(--text3);margin-bottom:4px';
   return `
-    <div style="display:grid;grid-template-columns:${repartida ? '1fr 1fr 1fr 90px 40px' : '1fr 1fr 1fr'};gap:10px;margin-bottom:10px;padding:14px;background:#F8FAFC;border-radius:8px;border:1px solid var(--border)">
+    <div style="display:grid;grid-template-columns:${repartida ? '1fr 90px 40px' : '1fr'};gap:10px;margin-bottom:10px;padding:14px;background:#F8FAFC;border-radius:8px;border:1px solid var(--border)">
       ${o._aviso ? `<div style="grid-column:1/-1;font-size:11px;color:#991B1B;background:#FEE2E2;border-radius:4px;padding:6px 8px">⚠ ${o._aviso}</div>` : ''}
-      <div>
-        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Projeto</label>
-        <select id="gf-afetar-proj-${idx}" onchange="gfAfetarProjChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px">
-          <option value="">Selecionar...</option>
-          ${gfProjetosOptions(o.projetoId)}
-        </select>
-      </div>
-      <div>
-        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Rúbrica</label>
-        <select id="gf-afetar-rub-${idx}" onchange="gfAfetarRubChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px" ${!o.projetoId ? 'disabled' : ''}>
-          ${o.projetoId ? gfAfetarRubOptions(o.projetoId, movTipo, movAno, o.rubricaId) : '<option value="">Selecionar projeto...</option>'}
-        </select>
-      </div>
-      <div>
-        <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">Solicitação (opcional)</label>
-        <select id="gf-afetar-sol-${idx}" onchange="gfAfetarSolChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px" ${!o.rubricaId ? 'disabled' : ''}>
-          ${o.rubricaId ? gfAfetarSolOptions(o.rubricaId, o.solicitacaoId) : '<option value="">—</option>'}
-        </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label style="${lab}">Projeto</label>
+          <select id="gf-afetar-proj-${idx}" onchange="gfAfetarProjChange(${idx})" style="${sel}">
+            <option value="">Selecionar...</option>
+            ${gfProjetosOptions(o.projetoId)}
+          </select>
+        </div>
+        <div>
+          <label style="${lab}">Rúbrica</label>
+          <select id="gf-afetar-rub-${idx}" onchange="gfAfetarRubChange(${idx})" style="${sel}" ${!o.projetoId ? 'disabled' : ''}>
+            ${o.projetoId ? gfAfetarRubOptions(o.projetoId, movTipo, movAno, o.rubricaId) : '<option value="">Selecionar projeto...</option>'}
+          </select>
+        </div>
+        <div>
+          <label style="${lab}">Solicitação (opcional)</label>
+          <select id="gf-afetar-sol-${idx}" onchange="gfAfetarSolChange(${idx})" style="${sel}" ${!o.rubricaId ? 'disabled' : ''}>
+            ${o.rubricaId ? gfAfetarSolOptions(o.rubricaId, o.solicitacaoId) : '<option value="">—</option>'}
+          </select>
+        </div>
+        <div>
+          <label style="${lab}">Parcela (opcional)</label>
+          <select id="gf-afetar-parc-${idx}" onchange="gfAfetarParcChange(${idx})" style="${sel}" ${!o.solicitacaoId ? 'disabled' : ''}>
+            ${gfPendParcelaOptions(o.solicitacaoId, o.parcelaId)}
+          </select>
+        </div>
+        ${gfAfetarParcelaAviso(o.parcelaId, gfAfetarValorAfetoParcela(o.parcelaId))}
       </div>
       ${repartida ? `
         <div>
-          <label style="display:block;font-size:11px;color:var(--text3);margin-bottom:4px">%</label>
-          <input type="number" id="gf-afetar-pct-${idx}" value="${o.pct || ''}" min="0" max="100" step="0.01" onchange="gfAfetarPctChange(${idx})" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px">
+          <label style="${lab}">%</label>
+          <input type="number" id="gf-afetar-pct-${idx}" value="${o.pct || ''}" min="0" max="100" step="0.01" onchange="gfAfetarPctChange(${idx})" style="${sel}">
         </div>
         <div style="display:flex;align-items:flex-end">
           ${GF_AFETAR.linhas.length > 1 ? `<button onclick="gfAfetarRemoveLinha(${idx})" style="width:36px;height:36px;border:none;background:#FEE2E2;color:#991B1B;border-radius:4px;cursor:pointer;font-size:18px;font-weight:bold" title="Remover">×</button>` : ''}
@@ -19314,20 +19570,21 @@ async function gfSubmitAfetar() {
     const totalFixo = rhComValor.reduce((a, l) => a + (l.valor || 0), 0);
     const restante = valorAbs - totalFixo;
     linhasFinais = [
-      ...rhComValor.map(l => ({ projetoId: l.projetoId, rubricaId: l.rubricaId, solicitacaoId: l.solicitacaoId, valor: Math.round((l.valor || 0) * 100) / 100 })),
-      ...GF_AFETAR.linhas.map(l => ({ projetoId: l.projetoId, rubricaId: l.rubricaId, solicitacaoId: l.solicitacaoId, valor: Math.round(restante * (l.pct || 0) / 100 * 100) / 100 }))
+      ...rhComValor.map(l => ({ projetoId: l.projetoId, rubricaId: l.rubricaId, solicitacaoId: l.solicitacaoId, parcelaId: l.parcelaId || null, valor: Math.round((l.valor || 0) * 100) / 100 })),
+      ...GF_AFETAR.linhas.map(l => ({ projetoId: l.projetoId, rubricaId: l.rubricaId, solicitacaoId: l.solicitacaoId, parcelaId: l.parcelaId || null, valor: Math.round(restante * (l.pct || 0) / 100 * 100) / 100 }))
     ];
   } else {
     const totalPct = GF_AFETAR.linhas.reduce((a, l) => a + (l.pct || 0), 0);
     if (Math.abs(totalPct - 100) > 0.01) { showNotif('As percentagens têm de somar 100%', 'error'); return; }
     if (GF_AFETAR.linhas.some(l => !l.rubricaId)) { showNotif('Seleciona uma rúbrica em todas as linhas', 'error'); return; }
-    linhasFinais = GF_AFETAR.linhas.map(l => ({ projetoId: l.projetoId, rubricaId: l.rubricaId, solicitacaoId: l.solicitacaoId, valor: Math.round(valorAbs * (l.pct || 0) / 100 * 100) / 100 }));
+    linhasFinais = GF_AFETAR.linhas.map(l => ({ projetoId: l.projetoId, rubricaId: l.rubricaId, solicitacaoId: l.solicitacaoId, parcelaId: l.parcelaId || null, valor: Math.round(valorAbs * (l.pct || 0) / 100 * 100) / 100 }));
   }
 
   const btn = document.getElementById('gf-afetar-submit-btn');
   btn.disabled = true; btn.textContent = 'A guardar...';
   try {
     const valorPorSolicitacao = new Map(); // Fase 17 — soma o valor afeto por Solicitação (pode haver mais do que uma linha para a mesma)
+    const valorPorParcela = new Map(); // Fase 45 — soma o valor afeto por Parcela escolhida
     for (const l of linhasFinais) {
       const body = {
         __metadata: { type: 'SP.Data.FJ_x005f_MovimentosExecutadosListItem' },
@@ -19346,6 +19603,7 @@ async function gfSubmitAfetar() {
       if (l.solicitacaoId) {
         body.SolicitacaoIdId = l.solicitacaoId;
         valorPorSolicitacao.set(l.solicitacaoId, (valorPorSolicitacao.get(l.solicitacaoId) || 0) + (l.valor || 0));
+        if (l.parcelaId) valorPorParcela.set(l.parcelaId, (valorPorParcela.get(l.parcelaId) || 0) + (l.valor || 0));
       }
       await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosExecutados')/items`, body, 'POST');
     }
@@ -19357,18 +19615,13 @@ async function gfSubmitAfetar() {
       'MERGE'
     );
 
+    // Fase 45 — parcelas escolhidas nas linhas: valor total coberto -> elimina; parcial -> reduz.
+    // Substitui a tentativa automática de casar valores (Fase 17/30), desligada também aqui.
+    const erroParcela = valorPorParcela.size ? await gfResolverParcelasEscolhidas(valorPorParcela) : false;
+
     // Recarregar para ter os Movimentos Executados atualizados antes de verificar saldos
     await gfRecarregar(['movBancarios', 'movExecutadosNovos', 'solicitacoes', 'parcelas']); // Fase 37 — só o que esta ação altera
     const _escritasAposRecarga = _spEscritas; // Fase 41
-
-    // Fase 17 — antes de verificar se alguma Solicitação ficou 100% paga, tenta casar o
-    // valor de cada afetação com a(s) parcela(s) mais antigas do seu Plano de Pagamento cuja
-    // soma bata certo — assim uma afetação PARCIAL já reflete a parcela certa, sem esperar
-    // que o resto também seja pago.
-    for (const [solId, valor] of valorPorSolicitacao) {
-      try { await _gfSincronizarParcelaPorValor(solId, valor, m.dataMovimento); }
-      catch (e) { console.error('Erro ao casar parcela por valor', solId, e); }
-    }
 
     // Solicitações cujo saldo por pagar chegou a 0 → passam a "Pago"
     // (try/catch por solicitação: uma falha aqui não pode impedir o resto do fluxo
@@ -19393,7 +19646,7 @@ async function gfSubmitAfetar() {
       }
     }
 
-    showNotif(erroPago ? 'Movimento afeto, mas houve um erro ao marcar a solicitação como Paga — verifica e marca manualmente com "+ Pago".' : 'Movimento afeto com sucesso! ✓', erroPago ? 'error' : 'success');
+    showNotif(erroPago ? 'Movimento afeto, mas houve um erro ao marcar a solicitação como Paga — verifica e marca manualmente com "+ Pago".' : erroParcela ? 'Movimento afeto, mas falhou a atualização de uma parcela — verifica no Plano de Pagamento.' : 'Movimento afeto com sucesso! ✓', (erroPago || erroParcela) ? 'error' : 'success');
     gfCloseAfetarModal();
     // Fase 41 — só volta a ler se houve gravações depois do recarregamento do meio
     if (_spEscritas !== _escritasAposRecarga) await gfRecarregar(['solicitacoes', 'parcelas']);
@@ -19627,6 +19880,53 @@ function gfPendParcelaAviso(m, o) {
     ? `A parcela de ${gfFmt(vPar)} fica resolvida e é eliminada.`
     : `A parcela passa de ${gfFmt(vPar)} para ${gfFmt(Math.round((vPar - vMov) * 100) / 100)} e continua prevista.`;
   return `<div style="margin-top:4px;font-size:11px;color:#065F46">↳ ${txt}</div>`;
+}
+// Fase 45 — mesmo aviso, mas para uma linha do modal "Afetar Movimento" (valor da linha em vez do movimento todo).
+function gfAfetarParcelaAviso(parcelaId, valorLinha) {
+  if (!parcelaId) return '';
+  const p = GF_TESOURARIA_PARCELAS.find(x => x.id === parcelaId);
+  if (!p) return '';
+  const vMov = Math.round((valorLinha || 0) * 100) / 100;
+  if (vMov <= 0) return '';
+  const vPar = gfPendValorParcela(p);
+  const txt = vMov >= vPar - 0.005
+    ? `A parcela de ${gfFmt(vPar)} fica resolvida e é eliminada.`
+    : `A parcela passa de ${gfFmt(vPar)} para ${gfFmt(Math.round((vPar - vMov) * 100) / 100)} e continua prevista.`;
+  return `<div style="grid-column:1/-1;font-size:11px;color:#065F46">↳ ${txt}</div>`;
+}
+// Fase 45b — quanto, no total das linhas do modal, está afeto a uma parcela (valores fixos do
+// Afetar RH + percentagens das restantes linhas).
+function gfAfetarValorAfetoParcela(parcelaId) {
+  const mov = GF_MOV_PENDENTES.find(x => x.id === GF_AFETAR.movimento);
+  const totalMov = Math.abs(mov?.importancia || 0);
+  const rh = GF_AFETAR.modo === 'rh' ? (GF_AFETAR.rhLinhas || []) : [];
+  const base = totalMov - rh.reduce((a, l) => a + (l.valor || 0), 0);
+  let soma = 0;
+  rh.forEach(l => { if (l.parcelaId === parcelaId) soma += (l.valor || 0); });
+  (GF_AFETAR.linhas || []).forEach(l => { if (l.parcelaId === parcelaId) soma += Math.round(base * (l.pct || 0) / 100 * 100) / 100; });
+  return soma;
+}
+// Fase 45 — resolve as parcelas escolhidas no modal: Map parcelaId → valor total afeto a ela.
+// Devolve true se alguma falhou. Mesmas regras da confirmação em massa nos Pendentes.
+async function gfResolverParcelasEscolhidas(porParcela) {
+  let erro = false;
+  await gfComLimiteConcorrencia([...porParcela], async ([parcelaId, valor]) => {
+    const p = GF_TESOURARIA_PARCELAS.find(x => x.id === parcelaId);
+    if (!p) return;
+    try {
+      const vMov = Math.round(valor * 100) / 100;
+      const vPar = gfPendValorParcela(p);
+      if (vMov >= vPar - 0.005) {
+        await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${p.id})`, null, 'DELETE');
+      } else {
+        const parcType = await _gfGetTesourariaParcelasType();
+        const body = { __metadata: { type: parcType }, ValorPrevisto: Math.max(0, Math.round(((p.valorPrevisto || 0) - vMov) * 100) / 100) };
+        if (p.valorConfirmado) body.ValorConfirmado = Math.max(0, Math.round((p.valorConfirmado - vMov) * 100) / 100);
+        await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${p.id})`, body, 'MERGE');
+      }
+    } catch (e) { erro = true; console.error('Erro ao resolver parcela', parcelaId, e); }
+  }, 4);
+  return erro;
 }
 function gfPendParcChange(movId) {
   const o = gfPendGetEdit(movId);
