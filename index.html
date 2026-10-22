@@ -19963,8 +19963,45 @@ function gfPendRowHtml(m) {
       </td>
       <td style="padding:8px;text-align:center;white-space:nowrap;position:sticky;right:0;z-index:1;background:${pronto ? '#F0FDF4' : 'var(--surface)'};box-shadow:-2px 0 4px rgba(0,0,0,.06)">
         <a onclick="gfOpenAfetarModal(${m.id})" style="color:var(--mod-financeiro);cursor:pointer;font-size:11px">Repartir</a>
+        ${_financeRole === 'pe' ? `<a onclick="gfPendEliminar(${m.id})" title="Eliminar este movimento pendente (só o Presidente Executivo)" style="display:block;margin-top:6px;color:#A32D2D;cursor:pointer;font-size:11px">🗑 Eliminar</a>` : ''}
       </td>
     </tr>`;
+}
+
+// Fase 49 — o Presidente Executivo pode eliminar uma linha de Movimentos Pendentes (ex.: duplicados,
+// movimentos que não interessam à contabilidade analítica). Apaga o item de FJ_MovimentosBancarios;
+// o SharePoint guarda-o na Reciclagem do site (recuperável). Nota: se o ficheiro do banco voltar a ser
+// importado com este movimento (mesma ChaveUnica), o fluxo de importação pode recriá-lo.
+let _gfPendEliminando = new Set();
+async function gfPendEliminar(movId) {
+  if (_financeRole !== 'pe') { showNotif('Apenas o Presidente Executivo pode eliminar movimentos pendentes.', 'error'); return; }
+  const m = GF_MOV_PENDENTES.find(x => x.id === movId);
+  if (!m) { showNotif('Movimento não encontrado', 'error'); return; }
+  if (m.estado === 'Afeto') { showNotif('Este movimento já foi afeto: reverte-o primeiro.', 'error'); return; }
+  if (_gfPendEliminando.has(movId)) return;
+  const tipo = (m.importancia || 0) < 0 ? 'Despesa' : 'Receita';
+  const ok = confirm(`Eliminar este movimento pendente?\n\n${gfDate(m.dataMovimento)} · ${tipo} · ${gfFmt(Math.abs(m.importancia || 0))}\n${gfMovNome(m)}\n\nO movimento deixa de aparecer na plataforma (fica na Reciclagem do SharePoint).`);
+  if (!ok) return;
+  _gfPendEliminando.add(movId);
+  try {
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosBancarios')/items(${movId})`, null, 'DELETE');
+    GF_MOV_PENDENTES = GF_MOV_PENDENTES.filter(x => x.id !== movId);
+    delete GF_PEND_EDIT[movId];
+    const restantes = GF_MOV_PENDENTES.filter(x => x.estado !== 'Afeto');
+    const row = gfEl(`gf-pend-row-${movId}`);
+    if (row) row.remove();
+    const tbody = gfEl('gf-pend-tbody');
+    if (tbody && !tbody.querySelector('tr')) tbody.innerHTML = gfPendTbodyHtml([]);
+    // atualiza o contador do separador "Pendentes"
+    document.querySelectorAll('button').forEach(b => { if (/^Pendentes 🏦/.test(b.textContent.trim())) b.textContent = 'Pendentes 🏦' + (restantes.length ? ` (${restantes.length})` : ''); });
+    gfPendRefreshBar();
+    showNotif('Movimento pendente eliminado', 'success');
+  } catch (e) {
+    console.error('Erro ao eliminar movimento pendente', movId, e);
+    showNotif('Não foi possível eliminar: ' + (e.message || e), 'error');
+  } finally {
+    _gfPendEliminando.delete(movId);
+  }
 }
 
 // Fase 39 — parcelas ainda por liquidar da Solicitação escolhida (mesmo critério da
