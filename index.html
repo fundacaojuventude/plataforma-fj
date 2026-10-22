@@ -10534,6 +10534,7 @@ let _gfMensaisIndex = new Map(); // chave → linha mensal atual (para os botõe
 
 // Estado do selector de período das previsões
 let _gfPrevPeriodo = 'semanal';
+let _gfPrevUltimo = null; // Fase 61 — último cálculo das previsões (para o botão Imprimir)
 let _gfSaldoAtualCache = 0;
 let _gfSaldoFonteCache = 'manual';
 let _gfSaldoDataCache = null;
@@ -12094,6 +12095,130 @@ function gfSetPrevPeriodo(p) {
   if (app) app.innerHTML = `<div style="max-width:1200px;margin:0 auto;padding-top:12px">${_gfBuildPrevisoes(_gfSaldoAtualCache)}</div>`;
 }
 
+
+// ── Fase 61 — Impressão / PDF das Previsões de Tesouraria ───────────────────────────────
+// Segue a vista atual (por projeto ou por despesa; semanal, mensal, trimestral ou anual) e
+// imprime tudo aberto, num modelo limpo da Fundação da Juventude.
+function gfPrevisoesPrintHtml() {
+  const U = _gfPrevUltimo;
+  if (!U || !U.periodosCalc) return '';
+  const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const fmt = v => (v < 0 ? '-' : '') + new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(v)) + ' €';
+  const fd = d => d ? d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' }) : '';
+  const fdl = d => d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const porDespesa = gfVistaDespesa();
+  const nomePeriodo = { semanal: 'Semanal', mensal: 'Mensal', trimestral: 'Trimestral', anual: 'Anual (12 meses)' }[U.periodo] || U.periodo;
+  let logo = ''; try { const im = document.querySelector('#login-screen img'); if (im && im.src) logo = im.src; } catch (e) {}
+  const agora = new Date();
+
+  const linhaItem = (it, receita, venc, mostraProj) => {
+    const d = gfDataDoItem(it);
+    const cor = receita ? '#047857' : '#A32D2D';
+    const nome = esc(it.titulo || '') + (it.fornecedor && it.fornecedor !== it.titulo ? ' — ' + esc(it.fornecedor) : '');
+    const mensal = it._chave ? ' <span class="mut">(mensal)</span>' : '';
+    const vv = venc ? ' <span class="venc">vencido</span>' : '';
+    const pj = mostraProj ? `<div class="mut pj">${esc(it.projetoNome || '(sem projeto)')}</div>` : '';
+    return `<tr><td class="dt">${fd(d)}</td><td>${nome}${mensal}${vv}${pj}</td><td class="vl" style="color:${cor}">${receita ? '+' : '-'}${fmt(it.valor || 0)}</td></tr>`;
+  };
+  const grupos = (items, receita, iniPeriodo, primeiro) => {
+    if (!items.length) return '';
+    const isVenc = it => primeiro && it.dataLimitePagamento && new Date(it.dataLimitePagamento) < iniPeriodo;
+    let gs;
+    if (porDespesa) {
+      gs = gfAgruparDespesas(items, receita ? 'R' : 'D').map(g => ({ nome: g.nome, itens: g.itens, total: g.total, nota: g.projetos.size > 1 ? gfRepartoTexto(g) : '' , proj: true }));
+    } else {
+      const m = new Map();
+      items.forEach(it => { const n = it.projetoNome || '(sem projeto)'; if (!m.has(n)) m.set(n, []); m.get(n).push(it); });
+      gs = [...m.entries()].map(([nome, itens]) => ({ nome, itens, total: itens.reduce((a, it) => a + (it.valor || 0), 0), nota: '', proj: false })).sort((a, b) => b.total - a.total);
+    }
+    return gs.map(g => `<table class="grp"><thead><tr><th colspan="2">${esc(g.nome)}${g.nota ? `<div class="mut nt">${esc(g.nota)}</div>` : ''}</th><th class="vl" style="color:${receita ? '#047857' : '#A32D2D'}">${fmt(g.total)}</th></tr></thead><tbody>${g.itens.slice().sort((a, b) => (gfDataDoItem(a) || 0) - (gfDataDoItem(b) || 0)).map(it => linhaItem(it, receita, isVenc(it), g.proj)).join('')}</tbody></table>`).join('');
+  };
+
+  const resumo = U.periodosCalc.map(p => {
+    const ent = p.totalEntradas + p.totalEntradasMensais, sai = p.totalSaidas + p.totalMensais;
+    return `<tr><td>${esc(p.label)}${U.periodo === 'semanal' ? ` <span class="mut">${fd(p.ini)} a ${fd(p.fim)}</span>` : ''}</td><td class="vl">${fmt(p.saldoIni)}</td><td class="vl" style="color:#047857">${ent ? '+' + fmt(ent) : '—'}</td><td class="vl" style="color:#A32D2D">${sai ? '-' + fmt(sai) : '—'}</td><td class="vl b" style="color:${p.saldoFim < 0 ? '#A32D2D' : '#003087'}">${fmt(p.saldoFim)}</td></tr>`;
+  }).join('');
+
+  const secoes = U.periodosCalc.map((p, i) => {
+    const ent = p.totalEntradas + p.totalEntradasMensais, sai = p.totalSaidas + p.totalMensais;
+    const blocos = [
+      p.mensais.length ? ['Despesas mensais', '#A32D2D', grupos(p.mensais, false, p.ini, false)] : null,
+      p.entradasMensais.length ? ['Entradas mensais', '#047857', grupos(p.entradasMensais, true, p.ini, false)] : null,
+      p.entradas.length ? ['Entradas', '#047857', grupos(p.entradas, true, p.ini, i === 0)] : null,
+      p.saidas.length ? ['Saídas pontuais', '#A32D2D', grupos(p.saidas, false, p.ini, i === 0)] : null
+    ].filter(Boolean);
+    const tit = U.periodo === 'semanal' ? `${esc(p.label)} · ${fdl(p.ini)} a ${fdl(p.fim)}` : esc(p.label);
+    return `<section class="per"><div class="per-h"><div class="per-t">${tit}</div><div class="per-n"><span>Início <b>${fmt(p.saldoIni)}</b></span><span style="color:#047857">Entradas <b>${ent ? '+' + fmt(ent) : '0,00 €'}</b></span><span style="color:#A32D2D">Saídas <b>${sai ? '-' + fmt(sai) : '0,00 €'}</b></span><span>Fim <b style="color:${p.saldoFim < 0 ? '#A32D2D' : '#003087'}">${fmt(p.saldoFim)}</b></span></div></div>`
+      + (blocos.length ? blocos.map(b => `<div class="bl" style="color:${b[1]}">${b[0]}</div>${b[2]}`).join('') + `<div class="liq"><span>Fluxo líquido do período</span><b style="color:${ent - sai >= 0 ? '#047857' : '#A32D2D'}">${ent - sai >= 0 ? '+' : ''}${fmt(ent - sai)}</b></div>` : '<div class="mut vz">Sem movimentos previstos neste período.</div>')
+      + `</section>`;
+  }).join('');
+
+  const avisos = [];
+  if (U.semPrazoDesp + U.semPrazoRec > 0) avisos.push(`${U.semPrazoDesp} saída(s) e ${U.semPrazoRec} entrada(s) sem Data Limite de Pagamento não estão incluídas nesta previsão.`);
+  avisos.push('Não inclui ocorrências já marcadas como pagas/recebidas. O primeiro período inclui também os valores vencidos.');
+
+  return `<!DOCTYPE html><html lang="pt-PT"><head><meta charset="UTF-8"><title>Previsão de Tesouraria — Fundação da Juventude</title><style>
+@page{size:A4;margin:16mm 14mm 18mm 14mm;@bottom-left{content:'Fundação da Juventude · Previsão de Tesouraria';font:8px Arial,sans-serif;color:#9aa1b4}@bottom-right{content:'Página ' counter(page) ' de ' counter(pages);font:8px Arial,sans-serif;color:#9aa1b4}}
+*{box-sizing:border-box}
+body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1a1a2e;font-size:10.5px;line-height:1.35;margin:0}
+.mut{color:#7a8296;font-weight:400}.b{font-weight:700}
+.cab{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2.5px solid #003087;padding-bottom:10px;margin-bottom:12px}
+.cab img{height:34px}
+.cab h1{margin:0;font-size:21px;color:#003087;font-weight:700;text-align:right}
+.cab .sb{font-size:10px;color:#5a6278;text-align:right;margin-top:3px}
+.kpi{display:flex;gap:10px;margin-bottom:12px}
+.kpi div{flex:1;border:1px solid #dde2ee;border-radius:6px;padding:7px 10px}
+.kpi small{display:block;font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;color:#7a8296;margin-bottom:2px}
+.kpi b{font-size:14px;color:#003087}
+h2{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#003087;margin:14px 0 5px}
+table{width:100%;border-collapse:collapse}
+table.res th{background:#003087;color:#fff;font-size:9px;text-transform:uppercase;letter-spacing:.03em;padding:5px 7px;text-align:right}
+table.res th:first-child{text-align:left}
+table.res td{padding:4px 7px;border-bottom:1px solid #e6e9f2}
+.vl{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.per{margin-top:16px}
+.per-h{background:#eef1f8;border-left:4px solid #003087;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;gap:10px;break-after:avoid;page-break-after:avoid}
+.per-t{font-size:12.5px;font-weight:700;color:#003087}
+.per-n{display:flex;gap:12px;font-size:9.5px;color:#5a6278}
+.per-n b{font-size:10.5px;color:inherit}
+.bl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:9px 0 3px 2px;break-after:avoid;page-break-after:avoid}
+table.grp{margin-bottom:5px;break-inside:auto}
+table.grp thead th{text-align:left;font-size:10px;background:#f7f8fb;border-bottom:1px solid #c8d0e0;padding:3px 6px;break-after:avoid;page-break-after:avoid}
+table.grp thead th.vl{text-align:right}
+table.grp td{padding:2px 6px;border-bottom:1px solid #eef0f6;vertical-align:top}
+tr{break-inside:avoid;page-break-inside:avoid}
+td.dt{width:38px;color:#7a8296}
+.pj{font-size:8.5px}.nt{font-size:8.5px;margin-top:1px}
+.venc{color:#A32D2D;font-size:8.5px;font-weight:700;text-transform:uppercase}
+.liq{display:flex;justify-content:space-between;margin-top:5px;padding-top:4px;border-top:1.5px solid #c8d0e0;font-size:10.5px}
+.vz{padding:8px 4px}
+.nota{margin-top:16px;padding-top:8px;border-top:1px solid #dde2ee;font-size:9px;color:#7a8296}
+.nota p{margin:2px 0}
+@media print{.noprint{display:none}}
+</style></head><body>
+<div class="cab">${logo ? `<img src="${logo}" alt="Fundação da Juventude">` : '<b style="color:#003087;font-size:15px">Fundação da Juventude</b>'}<div><h1>Previsão de Tesouraria</h1><div class="sb">Vista ${nomePeriodo} · ${porDespesa ? 'por despesa' : 'por projeto'} · ${U.periodosCalc.length ? fdl(U.periodosCalc[0].ini) + ' a ' + fdl(U.periodosCalc[U.periodosCalc.length - 1].fim) : ''}</div><div class="sb">Gerado em ${fdl(agora)} às ${agora.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}</div></div></div>
+<div class="kpi"><div><small>Saldo de caixa atual</small><b>${fmt(U.saldoAtual)}</b></div><div><small>Saldo no fim da previsão</small><b style="color:${U.periodosCalc.length && U.periodosCalc[U.periodosCalc.length - 1].saldoFim < 0 ? '#A32D2D' : '#003087'}">${U.periodosCalc.length ? fmt(U.periodosCalc[U.periodosCalc.length - 1].saldoFim) : '—'}</b></div><div><small>Períodos</small><b>${U.periodosCalc.length}</b></div></div>
+<h2>Resumo por período</h2>
+<table class="res"><thead><tr><th>Período</th><th>Saldo início</th><th>Entradas</th><th>Saídas</th><th>Saldo fim</th></tr></thead><tbody>${resumo}</tbody></table>
+<h2 style="margin-top:18px">Detalhe</h2>
+${secoes}
+<div class="nota">${avisos.map(a => `<p>${esc(a)}</p>`).join('')}</div>
+</body></html>`;
+}
+
+function gfImprimirPrevisoes() {
+  const html = gfPrevisoesPrintHtml();
+  if (!html) { showNotif('Abre primeiro uma vista das previsões.', 'error'); return; }
+  const antigo = document.getElementById('gf-print-frame'); if (antigo) antigo.remove();
+  const fr = document.createElement('iframe');
+  fr.id = 'gf-print-frame';
+  fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+  document.body.appendChild(fr);
+  const doc = fr.contentWindow.document;
+  doc.open(); doc.write(html); doc.close();
+  setTimeout(() => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { showNotif('Não foi possível abrir a impressão: ' + e.message, 'error'); } }, 400);
+}
+
 // Fase 46 — fontes das Previsões de Tesouraria (e do Operacional): o que conta como saída/entrada
 // pontual, como mensal automática, e o que já foi marcado como pago/recebido.
 function _gfFontesPrevisao() {
@@ -12289,6 +12414,7 @@ function _gfBuildPrevisoes(saldoAtual) {
     const vencidos = i === 0 ? saidas.filter(s => new Date(s.dataLimitePagamento) < p.ini) : [];
     return { ...p, saidas, entradas, mensais, entradasMensais, mensaisPagas, entradasMensaisPagasPeriodo, totalSaidas, totalEntradas, totalMensais, totalEntradasMensais, saldoIni, saldoFim: saldoCorrente, vencidos };
   });
+  _gfPrevUltimo = { periodosCalc, saldoAtual, periodo, semPrazoDesp: dividas.filter(s => !s.dataLimitePagamento).length, semPrazoRec: receitas.filter(s => !s.dataLimitePagamento).length }; // Fase 61 — para imprimir
 
   // ── Cards resumo ────────────────────────────────────────────
   const cardsHtml = periodosCalc.slice(0, 4).map((p, i) => {
@@ -12486,6 +12612,7 @@ function _gfBuildPrevisoes(saldoAtual) {
         <button style="${btnStyle('trimestral')}" onclick="gfSetPrevPeriodo('trimestral')">Trimestral</button>
         <button style="${btnStyle('anual')}" onclick="gfSetPrevPeriodo('anual')">Anual</button>
         <button style="${btnStyle('realizado')}" onclick="gfSetPrevPeriodo('realizado')">Previsto vs Realizado</button>
+        ${periodo !== 'realizado' ? `<span style="width:10px"></span><button id="gf-prev-print" style="padding:7px 16px;border:1px solid var(--fj-blue);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;background:#fff;color:var(--fj-blue);font-family:inherit" onclick="gfImprimirPrevisoes()" title="Imprime (ou guarda em PDF) a vista atual, com todas as semanas/meses e despesas abertas">🖨️ Imprimir</button>` : ''}
       </div>
     </div>
 
