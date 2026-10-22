@@ -10235,7 +10235,8 @@ let _gfSaldoDataCache = null;
 
 // Fase 22 — estado dos filtros e do modo de vista do Operacional (Calendário de Parcelas)
 let _gfOpModo = 'semanal'; // 'semanal' (10 semanas) | 'anual' (12 meses)
-let _gfOpFiltroProjeto = null; // id do projeto, ou null = todos
+let _gfOpFiltroProjeto = null; // Fase 48: Set<projetoId> (vários projetos), ou null = todos
+let _gfOpFiltroTipo = null; // Fase 48: null = tudo, 'Recebimento' = só receitas, 'Pagamento' = só despesas
 let _gfOpFiltroRubricas = null; // Set<rubricaId>, ou null = todas (dentro do projeto filtrado)
 
 // ── Gera pagamentos mensais sintéticos a partir de rubricas marcadas como mensais ──
@@ -10256,6 +10257,10 @@ function _gfDiasUteisMes(ano, mesIndex0) {
 // estimada (sem dados de retenção por pessoa) — confirmado pelo Rui, ajustável aqui.
 const GF_TAXA_SS_TRABALHADOR = 11;   // % sobre o vencimento bruto, a cargo do colaborador
 const GF_TAXA_IRS_MEDIA = 15;        // % sobre o vencimento bruto, estimativa média de IRS retido
+// Fase 47 — margem de segurança sobre as linhas RH automáticas da previsão (vencimentos líquidos
+// e SS+IRS): há sempre pequenas variações (dias de trabalho, horas, prémios, acertos de IRS).
+// Pedido do Rui: +15% sempre. O Quadro de Pessoal continua a mostrar o custo real, sem margem.
+const GF_MARGEM_RH_PCT = 15;
 
 // Decompõe o custo de um colaborador num dado mês nas suas partes: vencimento base (a
 // dobrar em junho e dezembro — subsídios de férias/Natal, convenção de 14 meses; Vencimento
@@ -10310,9 +10315,9 @@ function _gfGetPagamentosMensaisRH() {
         const dataLiq = new Date(ano, mes - 1, diaLiq);
         pagamentos.push({
           data: dataLiq,
-          valor: totalLiquido,
-          titulo: 'Vencimentos líquidos (Quadro de Pessoal)',
-          fornecedor: `${ativos.length} colaborador(es)`,
+          valor: totalLiquido * (1 + GF_MARGEM_RH_PCT / 100),
+          titulo: `Vencimentos líquidos (Quadro de Pessoal, +${GF_MARGEM_RH_PCT}% margem)`,
+          fornecedor: `${ativos.length} colaborador(es) · ${gfFmt(totalLiquido)} + ${GF_MARGEM_RH_PCT}%`,
           dataLimitePagamento: dataLiq.toISOString().split('T')[0],
           _chave: `RH-liq-${ano}-${mes}`, // Fase 44
           _isMensal: true,
@@ -10331,9 +10336,9 @@ function _gfGetPagamentosMensaisRH() {
         const nomeMes = new Date(ano, mes - 1, 1).toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
         pagamentos.push({
           data: dataContrib,
-          valor: totalContribuicoes,
-          titulo: 'Segurança Social + IRS (Quadro de Pessoal)',
-          fornecedor: `Referente a ${nomeMes}`,
+          valor: totalContribuicoes * (1 + GF_MARGEM_RH_PCT / 100),
+          titulo: `Segurança Social + IRS (Quadro de Pessoal, +${GF_MARGEM_RH_PCT}% margem)`,
+          fornecedor: `Referente a ${nomeMes} · ${gfFmt(totalContribuicoes)} + ${GF_MARGEM_RH_PCT}%`,
           dataLimitePagamento: dataContrib.toISOString().split('T')[0],
           _chave: `RH-ss-${ano}-${mes}`, // Fase 44
           _isMensal: true,
@@ -10523,6 +10528,8 @@ function gfRenderQuadroRH() {
   const custoMesAtual = decomposicoesMesAtual.reduce((s, d) => s + d.total, 0);
   const liquidoMesAtual = decomposicoesMesAtual.reduce((s, d) => s + d.liquido, 0);
   const contribMesAtual = decomposicoesMesAtual.reduce((s, d) => s + d.contribuicoes, 0);
+  const saMesAtual = decomposicoesMesAtual.reduce((s, d) => s + d.sa, 0); // Fase 47
+  const transpMesAtual = decomposicoesMesAtual.reduce((s, d) => s + d.transp, 0);
 
   return `
     <div style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
@@ -10542,6 +10549,10 @@ function gfRenderQuadroRH() {
         <div style="font-size:22px;font-weight:700">${gfFmt(custoMesAtual)}</div>
         <div style="font-size:12px;color:var(--text3);margin-top:6px">
           💶 ${gfFmt(liquidoMesAtual)} líquido aos colaboradores (dia 26) · 🏛️ ${gfFmt(contribMesAtual)} SS + IRS ao Estado (dia 20 do mês seguinte)
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">
+          O líquido já inclui ${gfFmt(saMesAtual)} de subsídio de alimentação (${_gfDiasUteisMes(anoAtual, new Date().getMonth())} dias úteis, sem descontar feriados nem ausências) e ${gfFmt(transpMesAtual)} de subsídio de transporte.
+          Na previsão de tesouraria estas duas linhas entram com +${GF_MARGEM_RH_PCT}% de margem (${gfFmt((liquidoMesAtual + contribMesAtual) * (1 + GF_MARGEM_RH_PCT / 100))} no mês); aqui vês o custo real.
         </div>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -11066,13 +11077,82 @@ function _gfOpGerarSemanas() {
 // (sem filtro de rúbricas, ou a rúbrica da parcela está entre as escolhidas). Uma parcela
 // sem rúbrica associada só passa quando não há nenhum destes filtros ativo.
 function gfOpParcelaPassaFiltros(p) {
+  if (_gfOpFiltroTipo && p.tipo !== _gfOpFiltroTipo) return false; // Fase 48
   if (!_gfOpFiltroProjeto && !_gfOpFiltroRubricas) return true;
   const rub = p.rubricaId ? GF_RUBRICAS_MASTER.find(r => r.id === p.rubricaId) : null;
-  if (_gfOpFiltroProjeto && (!rub || rub.projetoId !== _gfOpFiltroProjeto)) return false;
+  if (_gfOpFiltroProjeto && (!rub || !_gfOpFiltroProjeto.has(rub.projetoId))) return false;
   if (_gfOpFiltroRubricas && !_gfOpFiltroRubricas.has(p.rubricaId)) return false;
   return true;
 }
 
+// Fase 46 — o que as Previsões contam e o Operacional não mostrava como parcela, por período.
+function _gfOpPassaFiltrosItem(item, rubricaId, projetoId) {
+  if (_gfOpFiltroProjeto) {
+    const proj = projetoId || (GF_RUBRICAS_MASTER.find(r => r.id === rubricaId)?.projetoId);
+    if (!_gfOpFiltroProjeto.has(proj)) return false;
+  }
+  if (_gfOpFiltroRubricas && !_gfOpFiltroRubricas.has(rubricaId)) return false;
+  return true;
+}
+function _gfOpExtras(fontes, periodo, emAtraso) {
+  const noPeriodo = d => emAtraso ? d < periodo.ini : (d >= periodo.ini && d <= periodo.fim);
+  const comData = s => s.dataLimitePagamento && noPeriodo(new Date(s.dataLimitePagamento));
+  const verDesp = _gfOpFiltroTipo !== 'Recebimento', verRec = _gfOpFiltroTipo !== 'Pagamento'; // Fase 48
+  const semPlanoDesp = !verDesp ? [] : fontes.semPlanoDesp.filter(s => comData(s) && _gfOpPassaFiltrosItem(s, s.rubricaId, s.projetoId));
+  const semPlanoRec = !verRec ? [] : fontes.semPlanoRec.filter(s => comData(s) && _gfOpPassaFiltrosItem(s, s.rubricaId, s.projetoId));
+  const mensaisDesp = (emAtraso || !verDesp) ? [] : fontes.mensaisFora.filter(m => noPeriodo(m.data) && _gfOpPassaFiltrosItem(m, m._rubricaId, null));
+  const mensaisRec = (emAtraso || !verRec) ? [] : fontes.entradasMensaisFora.filter(m => noPeriodo(m.data) && _gfOpPassaFiltrosItem(m, m._rubricaId, null));
+  const soma = arr => arr.reduce((a, x) => a + (x.valor || 0), 0);
+  return { semPlanoDesp, semPlanoRec, mensaisDesp, mensaisRec,
+           totSemPlano: soma(semPlanoRec) - soma(semPlanoDesp), totMensais: soma(mensaisRec) - soma(mensaisDesp) };
+}
+// Líquido previsto de uma coluna = o mesmo cálculo das Previsões (só parcelas ainda 'Previstas').
+function _gfOpResumoColuna(parcelas, extras, emAtraso) {
+  // Parcelas de rúbricas "fixas" contam nas Previsões como mensais (só na própria data, sem acumular
+  // atrasos): em atraso ficam visíveis aqui mas fora do total, tal como nas Previsões.
+  const fixas = emAtraso ? new Set(GF_RUBRICAS_MASTER.filter(r => r.rubricaFixa === true).map(r => r.id)) : null;
+  const previstas = parcelas.filter(p => p.estado === 'Prevista' && !(fixas && p.rubricaId && fixas.has(p.rubricaId)));
+  const totParcelas = previstas.reduce((a, p) => a + (p.tipo === 'Recebimento' ? 1 : -1) * (p.valorPrevisto || 0), 0);
+  const realizadas = parcelas.length - previstas.length;
+  const liquido = totParcelas + extras.totSemPlano + extras.totMensais;
+  const sinal = v => (v >= 0 ? '+' : '') + gfFmt(v);
+  const partes = [];
+  if (parcelas.length) partes.push(`parcelas ${sinal(totParcelas)}`);
+  if (extras.semPlanoDesp.length + extras.semPlanoRec.length) partes.push(`sem plano ${sinal(extras.totSemPlano)}`);
+  if (extras.mensaisDesp.length + extras.mensaisRec.length) partes.push(`mensais ${sinal(extras.totMensais)}`);
+  const cabecalho = `
+    <div style="font-size:11px;font-weight:600;color:${liquido < 0 ? '#A32D2D' : '#059669'}">Líquido previsto: ${sinal(liquido)}</div>
+    ${partes.length > 1 ? `<div style="font-size:9px;color:var(--text3);margin-top:2px">${partes.join(' · ')}</div>` : ''}
+    ${realizadas ? `<div style="font-size:9px;color:var(--text3);margin-top:2px">${realizadas} já realizada(s) ou fixa(s) em atraso: não contam</div>` : ''}`;
+  return { liquido, cabecalho };
+}
+function _gfOpCardSemPlanoHtml(s, receita) {
+  const cor = receita ? '#059669' : '#A32D2D';
+  return `
+    <div style="background:#fff;border:1px dashed ${cor};border-radius:8px;padding:8px 10px;margin-bottom:8px">
+      <div style="font-size:11px;font-weight:600;overflow-wrap:break-word">📝 ${s.titulo || '—'}</div>
+      <div style="font-size:10px;color:var(--text3);margin:2px 0;overflow-wrap:break-word">${s.fornecedor || s.rubricaNome || '—'} · limite ${s.dataLimitePagamento ? gfDate(s.dataLimitePagamento) : '—'}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+        <span style="font-size:11px;font-weight:700;color:${cor}">${receita ? '+' : '-'}${gfFmt(s.valor)}</span>
+        <span style="display:flex;gap:6px;align-items:center">
+          <a onclick="gfOpenPlanoPagamentoModal(${s.id})" title="Criar o plano de pagamento (parcelas) desta solicitação" style="font-size:12px;cursor:pointer">📅</a>
+          <a onclick="gfOpenSolicitacaoViewModal(${s.id})" title="Ver solicitação" style="font-size:11px;cursor:pointer;color:var(--text3)">👁️</a>
+        </span>
+      </div>
+      <div style="font-size:9px;color:var(--text3);margin-top:3px">Sem plano de pagamento (conta na data limite)</div>
+    </div>`;
+}
+function _gfOpExtrasHtml(extras) {
+  const semPlano = extras.semPlanoDesp.map(s => _gfOpCardSemPlanoHtml(s, false)).join('') + extras.semPlanoRec.map(s => _gfOpCardSemPlanoHtml(s, true)).join('');
+  const nMens = extras.mensaisDesp.length + extras.mensaisRec.length;
+  const mensais = nMens ? `
+    <details style="margin-bottom:8px;font-size:10px;color:var(--text2)">
+      <summary style="cursor:pointer;color:var(--text3)">🔄 ${nMens} mensal(is) automática(s) ${extras.totMensais >= 0 ? '+' : ''}${gfFmt(extras.totMensais)}</summary>
+      <div style="margin-top:4px">${extras.mensaisDesp.map(m => `<div style="display:flex;justify-content:space-between;gap:6px;padding:1px 0"><span style="overflow-wrap:anywhere">${m.titulo}</span><span style="color:#A32D2D;white-space:nowrap">-${gfFmt(m.valor)}</span></div>`).join('')}${extras.mensaisRec.map(m => `<div style="display:flex;justify-content:space-between;gap:6px;padding:1px 0"><span style="overflow-wrap:anywhere">${m.titulo}</span><span style="color:#059669;white-space:nowrap">+${gfFmt(m.valor)}</span></div>`).join('')}
+      <div style="color:var(--text3);margin-top:3px">Calculadas do orçamento / Quadro de Pessoal. Marca como pagas (✅) nas Previsões.</div></div>
+    </details>` : '';
+  return semPlano + mensais;
+}
 // Fase 44 — parcelas ainda 'Previstas' com data anterior ao início do primeiro período visível.
 function gfOpParcelasEmAtraso(primeiroPeriodo) {
   return GF_TESOURARIA_PARCELAS
@@ -11102,9 +11182,21 @@ function gfOpSetModo(m) {
 
 // Fase 22 — muda o filtro de Projeto; limpa a seleção de rúbricas anterior, já que a lista
 // de rúbricas disponíveis passa a depender do novo projeto escolhido.
+// Fase 48 — aceita vários projetos: recebe o <select multiple> (ou um id isolado) e guarda o
+// conjunto; nenhum selecionado = todos. As rúbricas já escolhidas mantêm-se se continuarem a
+// pertencer a algum dos projetos escolhidos.
 function gfOpSetFiltroProjeto(v) {
-  _gfOpFiltroProjeto = v ? parseInt(v) : null;
-  _gfOpFiltroRubricas = null;
+  let ids;
+  if (v && v.selectedOptions) ids = Array.from(v.selectedOptions).map(o => parseInt(o.value)).filter(Boolean);
+  else ids = v ? [parseInt(v)] : [];
+  _gfOpFiltroProjeto = ids.length ? new Set(ids) : null;
+  if (_gfOpFiltroRubricas) {
+    const mantidas = [..._gfOpFiltroRubricas].filter(id => {
+      const r = GF_RUBRICAS_MASTER.find(x => x.id === id);
+      return r && (!_gfOpFiltroProjeto || _gfOpFiltroProjeto.has(r.projetoId));
+    });
+    _gfOpFiltroRubricas = mantidas.length ? new Set(mantidas) : null;
+  }
   gfRefreshOperacional();
 }
 
@@ -11115,7 +11207,13 @@ function gfOpSetFiltroRubricas(selectEl) {
   gfRefreshOperacional();
 }
 
+function gfOpSetFiltroTipo(t) { // Fase 48
+  _gfOpFiltroTipo = t || null;
+  gfRefreshOperacional();
+}
+
 function gfOpLimparFiltros() {
+  _gfOpFiltroTipo = null;
   _gfOpFiltroProjeto = null;
   _gfOpFiltroRubricas = null;
   gfRefreshOperacional();
@@ -11170,38 +11268,36 @@ function gfRenderTesourariaOperacional() {
 
   // Fase 44 — coluna "Em atraso": o que ficou por confirmar antes do período atual.
   const emAtraso = gfOpParcelasEmAtraso(semanas[0]);
-  const colunaAtraso = emAtraso.length ? (() => {
-    const receb = emAtraso.filter(p => p.tipo === 'Recebimento').reduce((a, p) => a + (p.valorConfirmado || p.valorPrevisto || 0), 0);
-    const pag = emAtraso.filter(p => p.tipo === 'Pagamento').reduce((a, p) => a + (p.valorConfirmado || p.valorPrevisto || 0), 0);
-    const liq = receb - pag;
+  const fontesPrev = _gfFontesPrevisao(); // Fase 46 — as mesmas fontes das Previsões
+  const extrasAtraso = _gfOpExtras(fontesPrev, semanas[0], true);
+  const nSemPlanoAtraso = extrasAtraso.semPlanoDesp.length + extrasAtraso.semPlanoRec.length;
+  const colunaAtraso = (emAtraso.length || nSemPlanoAtraso) ? (() => {
+    const resumo = _gfOpResumoColuna(emAtraso, extrasAtraso, true);
     const fmtCurta = d => d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' });
     return `
       <div class="gf-op-coluna" style="min-width:190px;max-width:190px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:10px;padding:10px;display:flex;flex-direction:column">
         <div style="font-size:12px;font-weight:700;margin-bottom:2px;color:#A32D2D">⚠️ Em atraso</div>
-        <div style="font-size:10px;color:var(--text3);margin-bottom:8px">antes de ${fmtCurta(semanas[0].ini)} · ${emAtraso.length} parcela(s)</div>
-        <div style="font-size:11px;font-weight:600;color:${liq < 0 ? '#A32D2D' : '#059669'};margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #FCA5A5">
-          Líquido: ${liq >= 0 ? '+' : ''}${gfFmt(liq)}
-        </div>
-        <div style="flex:1;min-height:40px">${emAtraso.map(p => _gfOpCardHtml(p)).join('')}</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:4px">Muda a data, arrasta para uma semana, divide ou elimina.</div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:8px">antes de ${fmtCurta(semanas[0].ini)} · ${emAtraso.length} parcela(s)${nSemPlanoAtraso ? ` + ${nSemPlanoAtraso} sem plano` : ''} · conta na Semana 1 das Previsões</div>
+        <div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #FCA5A5">${resumo.cabecalho}</div>
+        <div style="flex:1;min-height:40px">${emAtraso.map(p => _gfOpCardHtml(p)).join('')}${_gfOpExtrasHtml(extrasAtraso)}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px">Muda a data, arrasta para uma semana, divide ou elimina. As solicitações sem plano resolvem-se com o 📅.</div>
       </div>`;
   })() : '';
 
   const colunas = semanas.map((s, i) => {
     const parcelas = gfOpParcelasDaSemana(s);
-    const totalReceb = parcelas.filter(p => p.tipo === 'Recebimento').reduce((a, p) => a + (p.valorConfirmado || p.valorPrevisto || 0), 0);
-    const totalPag = parcelas.filter(p => p.tipo === 'Pagamento').reduce((a, p) => a + (p.valorConfirmado || p.valorPrevisto || 0), 0);
-    const liquido = totalReceb - totalPag;
+    const extras = _gfOpExtras(fontesPrev, s, false); // Fase 46
+    const resumo = _gfOpResumoColuna(parcelas, extras);
+    const extrasHtml = _gfOpExtrasHtml(extras);
     return `
       <div class="gf-op-coluna" ondragover="gfOpDragOver(event)" ondrop="gfOpDrop(event,${i})"
            style="min-width:190px;max-width:190px;background:var(--bg3);border-radius:10px;padding:10px;display:flex;flex-direction:column">
         <div style="font-size:12px;font-weight:700;margin-bottom:2px">${s.label}</div>
         <div style="font-size:10px;color:var(--text3);margin-bottom:8px">${s.datas}</div>
-        <div style="font-size:11px;font-weight:600;color:${liquido < 0 ? '#A32D2D' : '#059669'};margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-          Líquido: ${liquido >= 0 ? '+' : ''}${gfFmt(liquido)}
-        </div>
+        <div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">${resumo.cabecalho}</div>
         <div style="flex:1;min-height:40px">
-          ${parcelas.length ? parcelas.map(p => _gfOpCardHtml(p)).join('') : `<div style="font-size:10px;color:var(--text3);text-align:center;padding:12px 0">Sem parcelas</div>`}
+          ${parcelas.length ? parcelas.map(p => _gfOpCardHtml(p)).join('') : (extrasHtml ? '' : `<div style="font-size:10px;color:var(--text3);text-align:center;padding:12px 0">Sem parcelas</div>`)}
+          ${extrasHtml}
         </div>
         <button class="btn btn-sm" onclick="gfOpAdicionarNaSemana(${i})" style="margin-top:8px;font-size:11px">+ Parcela</button>
       </div>
@@ -11211,10 +11307,11 @@ function gfRenderTesourariaOperacional() {
   // Fase 22 — filtros de Projeto/Rúbricas e alternância 10 Semanas / Anual.
   const projetosOrdenados = [...GF_PROJETOS].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt'));
   const rubricasDisponiveis = GF_RUBRICAS_MASTER
-    .filter(r => !_gfOpFiltroProjeto || r.projetoId === _gfOpFiltroProjeto)
+    .filter(r => !_gfOpFiltroProjeto || _gfOpFiltroProjeto.has(r.projetoId))
     .sort((a, b) => (a.titulo || '').localeCompare(b.titulo || '', 'pt'));
   const modoBtnStyle = m => `padding:7px 14px;border:1px solid var(--border2);border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;background:${_gfOpModo === m ? 'var(--fj-blue)' : 'var(--bg2)'};color:${_gfOpModo === m ? '#fff' : 'var(--text2)'};font-family:inherit;transition:all .15s`;
-  const temFiltros = _gfOpFiltroProjeto || _gfOpFiltroRubricas;
+  const temFiltros = _gfOpFiltroProjeto || _gfOpFiltroRubricas || _gfOpFiltroTipo;
+  const tipoBtnStyle = t => `padding:7px 14px;border:1px solid var(--border2);border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;background:${(_gfOpFiltroTipo || '') === t ? 'var(--fj-blue)' : 'var(--bg2)'};color:${(_gfOpFiltroTipo || '') === t ? '#fff' : 'var(--text2)'};font-family:inherit;transition:all .15s`;
 
   return `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
@@ -11225,10 +11322,17 @@ function gfRenderTesourariaOperacional() {
     </div>
     <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:16px">
       <div>
-        <label style="display:block;font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em">Projeto</label>
-        <select id="gf-op-filtro-projeto" onchange="gfOpSetFiltroProjeto(this.value)" style="padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;min-width:180px;background:var(--bg2);color:var(--text)">
-          <option value="">Todos os projetos</option>
-          ${projetosOrdenados.map(pr => `<option value="${pr.id}" ${_gfOpFiltroProjeto === pr.id ? 'selected' : ''}>${pr.nome}</option>`).join('')}
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em">Tipo</label>
+        <div style="display:flex;gap:6px">
+          <button onclick="gfOpSetFiltroTipo('')" style="${tipoBtnStyle('')}">Todos</button>
+          <button onclick="gfOpSetFiltroTipo('Recebimento')" style="${tipoBtnStyle('Recebimento')}">Receitas</button>
+          <button onclick="gfOpSetFiltroTipo('Pagamento')" style="${tipoBtnStyle('Pagamento')}">Despesas</button>
+        </div>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.03em">Projetos <span style="font-weight:400;text-transform:none">(opcional · Ctrl/Cmd+clique para vários · nenhum = todos)</span></label>
+        <select id="gf-op-filtro-projeto" multiple size="3" onchange="gfOpSetFiltroProjeto(this)" style="padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;min-width:260px;background:var(--bg2);color:var(--text)">
+          ${projetosOrdenados.map(pr => `<option value="${pr.id}" ${_gfOpFiltroProjeto && _gfOpFiltroProjeto.has(pr.id) ? 'selected' : ''}>${pr.nome}</option>`).join('')}
         </select>
       </div>
       <div>
@@ -11654,9 +11758,9 @@ function gfSetPrevPeriodo(p) {
   if (app) app.innerHTML = `<div style="max-width:1200px;margin:0 auto;padding-top:12px">${_gfBuildPrevisoes(_gfSaldoAtualCache)}</div>`;
 }
 
-function _gfBuildPrevisoes(saldoAtual) {
-  _gfSaldoAtualCache = saldoAtual;
-
+// Fase 46 — fontes das Previsões de Tesouraria (e do Operacional): o que conta como saída/entrada
+// pontual, como mensal automática, e o que já foi marcado como pago/recebido.
+function _gfFontesPrevisao() {
   // Despesas aprovadas (DF ou superior) ainda não pagas
   const ESTADOS_TESOURARIA = ['Aprovado DF', 'Aprovado', 'Processado'];
 
@@ -11735,10 +11839,10 @@ function _gfBuildPrevisoes(saldoAtual) {
   // Solicitação/parcela gerada a partir do Calendário de Parcelas).
   const pagamentosMensaisTodos = _gfGetPagamentosMensais()
     .concat(dividasBaseFixas.map(gfParaMensal))
-    .concat(parcelasPontuaisFixas.filter(p => p.tipoSolicitacao === 'Despesa').map(gfParaMensal));
+    .concat(parcelasPontuaisFixas.filter(p => p.tipoSolicitacao === 'Despesa').map(p => ({ ...gfParaMensal(p), _daParcela: true })));
   const entradasMensaisTodas = _gfGetEntradasMensais() // Fase 20
     .concat(receitasBaseFixas.map(gfParaMensal))
-    .concat(parcelasPontuaisFixas.filter(p => p.tipoSolicitacao === 'Receita').map(gfParaMensal));
+    .concat(parcelasPontuaisFixas.filter(p => p.tipoSolicitacao === 'Receita').map(p => ({ ...gfParaMensal(p), _daParcela: true })));
   // Fase 44 — ocorrências automáticas já marcadas como pagas/recebidas deixam de contar
   const _foiMarcada = m => !!(m._chave && _gfMensaisPagas.has(m._chave));
   _gfMensaisIndex = new Map();
@@ -11747,6 +11851,15 @@ function _gfBuildPrevisoes(saldoAtual) {
   const entradasMensaisAll = entradasMensaisTodas.filter(m => !_foiMarcada(m));
   const pagamentosMensaisPagos = pagamentosMensaisTodos.filter(_foiMarcada);
   const entradasMensaisPagas = entradasMensaisTodas.filter(_foiMarcada);
+  return { dividas, receitas, pagamentosMensais, entradasMensaisAll, pagamentosMensaisPagos, entradasMensaisPagas,
+           semPlanoDesp: dividasBaseResto, semPlanoRec: receitasBaseResto,
+           mensaisFora: pagamentosMensais.filter(m => !m._daParcela), entradasMensaisFora: entradasMensaisAll.filter(m => !m._daParcela) };
+}
+
+function _gfBuildPrevisoes(saldoAtual) {
+  _gfSaldoAtualCache = saldoAtual;
+
+  const { dividas, receitas, pagamentosMensais, entradasMensaisAll, pagamentosMensaisPagos, entradasMensaisPagas } = _gfFontesPrevisao();
 
   const hoje = new Date(); hoje.setHours(0,0,0,0);
 
