@@ -5,10 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Plataforma Interna — Fundação da Juventude</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Fase 35 (Ponto 6) — pptxgenjs, jsPDF, pdf-lib e xlsx deixaram de estar aqui: só são
+     descarregadas quando a exportação correspondente é mesmo usada (ver gfCarregarScript). -->
 <style>
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -2955,6 +2953,26 @@ tr:hover td{background:var(--bg3)}
 
 <script>// v3
 
+// Fase 35 (Ponto 6) — carregamento on-demand de bibliotecas pesadas (pptxgenjs, jsPDF,
+// pdf-lib, xlsx), que deixaram de estar no <head>. Cada URL só é pedida uma vez: chamadas
+// seguintes para o mesmo src devolvem a mesma promise já resolvida.
+const _gfScriptsCarregados = {};
+function gfCarregarScript(src) {
+  if (_gfScriptsCarregados[src]) return _gfScriptsCarregados[src];
+  _gfScriptsCarregados[src] = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => { delete _gfScriptsCarregados[src]; reject(new Error('Falha ao carregar ' + src)); };
+    document.head.appendChild(s);
+  });
+  return _gfScriptsCarregados[src];
+}
+const GF_CDN_PPTXGENJS = 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js';
+const GF_CDN_JSPDF = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+const GF_CDN_PDFLIB = 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+const GF_CDN_XLSX = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+
 // ═══ CONFIG + SHARED AUTH (from Gestão de Reuniões) ═══
 const CLIENT_ID='b3a66901-ec96-424b-9bcb-370b39a2a210';
 const TENANT_ID='09ae14e9-8398-4ca0-a5cd-994620a0ab3a';
@@ -3140,8 +3158,19 @@ async function doLogin(){
   }
 }
 function doLogout(){msalI.logoutRedirect();}
+// Fase 32 (Ponto 3) — o MSAL já faz a sua própria cache de token; isto só evita repetir o
+// acquireTokenSilent (promise/await) quando já sabemos que o token em memória ainda é
+// válido, com 2 minutos de margem antes do fim real — poupa overhead em loops apertados
+// sem nunca usar um token mais velho do que o que o MSAL devolveria de qualquer forma.
+let _spTokenValidoAte = 0;
 async function getSPToken(){
-  try{const r=await msalI.acquireTokenSilent({scopes:SCOPES,account:user});spToken=r.accessToken;}
+  if (spToken && Date.now() < _spTokenValidoAte) return;
+  try{
+    const r=await msalI.acquireTokenSilent({scopes:SCOPES,account:user});
+    spToken=r.accessToken;
+    const expiraEm = r.expiresOn ? new Date(r.expiresOn).getTime() : (Date.now() + 55*60*1000);
+    _spTokenValidoAte = expiraEm - 2*60*1000;
+  }
   catch(e){await msalI.acquireTokenRedirect({scopes:SCOPES});}
 }
 async function getGraphToken(){
@@ -3541,10 +3570,23 @@ function showApp(){
 }
 
 
-async function getDigest(){
+// Fase 32 (Ponto 3) — o FormDigest era pedido (POST a /_api/contextinfo) em TODAS as
+// escritas. Passa a ter cache com expiração baseada no FormDigestTimeoutSeconds que o
+// próprio SharePoint devolve (1800s/30min por omissão quando o campo não vem), com 60s de
+// margem de segurança. Se mesmo assim uma escrita apanhar um 403 (ex.: digest invalidado do
+// lado do servidor antes do previsto), spWrite tenta UMA vez com um digest forçadamente
+// fresco antes de desistir — nunca esconde um 403 por falta de permissão real, porque nesse
+// caso a repetição falha outra vez com o mesmo erro, que continua a ser lançado na mesma.
+let _spDigestCache = { valor: null, validoAte: 0 };
+async function getDigest(forcarFresco){
+  if (!forcarFresco && _spDigestCache.valor && Date.now() < _spDigestCache.validoAte) return _spDigestCache.valor;
   await getSPToken();
   const r=await fetch(`${SP}/_api/contextinfo`,{method:'POST',headers:{Accept:'application/json;odata=verbose',Authorization:`Bearer ${spToken}`,'Content-Length':'0'}});
-  const d=await r.json();return d.d.GetContextWebInformation.FormDigestValue;
+  const d=await r.json();
+  const info = d.d.GetContextWebInformation;
+  const timeoutSeg = info.FormDigestTimeoutSeconds || 1800;
+  _spDigestCache = { valor: info.FormDigestValue, validoAte: Date.now() + Math.max(60, timeoutSeg - 60) * 1000 };
+  return _spDigestCache.valor;
 }
 async function spRead(url){
   await getSPToken();
@@ -3566,22 +3608,52 @@ async function spReadAll(url){
 async function spWrite(url,body,method,etag){
   await getSPToken();
   const digest=await getDigest();
-  const h={'Content-Type':'application/json;odata=verbose','Accept':'application/json;odata=verbose','Authorization':`Bearer ${spToken}`,'X-RequestDigest':digest};
-  if(method==='MERGE'||method==='DELETE'){h['X-HTTP-Method']=method;h['IF-MATCH']=etag||'*';}
-  const r=await fetch(url,{method:'POST',headers:h,body:body?JSON.stringify(body):undefined});
+  const fazerPedido = (dig) => {
+    const h={'Content-Type':'application/json;odata=verbose','Accept':'application/json;odata=verbose','Authorization':`Bearer ${spToken}`,'X-RequestDigest':dig};
+    if(method==='MERGE'||method==='DELETE'){h['X-HTTP-Method']=method;h['IF-MATCH']=etag||'*';}
+    return fetch(url,{method:'POST',headers:h,body:body?JSON.stringify(body):undefined});
+  };
+  let r = await fazerPedido(digest);
+  if (r.status === 403) {
+    const digestFresco = await getDigest(true);
+    r = await fazerPedido(digestFresco);
+  }
   if(!r.ok){const t=await r.text();throw new Error(`HTTP ${r.status}: ${t.slice(0,500)}`);}
   return r;
 }
 
+// Fase 33 (Ponto 3) — executa `worker` para cada item de `items` com um limite de pedidos
+// em paralelo (em vez de um a seguir ao outro). Guarda cada resultado na posição original
+// de `items` (não na ordem de conclusão dos pedidos), para quem precisa de corresponder
+// `items[i]` a `resultados[i]` depois. Se o próprio `worker` não apanhar o erro de um item,
+// a função propaga-o de imediato — tal como o loop sequencial que substitui já parava ao
+// primeiro erro; onde o loop original já tinha try/catch por item, esse try/catch mantém-se
+// dentro do `worker` para continuar a contar sucessos/erros exactamente como antes.
+async function gfComLimiteConcorrencia(items, worker, limite = 5) {
+  const resultados = new Array(items.length);
+  for (let i = 0; i < items.length; i += limite) {
+    const lote = items.slice(i, i + limite);
+    const parciais = await Promise.all(lote.map((item, j) => worker(item, i + j)));
+    for (let j = 0; j < parciais.length; j++) resultados[i + j] = parciais[j];
+  }
+  return resultados;
+}
+
 // Helper: obter ID de utilizador SP a partir de email
+// Fase 32 (Ponto 3) — cache em memória por email; o Id de um utilizador no site não muda
+// durante a sessão. Só guarda resoluções com sucesso — um "não encontrado" nunca fica em
+// cache, para uma falha transitória de rede não ficar presa para sempre.
+const _spUidCache = new Map();
 async function getSpUID(email){
   if(!email)return null;
+  const _uidKey = email.toLowerCase();
+  if (_spUidCache.has(_uidKey)) return _spUidCache.get(_uidKey);
   try{
     await getSPToken();
     // Tentar via siteusers/getbyemail
     const r=await fetch(`${SP}/_api/web/siteusers/getbyemail('${encodeURIComponent(email)}')`,
       {headers:{Accept:'application/json;odata=verbose',Authorization:`Bearer ${spToken}`}});
-    if(r.ok){const d=await r.json();return d.d?.Id||null;}
+    if(r.ok){const d=await r.json();const id=d.d?.Id||null; if(id) _spUidCache.set(_uidKey, id); return id;}
     // Fallback: ensureuser
     const digest=await getDigest();
     const r2=await fetch(`${SP}/_api/web/ensureuser`,{
@@ -3590,7 +3662,7 @@ async function getSpUID(email){
         'Authorization':`Bearer ${spToken}`,'X-RequestDigest':digest},
       body:JSON.stringify({logonName:email})
     });
-    if(r2.ok){const d2=await r2.json();return d2.d?.Id||null;}
+    if(r2.ok){const d2=await r2.json();const id2=d2.d?.Id||null; if(id2) _spUidCache.set(_uidKey, id2); return id2;}
   }catch(e){console.warn('getSpUID failed:',email,e.message);}
   return null;
 }
@@ -4061,8 +4133,7 @@ async function saveExt() {
     if (!respUID) { showNotif('Não foi possível identificar o responsável no SharePoint (email inválido ou sem acesso ao site).', 'error'); btn.disabled=false; btn.textContent='Guardar'; return; }
 
     // 1) tipo OData dinâmico — exactamente como Correio
-    const meta = await spRead(`${SP}/_api/web/lists/getbytitle('${EXT_LIST}')?$select=ListItemEntityTypeFullName`);
-    const listType = meta.d.ListItemEntityTypeFullName;
+    const listType = await auGetListType(EXT_LIST);
 
     const body = {
       __metadata:     { type: listType },
@@ -4086,19 +4157,19 @@ async function saveExt() {
       itemId = resData.d?.Id;
     }
 
-    // 2) Anexos novos
+    // 2) Anexos novos — Fase 33: ficheiros independentes entre si, correm em lotes concorrentes
     if (itemId && _extSelectedFiles.length) {
-      for (const f of _extSelectedFiles) {
+      await gfComLimiteConcorrencia(_extSelectedFiles, async f => {
         try { await uploadAttachment(EXT_LIST, itemId, f); }
         catch(e) { console.warn('Attach error', e); }
-      }
+      });
     }
 
     // 3) Criar tarefas temporárias — exactamente como Correio
+    // Fase 33: tarefas independentes entre si, correm em lotes concorrentes
     if (itemId && _extTarefasTemp.length) {
-      const tarMeta = await spRead(`${SP}/_api/web/lists/getbytitle('${EXT_TAR_LIST}')?$select=ListItemEntityTypeFullName`);
-      const tarType = tarMeta.d.ListItemEntityTypeFullName;
-      for (const t of _extTarefasTemp) {
+      const tarType = await auGetListType(EXT_TAR_LIST);
+      await gfComLimiteConcorrencia(_extTarefasTemp, async t => {
         const tarBody = {
           __metadata:        { type: tarType },
           Title:             t.titulo,
@@ -4108,7 +4179,7 @@ async function saveExt() {
         if (t.responsavel) tarBody.Responsavel = t.responsavel;
         if (t.dataLimite)  tarBody.DataLimite  = t.dataLimite + 'T00:00:00Z';
         await spWrite(`${SP}/_api/web/lists/getbytitle('${EXT_TAR_LIST}')/items`, tarBody, 'POST');
-      }
+      });
     }
 
     showNotif(
@@ -4276,8 +4347,7 @@ async function extSaveAddTarefa() {
   const btn = el('ext-add-tar-save-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'A guardar...'; }
   try {
-    const meta    = await spRead(`${SP}/_api/web/lists/getbytitle('${EXT_TAR_LIST}')?$select=ListItemEntityTypeFullName`);
-    const tarType = meta.d.ListItemEntityTypeFullName;
+    const tarType = await auGetListType(EXT_TAR_LIST);
     const body = {
       __metadata:        { type: tarType },
       Title:             titulo,
@@ -4322,8 +4392,7 @@ async function extSaveTarefaEdit() {
   const btn = el('ext-tar-save-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'A guardar...'; }
   try {
-    const meta    = await spRead(`${SP}/_api/web/lists/getbytitle('${EXT_TAR_LIST}')?$select=ListItemEntityTypeFullName`);
-    const tarType = meta.d.ListItemEntityTypeFullName;
+    const tarType = await auGetListType(EXT_TAR_LIST);
     const body = {
       __metadata:  { type: tarType },
       Title:       titulo,
@@ -4345,10 +4414,10 @@ async function extSaveTarefaEdit() {
 // ── Concluir tarefa ──────────────────────────────
 async function extConcluirTarefa(tarId, reuniaoId) {
   try {
-    const meta = await spRead(`${SP}/_api/web/lists/getbytitle('${EXT_TAR_LIST}')?$select=ListItemEntityTypeFullName`);
+    const tarType = await auGetListType(EXT_TAR_LIST);
     await spWrite(
       `${SP}/_api/web/lists/getbytitle('${EXT_TAR_LIST}')/items(${tarId})`,
-      { __metadata: { type: meta.d.ListItemEntityTypeFullName }, Estado: 'Concluída' },
+      { __metadata: { type: tarType }, Estado: 'Concluída' },
       'MERGE'
     );
     showNotif('Tarefa concluída! ✓', 'success');
@@ -4531,6 +4600,10 @@ async function gerarDocumentoPDF() {
   btn.disabled = true; btn.textContent = 'A gerar...';
 
   try {
+    // Fase 35 (Ponto 6) — carrega as duas de uma vez (mesmo quando este documento não tem
+    // anexos a juntar) para "window.PDFLib" estar sempre definido quando a função chega à
+    // verificação "allAnexos.length > 0 && window.PDFLib" mais abaixo, tal como hoje.
+    await Promise.all([gfCarregarScript(GF_CDN_JSPDF), gfCarregarScript(GF_CDN_PDFLIB)]);
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
     const W = 210, H = 297, M = 18, CW = W - M * 2;
@@ -5358,6 +5431,9 @@ function novaReuniao(){
 // PPT EXPORT
 async function exportPPT(){
   if(!carrItems.length){alert('Nenhum assunto.');return;}
+  // Fase 35 (Ponto 6) — PptxGenJS carregada só agora, no momento em que é mesmo usada.
+  try { await gfCarregarScript(GF_CDN_PPTXGENJS); }
+  catch(e) { alert('Não foi possível carregar a biblioteca de exportação PPT. Verifica a ligação à internet.'); return; }
   const pptx=new PptxGenJS();pptx.layout='LAYOUT_WIDE';
   const W=13.33,H=7.5,WH='FFFFFF',GR='5F5E5A';
   const pptCores=getCores(currReuniao).ppt;
@@ -8556,7 +8632,9 @@ function renderRelatorio(){
 
   container.innerHTML=html;
 }
-function exportRelatorioXLSX(){
+async function exportRelatorioXLSX(){
+  // Fase 35 (Ponto 6) — XLSX carregada só agora, no momento em que é mesmo usada.
+  try { await gfCarregarScript(GF_CDN_XLSX); } catch(e) { /* a verificação abaixo trata disto */ }
   if(typeof XLSX==='undefined'){showNotif('Biblioteca de exportação (XLSX) não carregou. Verifica a ligação à internet.','error');return;}
   const periodo=gv('rp-periodo')||'trimestral';
   const ano=parseInt(gv('rp-ano'))||new Date().getFullYear();
@@ -8929,7 +9007,7 @@ const GF_BADGES = {
 // Recarregamento leve — só Alterações + Origens, para usar depois de gravar/eliminar
 // uma alteração, em vez de gfLoadAll() (que recarrega orçamento, solicitações, faturas, etc.)
 async function gfLoadAlteracoes() {
-  const da = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items?$select=*,DestProjetoId/Title,DestRubricaId/Title,Solicitante/Title,Solicitante/EMail,AprovDir/Title,AprovDF/Title,AprovPE/Title,AprovPCA/Title&$expand=DestProjetoId,DestRubricaId,Solicitante,AprovDir,AprovDF,AprovPE,AprovPCA&$orderby=Created desc&$top=200`);
+  const da = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items?$select=Id,Title,Justificacao,ValorTotal,Estado,NivelAprovacao,DataSubmissao,DataAprovDir,DataAprovDF,MotivoRejeicao,DestProjetoId/Id,DestProjetoId/Title,DestProjetoIdId,DestRubricaId/Id,DestRubricaId/Title,DestRubricaIdId,Solicitante/Title,Solicitante/EMail,AprovDir/Title,AprovDF/Title,AprovPE/Title,AprovPCA/Title&$expand=DestProjetoId,DestRubricaId,Solicitante,AprovDir,AprovDF,AprovPE,AprovPCA&$orderby=Created desc&$top=200`);
   GF_ALTERACOES = (da.d?.results || []).map(r => ({
     id: r.Id,
     titulo: r.Title || '',
@@ -8953,7 +9031,7 @@ async function gfLoadAlteracoes() {
     motivoRejeicao: r.MotivoRejeicao || ''
   }));
 
-  const dao = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items?$select=*,AlteracaoId/Id,OrigProjetoId/Title,OrigRubricaId/Title&$expand=AlteracaoId,OrigProjetoId,OrigRubricaId&$top=1000`);
+  const dao = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items?$select=Id,Valor,AlteracaoId/Id,OrigProjetoId/Id,OrigProjetoId/Title,OrigProjetoIdId,OrigRubricaId/Id,OrigRubricaId/Title,OrigRubricaIdId&$expand=AlteracaoId,OrigProjetoId,OrigRubricaId&$top=1000`);
   GF_ALTERACOES_ORIGENS = (dao.d?.results || []).map(r => ({
     id: r.Id,
     alteracaoId: r.AlteracaoId?.Id || r.AlteracaoIdId || null,
@@ -9078,6 +9156,11 @@ async function gfLoadAll() {
       membrosAfetos: p.membrosAfetos || []
     }));
 
+    // Fase 36 (Ponto 1) — os 10 pedidos abaixo são independentes entre si (nenhum
+    // lê o resultado de outro, nem de GF_PROJETOS, que já está definido antes disto);
+    // passam a disparar todos ao mesmo tempo em vez de um a seguir ao outro.
+    await Promise.all([
+      (async () => {
     // Rúbricas — FJ_Rubricas é agora a rúbrica "mestre" (Fase 18, sem ano). Os campos
     // DespOrcamentada/RecOrcamentada/AnoOrcamental ainda são lidos só como rede de segurança
     // legada (gfOrcamentoAnoRubrica), para rúbricas que "Migrar Orçamento 2026" ainda não
@@ -9110,18 +9193,18 @@ async function gfLoadAll() {
       _despOrcLegado: r.DespOrcamentada || 0,
       _recOrcLegado: r.RecOrcamentada || 0
     }));
-
+      })(),
+      (async () => {
     // Orçamento por ano (FJ_RubricasAno) — só a janela GF.year-1..GF.year+1 (ponto 6: nunca
     // a lista inteira). Outros anos são carregados sob pedido por gfGarantirAnoRubricasCarregado.
     _gfRubricasAnoAnosCarregados = new Set([GF.year - 1, GF.year, GF.year + 1]);
     const anosFiltroRA = [..._gfRubricasAnoAnosCarregados].map(a => `Ano eq ${a}`).join(' or ');
     const dra = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items?$select=Id,RubricaIdId,Ano,DespOrcamentada,RecOrcamentada,EstadoAno,AprovadoPor/Title,DataAprovacao&$expand=AprovadoPor&$filter=${anosFiltroRA}&$top=3000`);
     GF_RUBRICAS_ANO_ROWS = dra.d?.results || [];
-
-    GF_RUBRICAS = gfConstruirRubricasDoAno(GF.year);
-
+      })(),
+      (async () => {
     // Solicitações com expand
-    const ds = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items?$select=*,ProjetoId/Title,RubricaId/Title,Autor/Title,Autor/EMail,AprovDir/Title,AprovDF/Title&$expand=ProjetoId,RubricaId,Autor,AprovDir,AprovDF&$orderby=Created desc&$top=500`);
+    const ds = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items?$select=Id,Codigo,Title,Valor,Estado,TipoSolicitacao,Fornecedor,EmailFornecedor,Justificacao,DataSubmissao,DataAprovDir,DataAprovDF,DataProcessado,DataPago,DataLimitePagamento,MotivoRejeicao,Comentarios,Recorrente,Periodicidade,NumOcorrencias,DataRecebimento,ProjetoId/Id,ProjetoId/Title,ProjetoIdId,RubricaId/Id,RubricaId/Title,RubricaIdId,Autor/Title,Autor/EMail,AprovDir/Title,AprovDF/Title&$expand=ProjetoId,RubricaId,Autor,AprovDir,AprovDF&$orderby=Created desc&$top=500`);
     GF_SOLICITACOES = (ds.d?.results || []).map(r => ({
       id: r.Id,
       codigo: r.Codigo || '',
@@ -9154,9 +9237,10 @@ async function gfLoadAll() {
       numOcorrencias: r.NumOcorrencias || null,
       dataRecebimento: r.DataRecebimento || null
     }));
-
+      })(),
+      (async () => {
     // Alterações Orçamentais
-    const da = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items?$select=*,DestProjetoId/Title,DestRubricaId/Title,Solicitante/Title,Solicitante/EMail,AprovDir/Title,AprovDF/Title,AprovPE/Title,AprovPCA/Title&$expand=DestProjetoId,DestRubricaId,Solicitante,AprovDir,AprovDF,AprovPE,AprovPCA&$orderby=Created desc&$top=200`);
+    const da = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items?$select=Id,Title,Justificacao,ValorTotal,Estado,NivelAprovacao,DataSubmissao,DataAprovDir,DataAprovDF,MotivoRejeicao,DestProjetoId/Id,DestProjetoId/Title,DestProjetoIdId,DestRubricaId/Id,DestRubricaId/Title,DestRubricaIdId,Solicitante/Title,Solicitante/EMail,AprovDir/Title,AprovDF/Title,AprovPE/Title,AprovPCA/Title&$expand=DestProjetoId,DestRubricaId,Solicitante,AprovDir,AprovDF,AprovPE,AprovPCA&$orderby=Created desc&$top=200`);
     GF_ALTERACOES = (da.d?.results || []).map(r => ({
       id: r.Id,
       titulo: r.Title || '',
@@ -9179,9 +9263,10 @@ async function gfLoadAll() {
       aprovPCANome: r.AprovPCA?.Title || null,
       motivoRejeicao: r.MotivoRejeicao || ''
     }));
-
+      })(),
+      (async () => {
     // Origens das Alterações
-    const dao = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items?$select=*,AlteracaoId/Id,OrigProjetoId/Title,OrigRubricaId/Title&$expand=AlteracaoId,OrigProjetoId,OrigRubricaId&$top=1000`);
+    const dao = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items?$select=Id,Valor,AlteracaoId/Id,OrigProjetoId/Id,OrigProjetoId/Title,OrigProjetoIdId,OrigRubricaId/Id,OrigRubricaId/Title,OrigRubricaIdId&$expand=AlteracaoId,OrigProjetoId,OrigRubricaId&$top=1000`);
     GF_ALTERACOES_ORIGENS = (dao.d?.results || []).map(r => ({
       id: r.Id,
       alteracaoId: r.AlteracaoId?.Id || r.AlteracaoIdId || null,
@@ -9191,9 +9276,10 @@ async function gfLoadAll() {
       origRubricaNome: r.OrigRubricaId?.Title || '',
       valor: r.Valor || 0
     }));
-
+      })(),
+      (async () => {
     // Faturas
-    const df = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Faturas')/items?$select=*,SolicitacaoId/Title&$expand=SolicitacaoId&$orderby=Created desc&$top=500`);
+    const df = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Faturas')/items?$select=Id,Title,Fornecedor,DataFatura,Valor,Estado,SolicitacaoId/Id,SolicitacaoId/Title,SolicitacaoIdId&$expand=SolicitacaoId&$orderby=Created desc&$top=500`);
     GF_FATURAS = (df.d?.results || []).map(r => ({
       id: r.Id,
       titulo: r.Title || '',
@@ -9204,10 +9290,11 @@ async function gfLoadAll() {
       valor: r.Valor || 0,
       estado: r.Estado || 'Pendente'
     }));
-
+      })(),
+      (async () => {
     // Movimentos Bancários (importados do Excel via Power Automate) — ainda por afetar ou já afetos
     try {
-      const dmp = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosBancarios')/items?$select=Id,Title,DataMovimento,DataValor,Descricao,Observacao,RecPag,Importancia,SaldoContabilistico,CentroCusto,ChaveUnica,Estado,DataAfetacao&$orderby=DataMovimento desc&$top=2000`);
+      const dmp = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosBancarios')/items?$select=Id,Title,DataMovimento,DataValor,Descricao,Observacao,RecPag,Importancia,SaldoContabilistico,CentroCusto,ChaveUnica,Estado,DataAfetacao&$filter=Estado ne 'Afeto'&$orderby=DataMovimento desc&$top=2000`);
       GF_MOV_PENDENTES = (dmp.d?.results || []).map(r => ({
         id: r.Id,
         dataMovimento: r.DataMovimento || null,
@@ -9226,7 +9313,8 @@ async function gfLoadAll() {
       console.warn('Lista FJ_MovimentosBancarios indisponível:', e.message);
       GF_MOV_PENDENTES = [];
     }
-
+      })(),
+      (async () => {
     // Movimentos Executados (ledger final por rúbrica, gerado ao afetar um movimento pendente)
     GF_MOV_EXECUTADOS_ERRO = null;
     try {
@@ -9259,8 +9347,8 @@ async function gfLoadAll() {
       GF_MOV_EXECUTADOS = [];
       GF_MOV_EXECUTADOS_ERRO = e.message || String(e);
     }
-
-
+      })(),
+      (async () => {
     // Calendário de Parcelas de Tesouraria (Fase 2)
     try {
       const dtp = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items?$select=*,RubricaId/Id,RubricaId/Title,SolicitacaoId/Id,SolicitacaoId/Title&$expand=RubricaId,SolicitacaoId&$top=3000`);
@@ -9290,7 +9378,8 @@ async function gfLoadAll() {
       console.warn('Lista FJ_Tesouraria_Parcelas indisponível:', e.message);
       GF_TESOURARIA_PARCELAS = [];
     }
-
+      })(),
+      (async () => {
     // Quadro de Pessoal (Fase 8)
     try {
       const dcol = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Colaboradores')/items?$select=*&$orderby=Title&$top=500`);
@@ -9311,7 +9400,12 @@ async function gfLoadAll() {
       console.warn('Lista FJ_Colaboradores indisponível:', e.message);
       GF_COLABORADORES = [];
     }
+      })(),
+    ]);
 
+    // GF_RUBRICAS depende de GF_RUBRICAS_MASTER e de GF_RUBRICAS_ANO_ROWS, os dois
+    // resolvidos no Promise.all acima — por isso só pode correr depois dele, nunca dentro.
+    GF_RUBRICAS = gfConstruirRubricasDoAno(GF.year);
     console.log('GF Data loaded:', { projetos: GF_PROJETOS.length, rubricas: GF_RUBRICAS.length, solicitacoes: GF_SOLICITACOES.length, movPendentes: GF_MOV_PENDENTES.length, movExecutados: GF_MOV_EXECUTADOS.length });
 
     // Carregar estado do bloqueio do orçamento (persiste em FJ_Configuracoes)
@@ -10144,12 +10238,22 @@ async function gfImportarRubricasTesouraria() {
       GF_RUBRICAS.filter(r => r.projetoId === bancoProj.id && r.ano === ano).map(r => r.titulo)
     );
 
-    const metaRub = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')?$select=ListItemEntityTypeFullName`);
-    const rubType = metaRub.d.ListItemEntityTypeFullName;
+    const rubType = await auGetListType('FJ_Rubricas');
 
-    let criadas = 0, ignoradas = 0, erros = 0;
+    // Fase 33 (Ponto 3) — a verificação de duplicados é sequencial e sem pedidos à rede, por
+    // isso decide primeiro (e já marca em `existentes`, para não duplicar dentro desta mesma
+    // importação) quais rúbricas vão realmente ser criadas; só depois é que os pedidos de
+    // escrita em si — independentes entre si — passam a correr em lotes concorrentes.
+    const aCriar = [];
+    let ignoradas = 0;
     for (const item of GF_TESOURARIA_IMPORT_RUBRICAS) {
       if (existentes.has(item.rubrica)) { ignoradas++; continue; }
+      existentes.add(item.rubrica);
+      aCriar.push(item);
+    }
+
+    let criadas = 0, erros = 0;
+    await gfComLimiteConcorrencia(aCriar, async item => {
       const body = {
         __metadata: { type: rubType },
         Title: item.rubrica,
@@ -10165,13 +10269,12 @@ async function gfImportarRubricasTesouraria() {
       };
       try {
         await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Rubricas')/items`, body, 'POST');
-        existentes.add(item.rubrica);
         criadas++;
       } catch (e) {
         erros++;
         console.error('Erro ao importar rúbrica de tesouraria', item.rubrica, e);
       }
-    }
+    });
 
     showNotif(`Importação concluída: ${criadas} rúbrica(s) criada(s), ${ignoradas} já existiam${erros ? `, ${erros} com erro (ver consola)` : ''}.`, erros ? 'error' : 'success');
     await gfLoadAll();
@@ -10470,14 +10573,18 @@ async function gfGerarSolicitacoesFixas() {
   try {
     const myEmail = (user?.username || user?.preferredUsername || '');
     const autorId = await getSpUID(myEmail);
-    const metaSol = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')?$select=ListItemEntityTypeFullName`);
-    const solType = metaSol.d.ListItemEntityTypeFullName;
+    const solType = await auGetListType('FJ_Solicitacoes');
     const parcType = await _gfGetTesourariaParcelasType();
 
+    // Fase 33 (Ponto 3) — cada parcela pendente gera a sua própria Solicitação, de forma
+    // independente das outras parcelas; só os 2 pedidos DENTRO do mesmo item é que têm de
+    // ficar por esta ordem (criar a Solicitação e só depois ligar essa parcela a ela) — por
+    // isso passa a correr em lotes concorrentes por parcela, mantendo a ordem sequencial
+    // dentro de cada uma.
     let criadas = 0, erros = 0;
-    for (const p of pendentes) {
+    await gfComLimiteConcorrencia(pendentes, async p => {
       const rub = GF_RUBRICAS.find(r => r.id === p.rubricaId);
-      if (!rub) { erros++; continue; }
+      if (!rub) { erros++; return; }
       const mesLabel = p.dataPrevista ? new Date(p.dataPrevista).toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' }) : '';
       const body = {
         __metadata: { type: solType },
@@ -10502,7 +10609,7 @@ async function gfGerarSolicitacoesFixas() {
         erros++;
         console.error('Erro ao gerar Solicitação fixa', rub.titulo, e);
       }
-    }
+    });
     showNotif(`${criadas} Solicitação(ões) gerada(s)${erros ? `, ${erros} com erro (ver consola)` : ''}.`, erros ? 'error' : 'success');
     await gfLoadAll();
     gfRenderTesourariaPrevisoes();
@@ -12934,11 +13041,17 @@ async function gfGerarParcelasAutomatico(rubricaId, tipo) {
 
   try {
     const tipoEntidade = await _gfGetTesourariaParcelasType();
-    let criadas = 0;
+    // Fase 33 (Ponto 3) — os meses a criar são independentes entre si; a decisão de quais
+    // meses faltam (idempotência) é sequencial e sem rede, só os pedidos de escrita em si
+    // passam a correr em lotes concorrentes.
+    const mesesACriar = [];
     for (let mes = 0; mes < 12; mes++) {
       if (existentesMeses.has(mes)) continue; // idempotente: não duplica meses já com parcela deste tipo
+      if ((percentagens[mes] || 0) <= 0) continue;
+      mesesACriar.push(mes);
+    }
+    await gfComLimiteConcorrencia(mesesACriar, async mes => {
       const pct = percentagens[mes] || 0;
-      if (pct <= 0) continue;
       const valor = +(orc * pct / 100).toFixed(2);
       const data = new Date(ano, mes, Math.min(rub.diaPagamento || 15, 28));
       const body = {
@@ -12952,8 +13065,8 @@ async function gfGerarParcelasAutomatico(rubricaId, tipo) {
         OrigemParcela: 'Orçamento'
       };
       await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items`, body, 'POST');
-      criadas++;
-    }
+    });
+    const criadas = mesesACriar.length;
     showNotif(criadas ? `${criadas} parcela(s) criada(s).` : 'Não havia parcelas novas a criar (meses já preenchidos).', 'success');
     await gfLoadAll();
     gfRefreshRubricaForm();
@@ -13243,7 +13356,9 @@ async function gfGerarPlanoPagamento(solId) {
 
   try {
     const tipoEntidade = await _gfGetTesourariaParcelasType();
-    for (const it of itens) {
+    // Fase 33 (Ponto 3) — cada parcela do plano é independente das outras, por isso os
+    // pedidos de criação passam a correr em lotes concorrentes em vez de um a um.
+    await gfComLimiteConcorrencia(itens, async it => {
       const body = {
         __metadata: { type: tipoEntidade },
         Title: it.titulo,
@@ -13256,7 +13371,7 @@ async function gfGerarPlanoPagamento(solId) {
         OrigemParcela: 'Solicitação'
       };
       await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items`, body, 'POST');
-    }
+    });
     showNotif(`${itens.length} parcela(s) criada(s).`, 'success');
     await gfLoadAll();
     gfRefreshCurrentForm();
@@ -15533,12 +15648,17 @@ function gfRenderFaturas() {
 }
 
 // Helper to get current user ID
+// Fase 32 (Ponto 3) — o utilizador atual é sempre o mesmo durante a sessão; cache de um
+// único valor em vez de voltar a pedir /_api/web/currentuser de cada vez.
+let _currentUserIdCache;
 async function getCurrentUserId() {
+  if (_currentUserIdCache !== undefined) return _currentUserIdCache;
   try {
     const r = await spRead(`${SP}/_api/web/currentuser?$select=Id`);
-    return r.d?.Id;
+    _currentUserIdCache = r.d?.Id ?? null;
+    return _currentUserIdCache;
   } catch (e) {
-    return null;
+    return null; // erro não fica em cache — tenta outra vez na próxima chamada
   }
 }
 
@@ -16374,10 +16494,9 @@ async function auSaveSaldo(){
   if(!email){showNotif('Seleciona um colaborador.','error');return;}
   if(!ano||isNaN(direito)){showNotif('Preenche o ano e os dias com direito.','error');return;}
   try{
-    // Busca o tipo OData correcto directamente ao SharePoint
-    // evita erros de __metadata.type hardcodado
-    const listMeta=await spRead(`${SP}/_api/web/lists/getbytitle('${AU_SALDO_LIST}')?$select=ListItemEntityTypeFullName`);
-    const listType=listMeta.d.ListItemEntityTypeFullName;
+    // Busca o tipo OData correcto — cache partilhada em auGetListType, evita erros de
+    // __metadata.type hardcodado sem pedir ao SharePoint de cada vez
+    const listType = await auGetListType(AU_SALDO_LIST);
     const existe=AU_SALDOS.find(s=>s.email===email&&s.ano===ano);
     const body={
       __metadata:{type:listType},
@@ -16739,8 +16858,7 @@ async function coSaveRegisto() {
 
   try {
     // 1) obter tipo OData da lista
-    const meta = await spRead(`${SP}/_api/web/lists/getbytitle('${CO_LIST}')?$select=ListItemEntityTypeFullName`);
-    const listType = meta.d.ListItemEntityTypeFullName;
+    const listType = await auGetListType(CO_LIST);
 
     const respNome  = document.getElementById('co-responsavel').selectedOptions[0]?.text || '';
     const respEmail = document.getElementById('co-resp-email').value || '';
@@ -16763,19 +16881,18 @@ async function coSaveRegisto() {
     const resData = await res.json();
     const newId = resData.d?.Id;
 
-    // 2) Upload do(s) anexo(s)
+    // 2) Upload do(s) anexo(s) — Fase 33: ficheiros independentes, correm em lotes concorrentes
     if (newId && _coSelectedFiles.length) {
-      for (const f of _coSelectedFiles) {
+      await gfComLimiteConcorrencia(_coSelectedFiles, async f => {
         try { await uploadAttachment(CO_LIST, newId, f); }
         catch(e) { console.warn('Attach error', e); }
-      }
+      });
     }
 
-    // 3) Criar tarefas associadas
+    // 3) Criar tarefas associadas — Fase 33: tarefas independentes, correm em lotes concorrentes
     if (newId && _coTarefasTemp.length) {
-      const tarMeta = await spRead(`${SP}/_api/web/lists/getbytitle('${CO_TAR_LIST}')?$select=ListItemEntityTypeFullName`);
-      const tarType = tarMeta.d.ListItemEntityTypeFullName;
-      for (const t of _coTarefasTemp) {
+      const tarType = await auGetListType(CO_TAR_LIST);
+      await gfComLimiteConcorrencia(_coTarefasTemp, async t => {
         const tarBody = {
           __metadata:      { type: tarType },
           Title:           t.titulo,
@@ -16789,7 +16906,7 @@ async function coSaveRegisto() {
         };
         if (t.dataLimite) tarBody.DataLimite = t.dataLimite + 'T00:00:00Z';
         await spWrite(`${SP}/_api/web/lists/getbytitle('${CO_TAR_LIST}')/items`, tarBody, 'POST');
-      }
+      });
     }
 
     showNotif(
@@ -17155,8 +17272,7 @@ async function coSaveTarefaEdit() {
   const btn = document.querySelector('#co-tar-modal .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'A guardar...'; }
   try {
-    const meta    = await spRead(`${SP}/_api/web/lists/getbytitle('${CO_TAR_LIST}')?$select=ListItemEntityTypeFullName`);
-    const tarType = meta.d.ListItemEntityTypeFullName;
+    const tarType = await auGetListType(CO_TAR_LIST);
     const respSel = document.getElementById('co-edit-tar-resp');
     const respNome = respSel?.selectedOptions[0]?.text !== '— Selecionar —' ? respSel?.selectedOptions[0]?.text || '' : '';
     const respEmail= respSel?.selectedOptions[0]?.dataset?.email || '';
@@ -17189,8 +17305,7 @@ async function coSaveTarefaEdit() {
 
 async function coConcluirTarefa(id) {
   try {
-    const meta    = await spRead(`${SP}/_api/web/lists/getbytitle('${CO_TAR_LIST}')?$select=ListItemEntityTypeFullName`);
-    const tarType = meta.d.ListItemEntityTypeFullName;
+    const tarType = await auGetListType(CO_TAR_LIST);
     await spWrite(
       `${SP}/_api/web/lists/getbytitle('${CO_TAR_LIST}')/items(${id})`,
       { __metadata: { type: tarType }, Estado: 'Concluída' },
@@ -17515,8 +17630,7 @@ async function deSave() {
   btn.disabled = true; btn.textContent = 'A submeter...';
 
   try {
-    const meta = await spRead(`${SP}/_api/web/lists/getbytitle('${DE_LIST}')?$select=ListItemEntityTypeFullName`);
-    const listType = meta.d.ListItemEntityTypeFullName;
+    const listType = await auGetListType(DE_LIST);
 
     const numero = _deEditId ? (DE_ITEMS.find(x => x.id === _deEditId)?.numero || '') : await deGerarNumero();
 
@@ -17686,9 +17800,9 @@ async function deGuardarDecisao(id) {
   if (!_deDecisaoSel) { showNotif('Seleciona uma decisão.', 'error'); return; }
   const notas = document.getElementById('de-dec-notas')?.value.trim() || '';
   try {
-    const meta = await spRead(`${SP}/_api/web/lists/getbytitle('${DE_LIST}')?$select=ListItemEntityTypeFullName`);
+    const listType = await auGetListType(DE_LIST);
     const body = {
-      __metadata: { type: meta.d.ListItemEntityTypeFullName },
+      __metadata: { type: listType },
       DecisaoPE:   _deDecisaoSel,
       NotasPE:     notas || null,
       DataDecisao: new Date().toISOString(),
@@ -18094,13 +18208,16 @@ async function gfSaveModeloSP(modelo) {
 
   // Linhas: apaga sempre as antigas e recria todas — mais simples e evita linhas
   // órfãs quando o modelo passa a ter menos linhas do que tinha antes
+  // Fase 33 (Ponto 3) — apagar e recriar são, cada um, grupos de pedidos independentes
+  // entre si (cada linha é um item do SharePoint à parte); passam a correr em lotes
+  // concorrentes. Na recriação, gfComLimiteConcorrencia guarda cada Id novo na mesma
+  // posição do seu item original, por isso novasLinhasIds[idx] continua a corresponder
+  // a modelo.linhas[idx] mesmo com os pedidos a correr em paralelo.
   const linhasAntigas = _gfModelosReparticaoSpIds.linhas[modelo.id] || [];
-  for (const spId of linhasAntigas) {
-    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${spId})`, null, 'DELETE');
-  }
-  const novasLinhasIds = [];
-  for (let idx = 0; idx < modelo.linhas.length; idx++) {
-    const l = modelo.linhas[idx];
+  await gfComLimiteConcorrencia(linhasAntigas, spId =>
+    spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${spId})`, null, 'DELETE')
+  );
+  const novasLinhasIds = await gfComLimiteConcorrencia(modelo.linhas, async (l, idx) => {
     // Não guarda projetoNome — só ocupa espaço no campo de texto de 255 caracteres do
     // SharePoint (e com nomes de projeto/rúbrica longos já foi o suficiente para
     // ultrapassar o limite e dar erro ao guardar). É recalculado ao carregar, a partir do Id.
@@ -18115,8 +18232,8 @@ async function gfSaveModeloSP(modelo) {
     };
     const r = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items`, body, 'POST');
     const d = await r.json();
-    novasLinhasIds.push(d.d?.Id);
-  }
+    return d.d?.Id;
+  });
   _gfModelosReparticaoSpIds.linhas[modelo.id] = novasLinhasIds;
 }
 
@@ -18163,20 +18280,22 @@ async function gfLoadRHBase() {
 
 async function gfSaveRHBaseSP(linhas) {
   // Mais simples: apaga tudo e recria, tal como nos Modelos de Repartição
-  for (const spId of _gfRHBaseSpIds) {
-    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${spId})`, null, 'DELETE');
-  }
-  const novosIds = [];
-  for (let idx = 0; idx < linhas.length; idx++) {
+  // Fase 33 (Ponto 3) — apagar e recriar passam a correr em lotes concorrentes; o helper
+  // guarda cada Id novo na mesma posição do seu item original, por isso novosIds[idx]
+  // continua a corresponder a linhas[idx].
+  await gfComLimiteConcorrencia(_gfRHBaseSpIds, spId =>
+    spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${spId})`, null, 'DELETE')
+  );
+  const novosIds = await gfComLimiteConcorrencia(linhas, async (linha, idx) => {
     const body = {
       __metadata: { type: 'SP.Data.FJ_x005f_ConfiguracoesListItem' },
       Title: `RHBaseLinha_${idx}`,
-      Valor: JSON.stringify(linhas[idx])
+      Valor: JSON.stringify(linha)
     };
     const r = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items`, body, 'POST');
     const d = await r.json();
-    novosIds.push(d.d?.Id);
-  }
+    return d.d?.Id;
+  });
   _gfRHBaseSpIds = novosIds;
 }
 
@@ -18300,20 +18419,22 @@ async function gfLoadRubricasSensiveis() {
 }
 
 async function gfSaveRubricasSensiveisSP(linhas) {
-  for (const spId of _gfRubricasSensiveisSpIds) {
-    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${spId})`, null, 'DELETE');
-  }
-  const novosIds = [];
-  for (let idx = 0; idx < linhas.length; idx++) {
+  // Fase 33 (Ponto 3) — apagar e recriar passam a correr em lotes concorrentes; o helper
+  // guarda cada Id novo na mesma posição do seu item original, por isso novosIds[idx]
+  // continua a corresponder a linhas[idx].
+  await gfComLimiteConcorrencia(_gfRubricasSensiveisSpIds, spId =>
+    spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items(${spId})`, null, 'DELETE')
+  );
+  const novosIds = await gfComLimiteConcorrencia(linhas, async (linha, idx) => {
     const body = {
       __metadata: { type: 'SP.Data.FJ_x005f_ConfiguracoesListItem' },
       Title: `RubricaSensivelLinha_${idx}`,
-      Valor: JSON.stringify(linhas[idx])
+      Valor: JSON.stringify(linha)
     };
     const r = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items`, body, 'POST');
     const d = await r.json();
-    novosIds.push(d.d?.Id);
-  }
+    return d.d?.Id;
+  });
   _gfRubricasSensiveisSpIds = novosIds;
 }
 
