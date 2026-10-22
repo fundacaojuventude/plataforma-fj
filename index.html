@@ -1787,7 +1787,7 @@ tr:hover td{background:var(--bg3)}
         <div class="stats" id="stats-sem" style="margin-bottom:1rem"></div>
         <div class="table-wrap">
           <table>
-            <colgroup><col style="width:36px"><col style="width:22%"><col style="width:12%"><col style="width:10%"><col style="width:9%"><col style="width:10%"><col style="width:13%"><col style="width:152px"></colgroup>
+            <colgroup><col style="width:36px"><col style="width:26%"><col style="width:13%"><col style="width:11%"><col style="width:9%"><col style="width:10%"><col style="width:17%"><col style="width:11%"></colgroup>
             <thead><tr><th></th><th>Tarefa</th><th>Responsável</th><th>Data limite</th><th>Prioridade</th><th>Estado</th><th>Notas</th><th>Ações</th></tr></thead>
             <tbody id="tbody-sem"></tbody>
           </table>
@@ -3076,9 +3076,21 @@ let _plLoaded=false,_gfLoaded=false,_auLoaded=false,_coLoaded=false,_stLoaded=fa
 
 // ── SHARED PROJECTS ──
 let sharedProjetos=[];
-async function loadSharedProjetos(){
+// Fase 37 — chamadas simultâneas (arranque + entrada no Financeiro) partilham o mesmo
+// pedido em curso; depois de terminar, uma nova chamada volta a pedir ao SharePoint
+// (quem chama isto para refrescar depois de gravar um projeto continua a ter dados novos).
+let _sharedProjetosEmCurso = null;
+function loadSharedProjetos(){
+  if(!_sharedProjetosEmCurso){
+    _sharedProjetosEmCurso = _loadSharedProjetosImpl().finally(()=>{ _sharedProjetosEmCurso = null; });
+  }
+  return _sharedProjetosEmCurso;
+}
+async function _loadSharedProjetosImpl(){
   try{
-    const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Projetos')/items?$select=*,Departamento/Title,MembrosAfetos/Id,MembrosAfetos/Title,MembrosAfetos/EMail&$expand=Departamento,MembrosAfetos&$orderby=Title asc&$top=500`);
+    const _urlProjAntigo=`${SP}/_api/web/lists/getbytitle('FJ_Projetos')/items?$select=*,Departamento/Title,MembrosAfetos/Id,MembrosAfetos/Title,MembrosAfetos/EMail&$expand=Departamento,MembrosAfetos&$orderby=Title asc&$top=500`;
+    const _urlProjNovo=`${SP}/_api/web/lists/getbytitle('FJ_Projetos')/items?$select=Id,Title,Codigo,Estado,DataInicio,DataFim,AnoOrcamental,IsBancoGlobal,Departamento/Title,MembrosAfetos/Id,MembrosAfetos/Title,MembrosAfetos/EMail&$expand=Departamento,MembrosAfetos&$orderby=Title asc&$top=500`;
+    const d=await spReadSelecionado(_urlProjNovo,_urlProjAntigo,spRead);
     sharedProjetos=d.d.results.map(r=>({
       id:r.Id,nome:r.Title||'',codigo:r.Codigo||'',
       dep:normalizeDep(r.Departamento?.Title||r.Departamento||''),
@@ -3130,8 +3142,10 @@ async function init(){
   if(initViewerMode())return; // apresentação pública — não precisa de login
   await msalI.initialize();
   const r=await msalI.handleRedirectPromise();
-  if(r){user=r.account;spToken=r.accessToken;await loadUserGroups();showApp();}
-  else{const a=msalI.getAllAccounts();if(a.length){user=a[0];await getSPToken();await loadUserGroups();showApp();}}
+  // Fase 37 — loadUserGroups() corre em segundo plano: userGroups não é usado para nada
+  // (as permissões vêm de FJ_Utilizadores), por isso não há razão para atrasar o arranque.
+  if(r){user=r.account;spToken=r.accessToken;loadUserGroups();showApp();}
+  else{const a=msalI.getAllAccounts();if(a.length){user=a[0];await getSPToken();loadUserGroups();showApp();}}
 }
 async function doLogin(){
   console.log('=== TENTATIVA DE LOGIN ===');
@@ -3578,34 +3592,99 @@ function showApp(){
 // fresco antes de desistir — nunca esconde um 403 por falta de permissão real, porque nesse
 // caso a repetição falha outra vez com o mesmo erro, que continua a ser lançado na mesma.
 let _spDigestCache = { valor: null, validoAte: 0 };
+let _spDigestEmCurso = null; // Fase 41c — pedidos simultâneos partilham a mesma resposta
 async function getDigest(forcarFresco){
   if (!forcarFresco && _spDigestCache.valor && Date.now() < _spDigestCache.validoAte) return _spDigestCache.valor;
-  await getSPToken();
-  const r=await fetch(`${SP}/_api/contextinfo`,{method:'POST',headers:{Accept:'application/json;odata=verbose',Authorization:`Bearer ${spToken}`,'Content-Length':'0'}});
-  const d=await r.json();
-  const info = d.d.GetContextWebInformation;
-  const timeoutSeg = info.FormDigestTimeoutSeconds || 1800;
-  _spDigestCache = { valor: info.FormDigestValue, validoAte: Date.now() + Math.max(60, timeoutSeg - 60) * 1000 };
-  return _spDigestCache.valor;
+  if (_spDigestEmCurso) return _spDigestEmCurso;
+  _spDigestEmCurso = (async () => {
+    try {
+      await getSPToken();
+      const r=await fetch(`${SP}/_api/contextinfo`,{method:'POST',headers:{Accept:'application/json;odata=verbose',Authorization:`Bearer ${spToken}`,'Content-Length':'0'}});
+      const d=await r.json();
+      const info = d.d.GetContextWebInformation;
+      const timeoutSeg = info.FormDigestTimeoutSeconds || 1800;
+      _spDigestCache = { valor: info.FormDigestValue, validoAte: Date.now() + Math.max(60, timeoutSeg - 60) * 1000 };
+      return _spDigestCache.valor;
+    } finally { _spDigestEmCurso = null; }
+  })();
+  return _spDigestEmCurso;
 }
-async function spRead(url){
+// Fase 37 — registo de tempos opcional: abrir a aplicação com ?perf=1 (ou correr
+// localStorage.fjPerf='1' na consola) mostra na consola quanto demora cada pedido ao
+// SharePoint, cada recarregamento e cada desenho de ecrã do Financeiro. Desligado por omissão.
+const GF_PERF = (()=>{ try{ return /[?&]perf=1/.test(location.search) || localStorage.getItem('fjPerf')==='1'; }catch(e){ return false; } })();
+function gfPerfLog(...a){ if(GF_PERF) console.log('%c[perf]','color:#7C3AED;font-weight:600',...a); }
+function _gfPerfNomeLista(url){ const m=String(url).match(/getbytitle\('([^']+)'\)/); return m?m[1]:String(url).split('/_api/')[1]?.slice(0,60); }
+async function spRead(url, opts){
   await getSPToken();
-  const r=await fetch(url,{headers:{Accept:'application/json;odata=verbose',Authorization:`Bearer ${spToken}`}});
-  if(!r.ok)throw new Error('Erro '+r.status);return r.json();
+  const _t0=GF_PERF?performance.now():0;
+  // Fase 40 — {compacto:true}: odata=nometadata (sem __metadata por item/lookup). A resposta é
+  // convertida para a forma de odata=verbose que o resto do código já espera.
+  const compacto = !!(opts && opts.compacto);
+  const r=await fetch(url,{headers:{Accept:compacto?'application/json;odata=nometadata':'application/json;odata=verbose',Authorization:`Bearer ${spToken}`}});
+  if(!r.ok)throw new Error('Erro '+r.status);
+  let j=await r.json();
+  if(compacto){
+    const arr = Array.isArray(j.value) ? j.value : (j.d && Array.isArray(j.d.results) ? j.d.results : null);
+    if(!arr) throw new Error('Erro 400 resposta compacta inesperada');
+    const prox = j['odata.nextLink'] || j['@odata.nextLink'] || (j.d && j.d.__next) || null;
+    j = { d: prox ? { results: arr, __next: prox } : { results: arr } };
+  }
+  if(GF_PERF) gfPerfLog(`${_gfPerfNomeLista(url)} ${Math.round(performance.now()-_t0)}ms · ${(j.d&&j.d.results)?j.d.results.length+' itens':'1 item'}`);
+  return j;
+}
+// Fase 37 — pede só as colunas usadas ($select explícito). Se o SharePoint recusar o pedido
+// (400: por exemplo uma coluna com outro nome interno), repete com o pedido antigo, que já
+// funcionava. Nunca perde dados: no pior caso fica exatamente como estava antes.
+async function spReadSelecionado(urlNovo, urlAntigo, leitor){
+  try { return await leitor(urlNovo); }
+  catch(e){
+    if(/\b400\b/.test(String(e&&e.message))){ console.warn('[Fase 37] $select explícito recusado, a usar o pedido antigo:', _gfPerfNomeLista(urlNovo)); return leitor(urlAntigo); }
+    throw e;
+  }
 }
 // Lê uma lista do SharePoint seguindo a paginação (d.__next) até ao fim,
 // para nunca cortar silenciosamente resultados quando a lista excede o $top pedido.
-async function spReadAll(url){
+async function spReadAll(url, opts){
   let results = [];
   let next = url;
   while (next) {
-    const page = await spRead(next);
+    const page = await spRead(next, opts);
     results = results.concat(page.d?.results || []);
     next = page.d?.__next || null;
   }
   return { d: { results } };
 }
+// Fase 37 — leitura de uma lista grande por fatias de Id, várias em paralelo, em vez de
+// seguir as páginas (__next) uma a uma. Filtrar por Id é sempre permitido pelo SharePoint
+// (Id é indexado), mesmo acima do limiar de 5000 itens. `url` NÃO pode ter $filter nem
+// $orderby (é para listas lidas por inteiro). Resultado na mesma ordem (Id crescente) que
+// a leitura página a página devolvia.
+async function spReadAllPorIntervalos(url, tamanho = 1000, paralelo = 6, opts){
+  const [base, qs] = url.split('?');
+  const params = (qs || '').split('&').filter(p => p && !/^\$top=/.test(p));
+  if (params.some(p => /^\$(filter|orderby)=/.test(p))) throw new Error('spReadAllPorIntervalos: url com $filter/$orderby');
+  const fatia = (a) => spReadAll(`${base}?${[...params, `$filter=Id ge ${a} and Id le ${a + tamanho - 1}`, `$top=${tamanho}`].join('&')}`, opts);
+  // Fase 40 — as primeiras fatias saem já, em paralelo com a consulta do maior Id (antes esperava-se
+  // por ela). Fatias para além do maior Id voltam vazias e não custam nada de relevante.
+  const especulativas = 6;
+  const [ultimo, ...partesEsp] = await Promise.all([
+    spRead(`${base}?$select=Id&$orderby=Id desc&$top=1`, opts),
+    ...Array.from({ length: especulativas }, (_, i) => fatia(1 + i * tamanho))
+  ]);
+  const maxId = ultimo.d?.results?.[0]?.Id || 0;
+  if (!maxId) return { d: { results: [] } };
+  const restantes = [];
+  for (let a = 1 + especulativas * tamanho; a <= maxId; a += tamanho) restantes.push(a);
+  const partesRest = await gfComLimiteConcorrencia(restantes, fatia, paralelo);
+  const results = [];
+  for (const p of partesEsp.concat(partesRest)) for (const r of (p.d?.results || [])) results.push(r);
+  return { d: { results } };
+}
+// Fase 41 — conta tentativas de escrita (para saber se é preciso recarregar depois de um fluxo).
+let _spEscritas = 0;
 async function spWrite(url,body,method,etag){
+  _spEscritas++;
   await getSPToken();
   const digest=await getDigest();
   const fazerPedido = (dig) => {
@@ -7850,7 +7929,7 @@ function _semTarefaRow(t,hoje,isDir){
     <td style="padding:7px 4px">${estB(t.prioridade)}</td>
     <td style="padding:7px 4px">${estB(t.estado)}</td>
     <td style="padding:7px 4px">${notasHtml}</td>
-    <td style="padding:7px 4px;overflow:visible;text-overflow:clip;white-space:nowrap"><button class="btn btn-sm" onclick="openTarView('${t.id}')" title="Ver tarefa">👁 Ver</button>${canEdit?`<button class="btn btn-sm" onclick="openTarFormEdit('${t.id}')" style="margin-left:3px">Editar</button><button class="btn btn-sm btn-danger" onclick="delPlTarefa('${t.id}')" style="margin-left:3px">✕</button>`:''}</td>
+    <td style="padding:7px 4px"><button class="btn btn-sm" onclick="openTarView('${t.id}')" title="Ver tarefa">👁 Ver</button>${canEdit?`<button class="btn btn-sm" onclick="openTarFormEdit('${t.id}')" style="margin-left:3px">Editar</button><button class="btn btn-sm btn-danger" onclick="delPlTarefa('${t.id}')" style="margin-left:3px">✕</button>`:''}</td>
   </tr>`;
 }
 
@@ -8964,7 +9043,7 @@ let GF_MODELO_EDIT = null; // modelo em edição no modal "Modelos de Repartiç�
 let GF_RH_BASE = []; // lista base de rúbricas tipicamente afetas em valor fixo no "Afetar RH" (passo 1): [{projetoId, projetoNome, rubricaTitulo}]
 let GF_RH_BASE_EDIT = null; // cópia de trabalho de GF_RH_BASE enquanto se edita a lista base (array ou null)
 let GF_RUBRICAS_SENSIVEIS = []; // rúbricas cuja tabela "Faturas/Solicitações" só PE/Financeiro veem (ex.: vencimentos): [{projetoId, projetoNome, rubricaTitulo}]
-let GF_PEND_EDIT = {}; // estado da tabela editável de Pendentes: { [movId]: { checked, projetoId, rubricaId, solicitacaoId } }
+let GF_PEND_EDIT = {}; // estado da tabela editável de Pendentes: { [movId]: { checked, projetoId, rubricaId, solicitacaoId, parcelaId } }
 let GF_TABLE_STATE = {}; // estado de ordenação/filtro por tabela (estilo Excel): { [tableId]: { sortCol, sortDir, filters:{col:val} } }
 
 // ── UTILS ──
@@ -9139,8 +9218,29 @@ async function gfMudarAno(ano) {
   gfRender();
 }
 
-async function gfLoadAll() {
-  try {
+// Fase 37 — mapeia uma linha de FJ_MovimentosExecutados (igual ao que gfLoadAll já fazia).
+function _gfMapMovExecutado(r) {
+  return ({
+        id: r.Id,
+        movimentoPendenteId: r.MovimentoPendenteId?.Id || r.MovimentoPendenteIdId || null,
+        tipo: r.TipoMovimento || 'Despesa',
+        valor: r.Valor || 0,
+        percentagem: r.Percentagem || 100,
+        projetoId: r.ProjetoId?.Id || r.ProjetoIdId || null,
+        projetoNome: r.ProjetoId?.Title || '',
+        rubricaId: r.RubricaId?.Id || r.RubricaIdId || null,
+        rubricaNome: r.RubricaId?.Title || '',
+        solicitacaoId: r.SolicitacaoId?.Id || r.SolicitacaoIdId || null,
+        solicitacaoNome: r.SolicitacaoId?.Title || '',
+        dataMovimento: r.DataMovimento || null,
+        ano: r.Ano || (r.DataMovimento ? new Date(r.DataMovimento).getFullYear() : GF.year),
+        descricao: r.Title || r.Descricao || '',
+        observacao: r.Observacao || ''
+      });
+}
+
+// Fase 37 — GF_PROJETOS a partir de sharedProjetos (igual ao início do antigo gfLoadAll).
+async function gfMapearProjetosFinanceiro() {
     // Projetos (usando sharedProjetos ou carregando direto)
     if (!sharedProjetos?.length) await loadSharedProjetos();
     GF_PROJETOS = sharedProjetos.map(p => ({
@@ -9155,12 +9255,13 @@ async function gfLoadAll() {
       isBanco: p.isBancoGlobal || false,
       membrosAfetos: p.membrosAfetos || []
     }));
+}
 
-    // Fase 36 (Ponto 1) — os 10 pedidos abaixo são independentes entre si (nenhum
-    // lê o resultado de outro, nem de GF_PROJETOS, que já está definido antes disto);
-    // passam a disparar todos ao mesmo tempo em vez de um a seguir ao outro.
-    await Promise.all([
-      (async () => {
+// Fase 37 — um carregador por lista. gfLoadAll() corre todos em paralelo; depois de uma
+// ação, gfRecarregar([...]) corre só os das listas que essa ação alterou. Cada carregador
+// é exatamente o bloco que já existia em gfLoadAll (com o mesmo tratamento de erros).
+const GF_CARREGADORES = {
+  rubricas: async () => {
     // Rúbricas — FJ_Rubricas é agora a rúbrica "mestre" (Fase 18, sem ano). Os campos
     // DespOrcamentada/RecOrcamentada/AnoOrcamental ainda são lidos só como rede de segurança
     // legada (gfOrcamentoAnoRubrica), para rúbricas que "Migrar Orçamento 2026" ainda não
@@ -9193,16 +9294,16 @@ async function gfLoadAll() {
       _despOrcLegado: r.DespOrcamentada || 0,
       _recOrcLegado: r.RecOrcamentada || 0
     }));
-      })(),
-      (async () => {
+  },
+  rubricasAno: async () => {
     // Orçamento por ano (FJ_RubricasAno) — só a janela GF.year-1..GF.year+1 (ponto 6: nunca
     // a lista inteira). Outros anos são carregados sob pedido por gfGarantirAnoRubricasCarregado.
     _gfRubricasAnoAnosCarregados = new Set([GF.year - 1, GF.year, GF.year + 1]);
     const anosFiltroRA = [..._gfRubricasAnoAnosCarregados].map(a => `Ano eq ${a}`).join(' or ');
     const dra = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items?$select=Id,RubricaIdId,Ano,DespOrcamentada,RecOrcamentada,EstadoAno,AprovadoPor/Title,DataAprovacao&$expand=AprovadoPor&$filter=${anosFiltroRA}&$top=3000`);
     GF_RUBRICAS_ANO_ROWS = dra.d?.results || [];
-      })(),
-      (async () => {
+  },
+  solicitacoes: async () => {
     // Solicitações com expand
     const ds = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items?$select=Id,Codigo,Title,Valor,Estado,TipoSolicitacao,Fornecedor,EmailFornecedor,Justificacao,DataSubmissao,DataAprovDir,DataAprovDF,DataProcessado,DataPago,DataLimitePagamento,MotivoRejeicao,Comentarios,Recorrente,Periodicidade,NumOcorrencias,DataRecebimento,ProjetoId/Id,ProjetoId/Title,ProjetoIdId,RubricaId/Id,RubricaId/Title,RubricaIdId,Autor/Title,Autor/EMail,AprovDir/Title,AprovDF/Title&$expand=ProjetoId,RubricaId,Autor,AprovDir,AprovDF&$orderby=Created desc&$top=500`);
     GF_SOLICITACOES = (ds.d?.results || []).map(r => ({
@@ -9237,8 +9338,8 @@ async function gfLoadAll() {
       numOcorrencias: r.NumOcorrencias || null,
       dataRecebimento: r.DataRecebimento || null
     }));
-      })(),
-      (async () => {
+  },
+  alteracoes: async () => {
     // Alterações Orçamentais
     const da = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items?$select=Id,Title,Justificacao,ValorTotal,Estado,NivelAprovacao,DataSubmissao,DataAprovDir,DataAprovDF,MotivoRejeicao,DestProjetoId/Id,DestProjetoId/Title,DestProjetoIdId,DestRubricaId/Id,DestRubricaId/Title,DestRubricaIdId,Solicitante/Title,Solicitante/EMail,AprovDir/Title,AprovDF/Title,AprovPE/Title,AprovPCA/Title&$expand=DestProjetoId,DestRubricaId,Solicitante,AprovDir,AprovDF,AprovPE,AprovPCA&$orderby=Created desc&$top=200`);
     GF_ALTERACOES = (da.d?.results || []).map(r => ({
@@ -9263,8 +9364,8 @@ async function gfLoadAll() {
       aprovPCANome: r.AprovPCA?.Title || null,
       motivoRejeicao: r.MotivoRejeicao || ''
     }));
-      })(),
-      (async () => {
+  },
+  origens: async () => {
     // Origens das Alterações
     const dao = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrigens')/items?$select=Id,Valor,AlteracaoId/Id,OrigProjetoId/Id,OrigProjetoId/Title,OrigProjetoIdId,OrigRubricaId/Id,OrigRubricaId/Title,OrigRubricaIdId&$expand=AlteracaoId,OrigProjetoId,OrigRubricaId&$top=1000`);
     GF_ALTERACOES_ORIGENS = (dao.d?.results || []).map(r => ({
@@ -9276,8 +9377,8 @@ async function gfLoadAll() {
       origRubricaNome: r.OrigRubricaId?.Title || '',
       valor: r.Valor || 0
     }));
-      })(),
-      (async () => {
+  },
+  faturas: async () => {
     // Faturas
     const df = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Faturas')/items?$select=Id,Title,Fornecedor,DataFatura,Valor,Estado,SolicitacaoId/Id,SolicitacaoId/Title,SolicitacaoIdId&$expand=SolicitacaoId&$orderby=Created desc&$top=500`);
     GF_FATURAS = (df.d?.results || []).map(r => ({
@@ -9290,8 +9391,8 @@ async function gfLoadAll() {
       valor: r.Valor || 0,
       estado: r.Estado || 'Pendente'
     }));
-      })(),
-      (async () => {
+  },
+  movBancarios: async () => {
     // Movimentos Bancários (importados do Excel via Power Automate) — ainda por afetar ou já afetos
     try {
       const dmp = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosBancarios')/items?$select=Id,Title,DataMovimento,DataValor,Descricao,Observacao,RecPag,Importancia,SaldoContabilistico,CentroCusto,ChaveUnica,Estado,DataAfetacao&$filter=Estado ne 'Afeto'&$orderby=DataMovimento desc&$top=2000`);
@@ -9313,45 +9414,58 @@ async function gfLoadAll() {
       console.warn('Lista FJ_MovimentosBancarios indisponível:', e.message);
       GF_MOV_PENDENTES = [];
     }
-      })(),
-      (async () => {
+  },
+  movExecutados: async () => {
     // Movimentos Executados (ledger final por rúbrica, gerado ao afetar um movimento pendente)
+    // Fase 37 — a lista já passou os 5000 itens: era o pedido mais lento de todo o arranque
+    // (todas as colunas + 4 expansões, páginas de 2000 lidas uma a seguir à outra). Passa a
+    // pedir só as colunas usadas e a ler por fatias de Id em paralelo. Se isso falhar por
+    // qualquer razão, recua para a leitura antiga página a página, que já funcionava.
     GF_MOV_EXECUTADOS_ERRO = null;
     try {
-      // SEM $orderby nem $top=5000: a lista já passou o limiar de vista do SharePoint (5000 itens)
-      // e $orderby num campo não indexado (DataMovimento) força uma ordenação da lista inteira,
-      // o que o SharePoint recusa acima do limiar — era isto que fazia a chamada falhar e o
-      // "Pago" aparecer a 0,00€ em todo o lado. Sem $orderby, o spReadAll pagina sozinho (via
-      // $top mais pequeno + __next) e consegue trazer tudo mesmo acima do limiar; ordenamos por
-      // data do lado do cliente depois de carregado.
-      const dme = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosExecutados')/items?$select=*,ProjetoId/Title,RubricaId/Title,SolicitacaoId/Title,MovimentoPendenteId/Id&$expand=ProjetoId,RubricaId,SolicitacaoId,MovimentoPendenteId&$top=2000`);
-      GF_MOV_EXECUTADOS = (dme.d?.results || []).map(r => ({
-        id: r.Id,
-        movimentoPendenteId: r.MovimentoPendenteId?.Id || r.MovimentoPendenteIdId || null,
-        tipo: r.TipoMovimento || 'Despesa',
-        valor: r.Valor || 0,
-        percentagem: r.Percentagem || 100,
-        projetoId: r.ProjetoId?.Id || r.ProjetoIdId || null,
-        projetoNome: r.ProjetoId?.Title || '',
-        rubricaId: r.RubricaId?.Id || r.RubricaIdId || null,
-        rubricaNome: r.RubricaId?.Title || '',
-        solicitacaoId: r.SolicitacaoId?.Id || r.SolicitacaoIdId || null,
-        solicitacaoNome: r.SolicitacaoId?.Title || '',
-        dataMovimento: r.DataMovimento || null,
-        ano: r.Ano || (r.DataMovimento ? new Date(r.DataMovimento).getFullYear() : GF.year),
-        descricao: r.Title || r.Descricao || '',
-        observacao: r.Observacao || ''
-      })).sort((a, b) => new Date(b.dataMovimento || 0) - new Date(a.dataMovimento || 0));
+      const urlNovo = `${SP}/_api/web/lists/getbytitle('FJ_MovimentosExecutados')/items?$select=Id,Title,Descricao,Observacao,TipoMovimento,Valor,Percentagem,DataMovimento,Ano,MovimentoPendenteIdId,ProjetoIdId,ProjetoId/Id,ProjetoId/Title,RubricaIdId,RubricaId/Id,RubricaId/Title,SolicitacaoIdId,SolicitacaoId/Id,SolicitacaoId/Title&$expand=ProjetoId,RubricaId,SolicitacaoId&$top=2000`;
+      const urlAntigo = `${SP}/_api/web/lists/getbytitle('FJ_MovimentosExecutados')/items?$select=*,ProjetoId/Title,RubricaId/Title,SolicitacaoId/Title,MovimentoPendenteId/Id&$expand=ProjetoId,RubricaId,SolicitacaoId,MovimentoPendenteId&$top=2000`;
+      let dme;
+      try { dme = await spReadAllPorIntervalos(urlNovo, 1000, 6, { compacto: true }); }
+      catch (e0) {
+        console.warn('[Fase 40] formato compacto falhou, a usar o formato normal:', e0.message);
+        try { dme = await spReadAllPorIntervalos(urlNovo); }
+        catch (e1) { console.warn('[Fase 37] leitura por intervalos falhou, a ler página a página:', e1.message); dme = await spReadSelecionado(urlNovo, urlAntigo, spReadAll); }
+      }
+      GF_MOV_EXECUTADOS = (dme.d?.results || []).map(_gfMapMovExecutado).sort((a, b) => new Date(b.dataMovimento || 0) - new Date(a.dataMovimento || 0));
     } catch (e) {
       console.warn('Lista FJ_MovimentosExecutados indisponível:', e.message);
       GF_MOV_EXECUTADOS = [];
       GF_MOV_EXECUTADOS_ERRO = e.message || String(e);
     }
-      })(),
-      (async () => {
+  },
+  movExecutadosNovos: async () => {
+    // Fase 37 — depois de afetar movimentos (que só CRIAM linhas novas nesta lista), basta
+    // trazer as linhas com Id acima do maior já carregado, em vez de reler os >5000 itens.
+    // Se ainda não houver nada carregado (ou a última leitura falhou), lê tudo.
+    if (!GF_MOV_EXECUTADOS.length || GF_MOV_EXECUTADOS_ERRO) return GF_CARREGADORES.movExecutados();
+    const maxId = GF_MOV_EXECUTADOS.reduce((a, m) => Math.max(a, m.id || 0), 0);
+    try {
+      const urlNovo = `${SP}/_api/web/lists/getbytitle('FJ_MovimentosExecutados')/items?$select=Id,Title,Descricao,Observacao,TipoMovimento,Valor,Percentagem,DataMovimento,Ano,MovimentoPendenteIdId,ProjetoIdId,ProjetoId/Id,ProjetoId/Title,RubricaIdId,RubricaId/Id,RubricaId/Title,SolicitacaoIdId,SolicitacaoId/Id,SolicitacaoId/Title&$expand=ProjetoId,RubricaId,SolicitacaoId&$filter=Id gt ${maxId}&$top=2000`;
+      const urlAntigo = `${SP}/_api/web/lists/getbytitle('FJ_MovimentosExecutados')/items?$select=*,ProjetoId/Title,RubricaId/Title,SolicitacaoId/Title,MovimentoPendenteId/Id&$expand=ProjetoId,RubricaId,SolicitacaoId,MovimentoPendenteId&$filter=Id gt ${maxId}&$top=2000`;
+      let d;
+      try { d = await spReadAll(urlNovo, { compacto: true }); }
+      catch (e0) { console.warn('[Fase 40] formato compacto falhou, a usar o formato normal:', e0.message); d = await spReadSelecionado(urlNovo, urlAntigo, spReadAll); }
+      const novos = (d.d?.results || []).map(_gfMapMovExecutado);
+      const vistos = new Set(GF_MOV_EXECUTADOS.map(m => m.id));
+      GF_MOV_EXECUTADOS = GF_MOV_EXECUTADOS.concat(novos.filter(m => !vistos.has(m.id))).sort((a, b) => new Date(b.dataMovimento || 0) - new Date(a.dataMovimento || 0));
+    } catch (e) {
+      console.warn('[Fase 37] recarregamento incremental falhou, a reler tudo:', e.message);
+      return GF_CARREGADORES.movExecutados();
+    }
+  },
+  parcelas: async () => {
     // Calendário de Parcelas de Tesouraria (Fase 2)
     try {
-      const dtp = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items?$select=*,RubricaId/Id,RubricaId/Title,SolicitacaoId/Id,SolicitacaoId/Title&$expand=RubricaId,SolicitacaoId&$top=3000`);
+      const dtp = await spReadSelecionado(
+        `${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items?$select=Id,Title,RubricaIdId,RubricaId/Id,RubricaId/Title,SolicitacaoIdId,SolicitacaoId/Id,SolicitacaoId/Title,TipoParcelaTipo,ValorPrevisto,DataPrevista,ValorConfirmado,DataConfirmada,ValorEfetivo,DataEfetiva,EstadoParcela,OrigemParcela,FormaPagamento,ParcelaPai,NumAdiamentos,JustificacaoDesvio,NotasParcela&$expand=RubricaId,SolicitacaoId&$top=3000`,
+        `${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items?$select=*,RubricaId/Id,RubricaId/Title,SolicitacaoId/Id,SolicitacaoId/Title&$expand=RubricaId,SolicitacaoId&$top=3000`,
+        spReadAll);
       GF_TESOURARIA_PARCELAS = (dtp.d?.results || []).map(r => ({
         id: r.Id,
         titulo: r.Title || '',
@@ -9378,11 +9492,14 @@ async function gfLoadAll() {
       console.warn('Lista FJ_Tesouraria_Parcelas indisponível:', e.message);
       GF_TESOURARIA_PARCELAS = [];
     }
-      })(),
-      (async () => {
+  },
+  colaboradores: async () => {
     // Quadro de Pessoal (Fase 8)
     try {
-      const dcol = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Colaboradores')/items?$select=*&$orderby=Title&$top=500`);
+      const dcol = await spReadSelecionado(
+        `${SP}/_api/web/lists/getbytitle('FJ_Colaboradores')/items?$select=Id,Title,CategoriaProfissional,Direcao,VencimentoBase,SubAlimentacaoDia,SubTransporte,TaxaEncargos,DataAdmissao,Ativo,Notas&$orderby=Title&$top=500`,
+        `${SP}/_api/web/lists/getbytitle('FJ_Colaboradores')/items?$select=*&$orderby=Title&$top=500`,
+        spReadAll);
       GF_COLABORADORES = (dcol.d?.results || []).map(r => ({
         id: r.Id,
         nome: r.Title || '',
@@ -9400,14 +9517,8 @@ async function gfLoadAll() {
       console.warn('Lista FJ_Colaboradores indisponível:', e.message);
       GF_COLABORADORES = [];
     }
-      })(),
-    ]);
-
-    // GF_RUBRICAS depende de GF_RUBRICAS_MASTER e de GF_RUBRICAS_ANO_ROWS, os dois
-    // resolvidos no Promise.all acima — por isso só pode correr depois dele, nunca dentro.
-    GF_RUBRICAS = gfConstruirRubricasDoAno(GF.year);
-    console.log('GF Data loaded:', { projetos: GF_PROJETOS.length, rubricas: GF_RUBRICAS.length, solicitacoes: GF_SOLICITACOES.length, movPendentes: GF_MOV_PENDENTES.length, movExecutados: GF_MOV_EXECUTADOS.length });
-
+  },
+  bloqueio: async () => {
     // Carregar estado do bloqueio do orçamento (persiste em FJ_Configuracoes)
     try {
       const dc = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$filter=Title eq 'OrcamentoBloqueado_${GF.year}'&$select=Id,Title,Valor&$top=1`);
@@ -9419,17 +9530,79 @@ async function gfLoadAll() {
       GF.bloqueado = false;
       GF._bloqueadoId = null;
     }
+  },
+  // Carregar modelos de repartição / lista base RH / rúbricas confidenciais (FJ_Configuracoes)
+  modelos: () => gfLoadModelosReparticao(),
+  rhBase: () => gfLoadRHBase(),
+  sensiveis: () => gfLoadRubricasSensiveis(),
+};
+const GF_LISTAS_TODAS = ['rubricas', 'rubricasAno', 'solicitacoes', 'alteracoes', 'origens', 'faturas', 'movBancarios', 'movExecutados', 'parcelas', 'colaboradores', 'bloqueio', 'modelos', 'rhBase', 'sensiveis'];
 
-    // Carregar modelos de repartição (persiste em FJ_Configuracoes)
-    await gfLoadModelosReparticao();
-    await gfLoadRHBase();
-    await gfLoadRubricasSensiveis();
+// Fase 37 — depois de um recarregamento parcial, as listas que NÃO foram relidas guardam o
+// nome da Solicitação/Rúbrica que vinha no $expand da última leitura. Se a ação mudou esse
+// nome (ex.: editar o título de uma Solicitação), atualiza-o a partir da lista relida — é o
+// mesmo valor que o SharePoint devolveria no $expand numa leitura completa.
+function gfSincronizarNomesLookup(nomes) {
+  const relidas = new Set(nomes);
+  if (relidas.has('solicitacoes')) {
+    const tit = new Map(GF_SOLICITACOES.map(s => [s.id, s.titulo]));
+    const aplicar = arr => arr.forEach(x => { if (x.solicitacaoId && tit.has(x.solicitacaoId)) x.solicitacaoNome = tit.get(x.solicitacaoId); });
+    if (!relidas.has('movExecutados') && !relidas.has('movExecutadosNovos')) aplicar(GF_MOV_EXECUTADOS);
+    if (!relidas.has('parcelas')) aplicar(GF_TESOURARIA_PARCELAS);
+    if (!relidas.has('faturas')) aplicar(GF_FATURAS);
+  }
+  if (relidas.has('rubricas')) {
+    const tit = new Map(GF_RUBRICAS_MASTER.map(r => [r.id, r.titulo]));
+    const aplicar = arr => arr.forEach(x => { if (x.rubricaId && tit.has(x.rubricaId)) x.rubricaNome = tit.get(x.rubricaId); });
+    if (!relidas.has('solicitacoes')) aplicar(GF_SOLICITACOES);
+    if (!relidas.has('movExecutados') && !relidas.has('movExecutadosNovos')) aplicar(GF_MOV_EXECUTADOS);
+    if (!relidas.has('parcelas')) aplicar(GF_TESOURARIA_PARCELAS);
+    if (!relidas.has('alteracoes')) GF_ALTERACOES.forEach(x => { if (x.destRubricaId && tit.has(x.destRubricaId)) x.destRubricaNome = tit.get(x.destRubricaId); });
+    if (!relidas.has('origens')) GF_ALTERACOES_ORIGENS.forEach(x => { if (x.origRubricaId && tit.has(x.origRubricaId)) x.origRubricaNome = tit.get(x.origRubricaId); });
+  }
+}
 
-    gfRender();
+// Fase 37 — recarrega só as listas indicadas (nomes de GF_CARREGADORES), em paralelo, e
+// redesenha. Mesmo comportamento de erro do gfLoadAll: nunca lança, mostra a notificação.
+async function gfRecarregar(nomes, opcoes = {}) {
+  const _t0 = performance.now();
+  try {
+    await gfMapearProjetosFinanceiro();
+    await Promise.all(nomes.map(n => {
+      const f = GF_CARREGADORES[n];
+      if (!f) throw new Error('Carregador desconhecido: ' + n);
+      if (!GF_PERF) return f();
+      const t = performance.now();
+      return Promise.resolve(f()).then(() => gfPerfLog(`  carregador ${n}: ${Math.round(performance.now() - t)}ms`));
+    }));
+    // GF_RUBRICAS depende de GF_RUBRICAS_MASTER e de GF_RUBRICAS_ANO_ROWS — recalcula sempre
+    // depois dos carregadores (é barato e garante que nunca fica desatualizado).
+    GF_RUBRICAS = gfConstruirRubricasDoAno(GF.year);
+    if (nomes.length < GF_LISTAS_TODAS.length) gfSincronizarNomesLookup(nomes);
+    console.log('GF Data loaded:', { listas: nomes.length === GF_LISTAS_TODAS.length ? 'todas' : nomes.join(','), projetos: GF_PROJETOS.length, rubricas: GF_RUBRICAS.length, solicitacoes: GF_SOLICITACOES.length, movPendentes: GF_MOV_PENDENTES.length, movExecutados: GF_MOV_EXECUTADOS.length });
+    gfPerfLog(`gfRecarregar([${nomes.length === GF_LISTAS_TODAS.length ? 'todas' : nomes.join(', ')}]) ${Math.round(performance.now() - _t0)}ms`);
+    if (opcoes.render !== false) gfRender();
+    gfPrepararEscritas();
   } catch (e) {
     console.error('gfLoadAll error:', e);
     showNotif('Erro ao carregar dados financeiros: ' + e.message, 'error');
   }
+}
+
+async function gfLoadAll() {
+  return gfRecarregar(GF_LISTAS_TODAS);
+}
+
+// Fase 41c — em segundo plano, uma só vez por sessão: deixa pronto o FormDigest e o tipo da lista
+// de Parcelas para a primeira gravação não esperar por eles. Qualquer falha é ignorada.
+let _gfEscritasPreparadas = false;
+function gfPrepararEscritas() {
+  if (_gfEscritasPreparadas) return;
+  _gfEscritasPreparadas = true;
+  setTimeout(() => {
+    getDigest().catch(() => { _gfEscritasPreparadas = false; });
+    _gfGetTesourariaParcelasType().catch(() => {});
+  }, 0);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -9444,17 +9617,37 @@ function gfCalcBloqueioAlteracao(rubricaId) {
   return origensPend.reduce((a, o) => a + (o.valor || 0), 0);
 }
 
+// Fase 38 — somas de GF_MOV_EXECUTADOS pré-calculadas num só passe (por solicitação e por
+// rúbrica+tipo+ano), refeitas sempre que a lista é substituída. Mesma ordem de soma e mesma
+// comparação estrita que os filter/reduce originais (o tipo entra na chave).
+let _gfIdxExec = { ref: null, len: -1 };
+function _gfChaveExec(v) { return typeof v + ':' + v; }
+function _gfIndiceExecutados() {
+  if (_gfIdxExec.ref !== GF_MOV_EXECUTADOS || _gfIdxExec.len !== GF_MOV_EXECUTADOS.length) {
+    const ligados = new Map(), exec = new Map(), avulso = new Map();
+    for (const m of GF_MOV_EXECUTADOS) {
+      const v = m.valor || 0;
+      if (m.solicitacaoId) { const ks = _gfChaveExec(m.solicitacaoId); ligados.set(ks, (ligados.get(ks) || 0) + v); }
+      const k = _gfChaveExec(m.rubricaId) + '|' + _gfChaveExec(m.tipo) + '|' + _gfChaveExec(m.ano);
+      exec.set(k, (exec.get(k) || 0) + v);
+      if (!m.solicitacaoId) avulso.set(k, (avulso.get(k) || 0) + v);
+    }
+    _gfIdxExec = { ref: GF_MOV_EXECUTADOS, len: GF_MOV_EXECUTADOS.length, ligados, exec, avulso };
+  }
+  return _gfIdxExec;
+}
+
 // Soma dos Movimentos Executados ligados a uma Solicitação (pode ter vários pagamentos parciais)
 function gfCalcMovLigados(solicitacaoId) {
   if (!solicitacaoId) return 0;
-  return GF_MOV_EXECUTADOS.filter(m => m.solicitacaoId === solicitacaoId).reduce((a, m) => a + (m.valor || 0), 0);
+  return _gfIndiceExecutados().ligados.get(_gfChaveExec(solicitacaoId)) || 0;
 }
 
 // Soma de todos os Movimentos Executados de uma rúbrica (tenham ou não Solicitação associada).
 // Fase 18 — a rúbrica mestre é partilhada entre anos, por isso filtra também por m.ano === ano
 // (sem isto, um pagamento de 2026 continuava a contar em 2027 e nos anos seguintes).
 function gfCalcExecutadoRubrica(rubricaId, tipo, ano = GF.year) {
-  return GF_MOV_EXECUTADOS.filter(m => m.rubricaId === rubricaId && m.tipo === tipo && m.ano === ano).reduce((a, m) => a + (m.valor || 0), 0);
+  return _gfIndiceExecutados().exec.get(_gfChaveExec(rubricaId) + '|' + _gfChaveExec(tipo) + '|' + _gfChaveExec(ano)) || 0;
 }
 
 // Soma dos Movimentos Executados desta rúbrica SEM Solicitação associada — afetados diretamente
@@ -9462,7 +9655,7 @@ function gfCalcExecutadoRubrica(rubricaId, tipo, ano = GF.year) {
 // aprovados, processados e pagos (não passaram pelo fluxo de Solicitação, mas já aconteceram).
 // Fase 18 — mesmo critério de ano de gfCalcExecutadoRubrica.
 function gfCalcAvulsoRubrica(rubricaId, tipo, ano = GF.year) {
-  return GF_MOV_EXECUTADOS.filter(m => m.rubricaId === rubricaId && m.tipo === tipo && m.ano === ano && !m.solicitacaoId).reduce((a, m) => a + (m.valor || 0), 0);
+  return _gfIndiceExecutados().avulso.get(_gfChaveExec(rubricaId) + '|' + _gfChaveExec(tipo) + '|' + _gfChaveExec(ano)) || 0;
 }
 
 // Saldo por pagar de uma Solicitação (valor aprovado menos o que já foi ligado em Movimentos Executados)
@@ -9643,6 +9836,10 @@ function gfUpdateSidebarNav() {
 
 // ── MAIN RENDER ──
 function gfRender() {
+  if (GF_PERF) { const _t = performance.now(); _gfRenderImpl(); gfPerfLog(`render ${GF.screen}: ${Math.round(performance.now() - _t)}ms`); return; }
+  _gfRenderImpl();
+}
+function _gfRenderImpl() {
   const app = gfEl('gf-app');
   if (!app) return;
   
@@ -9837,7 +10034,7 @@ async function gfDividaSaveDate(id) {
       'MERGE'
     );
     showNotif('Data limite guardada ✓', 'success');
-    await gfLoadAll();
+    await gfRecarregar(['solicitacoes']); // Fase 37 — só o que esta ação altera
     gfNav('tesouraria-divida');
   } catch(e) {
     showNotif('Erro: ' + e.message, 'error');
@@ -10435,7 +10632,7 @@ async function gfSaveColaborador(id) {
       await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Colaboradores')/items`, body, 'POST');
     }
     showNotif('Colaborador guardado ✓', 'success');
-    await gfLoadAll();
+    await gfRecarregar(['colaboradores']); // Fase 37 — só o que esta ação altera
     gfNav('tesouraria-rh');
   } catch (e) {
     showNotif('Erro ao guardar: ' + e.message, 'error');
@@ -10611,7 +10808,7 @@ async function gfGerarSolicitacoesFixas() {
       }
     });
     showNotif(`${criadas} Solicitação(ões) gerada(s)${erros ? `, ${erros} com erro (ver consola)` : ''}.`, erros ? 'error' : 'success');
-    await gfLoadAll();
+    await gfRecarregar(['solicitacoes', 'parcelas']); // Fase 37 — só o que esta ação altera
     gfRenderTesourariaPrevisoes();
   } catch (e) {
     showNotif('Erro ao gerar Solicitações: ' + e.message, 'error');
@@ -11071,7 +11268,7 @@ async function _gfOpAplicarNovaData(p, novaData) {
       if (justificacao) body.JustificacaoDesvio = _gfOpAppendJustificacao(p, justificacao);
     }
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${p.id})`, body, 'MERGE');
-    await gfLoadAll();
+    await gfRecarregar(['parcelas']); // Fase 37 — só o que esta ação altera
     gfRefreshOperacional();
   } catch (e) {
     showNotif('Erro ao mover parcela: ' + e.message, 'error');
@@ -11112,7 +11309,7 @@ async function gfOpAbrirSplit(parcelaId) {
     if (p.solicitacaoId) body.SolicitacaoIdId = p.solicitacaoId;
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items`, body, 'POST');
     showNotif('Parcela dividida em duas.', 'success');
-    await gfLoadAll();
+    await gfRecarregar(['parcelas']); // Fase 37 — só o que esta ação altera
     gfRefreshOperacional();
   } catch (e) {
     showNotif('Erro ao dividir parcela: ' + e.message, 'error');
@@ -11135,7 +11332,7 @@ async function gfOpAdicionarNaSemana(semanaIdx) {
       OrigemParcela: 'Manual'
     };
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items`, body, 'POST');
-    await gfLoadAll();
+    await gfRecarregar(['parcelas']); // Fase 37 — só o que esta ação altera
     gfRefreshOperacional();
   } catch (e) {
     showNotif('Erro ao adicionar parcela: ' + e.message, 'error');
@@ -13068,7 +13265,7 @@ async function gfGerarParcelasAutomatico(rubricaId, tipo) {
     });
     const criadas = mesesACriar.length;
     showNotif(criadas ? `${criadas} parcela(s) criada(s).` : 'Não havia parcelas novas a criar (meses já preenchidos).', 'success');
-    await gfLoadAll();
+    await gfRecarregar(['parcelas']); // Fase 37 — só o que esta ação altera
     gfRefreshRubricaForm();
   } catch (e) {
     showNotif('Erro ao gerar parcelas: ' + e.message, 'error');
@@ -13093,7 +13290,7 @@ async function gfAdicionarParcelaManual(rubricaId) {
       OrigemParcela: 'Manual'
     };
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items`, body, 'POST');
-    await gfLoadAll();
+    await gfRecarregar(['parcelas']); // Fase 37 — só o que esta ação altera
     gfRefreshRubricaForm();
   } catch (e) {
     showNotif('Erro ao adicionar parcela: ' + e.message, 'error');
@@ -13105,7 +13302,7 @@ async function gfSaveParcelaCampo(parcelaId, campo, valor) {
     const body = { __metadata: { type: await _gfGetTesourariaParcelasType() } };
     body[campo] = campo === 'DataPrevista' ? new Date(valor).toISOString() : (parseFloat(valor) || 0);
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${parcelaId})`, body, 'MERGE');
-    await gfLoadAll();
+    await gfRecarregar(['parcelas']); // Fase 37 — só o que esta ação altera
     gfRefreshCurrentForm();
   } catch (e) {
     showNotif('Erro ao guardar: ' + e.message, 'error');
@@ -13116,7 +13313,7 @@ async function gfEliminarParcela(parcelaId) {
   if (!confirm('Eliminar esta parcela?')) return;
   try {
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${parcelaId})`, null, 'DELETE');
-    await gfLoadAll();
+    await gfRecarregar(['parcelas']); // Fase 37 — só o que esta ação altera
     gfRefreshCurrentForm();
   } catch (e) {
     showNotif('Erro ao eliminar: ' + e.message, 'error');
@@ -13373,7 +13570,7 @@ async function gfGerarPlanoPagamento(solId) {
       await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items`, body, 'POST');
     });
     showNotif(`${itens.length} parcela(s) criada(s).`, 'success');
-    await gfLoadAll();
+    await gfRecarregar(['parcelas']); // Fase 37 — só o que esta ação altera
     gfRefreshCurrentForm();
   } catch (e) {
     showNotif('Erro ao gerar plano de pagamento: ' + e.message, 'error');
@@ -13399,7 +13596,7 @@ async function gfAdicionarParcelaPagamentoManual(solId) {
       OrigemParcela: 'Manual'
     };
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items`, body, 'POST');
-    await gfLoadAll();
+    await gfRecarregar(['parcelas']); // Fase 37 — só o que esta ação altera
     gfRefreshCurrentForm();
   } catch (e) {
     showNotif('Erro ao adicionar parcela: ' + e.message, 'error');
@@ -13611,7 +13808,7 @@ async function gfSaveRubrica(id) {
     }
 
     showNotif(id ? 'Rúbrica atualizada' : 'Rúbrica criada', 'success');
-    await gfLoadAll();
+    await gfRecarregar(['rubricas', 'rubricasAno']); // Fase 37 — só o que esta ação altera
     gfNav('orcamento-rubricas');
   } catch (e) {
     showNotif('Erro: ' + e.message, 'error');
@@ -13627,7 +13824,7 @@ async function gfDeleteSolicitacao(id){
   if(!confirm(`Eliminar a solicitação "${s.titulo}"?\nEsta ação não pode ser revertida.`))return;
   try{
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${id})`,null,'DELETE');
-    await gfLoadAll();gfRender();showNotif('Solicitação eliminada.','success');
+    await gfRecarregar(['solicitacoes']); // Fase 37 — só o que esta ação alteragfRender();showNotif('Solicitação eliminada.','success');
   }catch(e){showNotif('Erro ao eliminar: '+e.message,'error');}
 }
 // Nome de exibição de um Movimento Bancário pendente: Descrição + Observação
@@ -13786,7 +13983,7 @@ function gfRenderSolicitacoes() {
         ${gfPendBarHtml(movPendentes)}
       </div>
       <div class="card" style="padding:0;overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1300px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1150px">
           <thead id="gf-pend-thead">
             ${gfPendTheadHtml()}
           </thead>
@@ -14277,7 +14474,7 @@ async function gfSaveSolicitacao(id, estado) {
         await uploadAttachment('FJ_Solicitacoes', itemId, renamed);
       }
     }
-    await gfLoadAll();
+    await gfRecarregar(['solicitacoes']); // Fase 37 — só o que esta ação altera
     gfNav('solicitacoes');
   } catch (e) {
     showNotif('Erro: ' + e.message, 'error');
@@ -14360,7 +14557,7 @@ async function gfPeAlterarSolicitacao(id) {
     };
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${id})`, body, 'MERGE');
     showNotif('Solicitação alterada e registada no histórico. ✓', 'success');
-    await gfLoadAll();
+    await gfRecarregar(['solicitacoes']); // Fase 37 — só o que esta ação altera
     gfRender();
   } catch (e) {
     showNotif('Erro ao alterar solicitação: ' + e.message, 'error');
@@ -14641,7 +14838,7 @@ async function gfAprovarSolicitacao(id, nivelParam) {
     if (comentario) body.Comentarios = gfAppendComentario(sol, comentario, 'Aprovado');
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${id})`, body, 'MERGE');
     showNotif('Solicitação aprovada!', 'success');
-    await gfLoadAll();
+    await gfRecarregar(['solicitacoes']); // Fase 37 — só o que esta ação altera
     gfNav('solicitacoes');
   } catch (e) {
     showNotif('Erro: ' + e.message, 'error');
@@ -14665,7 +14862,7 @@ async function gfRejeitarSolicitacao(id) {
     };
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${id})`, body, 'MERGE');
     showNotif('Solicitação rejeitada', 'success');
-    await gfLoadAll();
+    await gfRecarregar(['solicitacoes']); // Fase 37 — só o que esta ação altera
     gfNav('solicitacoes');
   } catch (e) {
     showNotif('Erro: ' + e.message, 'error');
@@ -14688,7 +14885,7 @@ async function gfPendenteSolicitacao(id) {
     };
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Solicitacoes')/items(${id})`, body, 'MERGE');
     showNotif('Solicitação marcada como Pendente', 'success');
-    await gfLoadAll();
+    await gfRecarregar(['solicitacoes']); // Fase 37 — só o que esta ação altera
     gfNav('solicitacoes');
   } catch (e) {
     showNotif('Erro: ' + e.message, 'error');
@@ -15395,7 +15592,7 @@ async function gfAprovarAlteracao(id) {
       
       await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items(${id})`, body, 'MERGE');
       showNotif('Alteração aprovada! Aguarda aprovação da DF.', 'success');
-      await gfLoadAll();
+      await gfRecarregar(['alteracoes', 'origens', 'rubricas', 'rubricasAno']); // Fase 37 — só o que esta ação altera
       gfRender();
       return;
     }
@@ -15445,7 +15642,7 @@ async function gfAprovarAlteracao(id) {
     }
     
     showNotif('Alteração aprovada!', 'success');
-    await gfLoadAll();
+    await gfRecarregar(['alteracoes', 'origens', 'rubricas', 'rubricasAno']); // Fase 37 — só o que esta ação altera
   } catch (e) {
     showNotif('Erro: ' + e.message, 'error');
   }
@@ -15482,7 +15679,7 @@ async function gfReaplicarAlteracao(id) {
   try {
     await gfAplicarAlteracaoOrcamental(alt);
     showNotif('Alteração reaplicada ao orçamento! ✓', 'success');
-    await gfLoadAll();
+    await gfRecarregar(['alteracoes', 'origens', 'rubricas', 'rubricasAno']); // Fase 37 — só o que esta ação altera
   } catch (e) {
     showNotif('Erro ao reaplicar: ' + e.message, 'error');
   }
@@ -15600,7 +15797,7 @@ async function gfRejeitarAlteracao(id) {
     };
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_AlteracoesOrcamentais')/items(${id})`, body, 'MERGE');
     showNotif('Alteração rejeitada', 'success');
-    await gfLoadAll();
+    await gfRecarregar(['alteracoes', 'origens']); // Fase 37 — só o que esta ação altera
   } catch (e) {
     showNotif('Erro: ' + e.message, 'error');
   }
@@ -17931,7 +18128,7 @@ async function gfSubmitProcessado() {
     );
     showNotif('Solicitação marcada como Processada e nota de encomenda anexada! ✓', 'success');
     gfCloseProcModal();
-    await gfLoadAll();
+    await gfRecarregar(['solicitacoes']); // Fase 37 — só o que esta ação altera
     gfRender();
   } catch(e) {
     showNotif('Erro: ' + e.message, 'error');
@@ -18028,7 +18225,7 @@ async function gfSubmitPago() {
     );
     showNotif('Solicitação marcada como Paga e comprovativo anexado! ✓', 'success');
     gfClosePagoModal();
-    await gfLoadAll();
+    await gfRecarregar(['solicitacoes']); // Fase 37 — só o que esta ação altera
     gfRender();
   } catch(e) {
     showNotif('Erro: ' + e.message, 'error');
@@ -18125,7 +18322,7 @@ async function gfSubmitRecebido() {
     );
     showNotif('Solicitação marcada como Recebida e comprovativo anexado! ✓', 'success');
     gfCloseRecebidoModal();
-    await gfLoadAll();
+    await gfRecarregar(['solicitacoes']); // Fase 37 — só o que esta ação altera
     gfRender();
   } catch(e) {
     showNotif('Erro: ' + e.message, 'error');
@@ -19161,7 +19358,8 @@ async function gfSubmitAfetar() {
     );
 
     // Recarregar para ter os Movimentos Executados atualizados antes de verificar saldos
-    await gfLoadAll();
+    await gfRecarregar(['movBancarios', 'movExecutadosNovos', 'solicitacoes', 'parcelas']); // Fase 37 — só o que esta ação altera
+    const _escritasAposRecarga = _spEscritas; // Fase 41
 
     // Fase 17 — antes de verificar se alguma Solicitação ficou 100% paga, tenta casar o
     // valor de cada afetação com a(s) parcela(s) mais antigas do seu Plano de Pagamento cuja
@@ -19197,7 +19395,8 @@ async function gfSubmitAfetar() {
 
     showNotif(erroPago ? 'Movimento afeto, mas houve um erro ao marcar a solicitação como Paga — verifica e marca manualmente com "+ Pago".' : 'Movimento afeto com sucesso! ✓', erroPago ? 'error' : 'success');
     gfCloseAfetarModal();
-    await gfLoadAll();
+    // Fase 41 — só volta a ler se houve gravações depois do recarregamento do meio
+    if (_spEscritas !== _escritasAposRecarga) await gfRecarregar(['solicitacoes', 'parcelas']);
     gfRender();
   } catch (e) {
     showNotif('Erro ao afetar movimento: ' + e.message, 'error');
@@ -19236,6 +19435,8 @@ async function gfReverterMovExecutado(movExecId) {
     for (const l of irmaos) {
       await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosExecutados')/items(${l.id})`, null, 'DELETE');
     }
+    // Fase 37 — tira da memória as linhas acabadas de apagar (em vez de reler os >5000 itens)
+    { const apagados = new Set(irmaos.map(l => l.id)); GF_MOV_EXECUTADOS = GF_MOV_EXECUTADOS.filter(x => !apagados.has(x.id)); }
 
     if (mov.movimentoPendenteId) {
       await spWrite(
@@ -19246,7 +19447,8 @@ async function gfReverterMovExecutado(movExecId) {
     }
 
     // Recarregar antes de verificar saldos, para as linhas apagadas já não contarem
-    await gfLoadAll();
+    await gfRecarregar(['movBancarios', 'solicitacoes', 'parcelas']); // Fase 37 — só o que esta ação altera
+    const _escritasAposRecarga = _spEscritas; // Fase 41
 
     // Solicitações tocadas por este movimento → repõe parcelas e, se tinha ficado "Pago"
     // por causa dele, repõe também o estado anterior.
@@ -19271,7 +19473,8 @@ async function gfReverterMovExecutado(movExecId) {
     }
 
     showNotif('Afetação revertida — o movimento voltou para Pendentes ✓', 'success');
-    await gfLoadAll();
+    // Fase 41 — só volta a ler se houve gravações depois do recarregamento do meio
+    if (_spEscritas !== _escritasAposRecarga) await gfRecarregar(['solicitacoes', 'parcelas']);
     gfRender();
   } catch (e) {
     showNotif('Erro ao reverter afetação: ' + e.message, 'error');
@@ -19282,7 +19485,7 @@ async function gfReverterMovExecutado(movExecId) {
 // Fluxo simples (1 rúbrica, 100%): preencher Projeto+Rúbrica na própria linha da tabela.
 // Para repartir por várias rúbricas continua a usar-se o modal "Afetar Movimento" (link "Repartir").
 function gfPendGetEdit(movId) {
-  if (!GF_PEND_EDIT[movId]) GF_PEND_EDIT[movId] = { checked: false, projetoId: null, rubricaId: null, solicitacaoId: null };
+  if (!GF_PEND_EDIT[movId]) GF_PEND_EDIT[movId] = { checked: false, projetoId: null, rubricaId: null, solicitacaoId: null, parcelaId: null };
   return GF_PEND_EDIT[movId];
 }
 
@@ -19310,22 +19513,18 @@ function gfPendTheadHtml() {
   return `
     <tr style="background:var(--mod-financeiro-bg)">
       <th style="padding:10px 8px;text-align:center;font-weight:500;color:var(--mod-financeiro);width:32px;position:sticky;left:0;background:var(--mod-financeiro-bg);z-index:2"></th>
-      ${gfTh('pend', 'data', 'Data Mov.', { align: 'center', pad: '10px 8px' })}
+      ${gfTh('pend', 'data', 'Data Mov.', { align: 'center', pad: '10px 8px', style: 'width:92px;' })}
       ${gfTh('pend', 'desc', 'Descrição', { align: 'left', pad: '10px 8px' })}
-      ${gfTh('pend', 'tipo', 'Tipo', { align: 'center', pad: '10px 8px' })}
-      ${gfTh('pend', 'valor', 'Valor', { align: 'right', pad: '10px 8px' })}
-      <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Projeto</th>
-      <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Rúbrica</th>
-      <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro)">Solicitação (opcional)</th>
-      <th style="padding:10px 8px;text-align:center;font-weight:500;color:var(--mod-financeiro);position:sticky;right:0;background:var(--mod-financeiro-bg);z-index:2;box-shadow:-2px 0 4px rgba(0,0,0,.06)">${temFiltro ? `<a onclick="gfTableFilterClear('pend')" style="font-size:10px;font-weight:400;color:var(--mod-financeiro);cursor:pointer" title="Limpar ordenação/filtros">✕ limpar</a>` : 'Ação'}</th>
+      ${gfTh('pend', 'tipo', 'Tipo', { align: 'center', pad: '10px 8px', style: 'width:84px;' })}
+      ${gfTh('pend', 'valor', 'Valor', { align: 'right', pad: '10px 8px', style: 'width:110px;' })}
+      <th style="padding:10px 8px;text-align:left;font-weight:500;color:var(--mod-financeiro);width:44%">Afetação <span style="font-weight:400;color:var(--text3)">(Projeto · Rúbrica / Solicitação · Parcela, opcionais)</span></th>
+      <th style="padding:10px 8px;text-align:center;font-weight:500;color:var(--mod-financeiro);width:80px;position:sticky;right:0;background:var(--mod-financeiro-bg);z-index:2;box-shadow:-2px 0 4px rgba(0,0,0,.06)">${temFiltro ? `<a onclick="gfTableFilterClear('pend')" style="font-size:10px;font-weight:400;color:var(--mod-financeiro);cursor:pointer" title="Limpar ordenação/filtros">✕ limpar</a>` : 'Ação'}</th>
     </tr>
     <tr>
       <th style="padding:4px 8px;background:var(--mod-financeiro-bg);position:sticky;left:0;z-index:2"></th>
       <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
       ${gfThFilterText('pend', 'desc', 'Filtrar descrição...')}
       ${gfThFilterSelect('pend', 'tipo', ['Despesa', 'Receita'])}
-      <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
-      <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
       <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
       <th style="padding:4px 8px;background:var(--mod-financeiro-bg)"></th>
       <th style="padding:4px 8px;background:var(--mod-financeiro-bg);position:sticky;right:0;z-index:2;box-shadow:-2px 0 4px rgba(0,0,0,.06)"></th>
@@ -19350,6 +19549,18 @@ function gfPendRefreshBar() {
   if (bar) bar.innerHTML = gfPendBarHtml(movPendentes);
 }
 
+// Fase 42 — só a opção já escolhida vai no HTML da linha; a lista completa é preenchida ao abrir.
+function gfPendProjetoEscolhidoOption(projetoId) {
+  if (!projetoId) return '';
+  const p = filterFinanceProjects(GF_PROJETOS).find(x => x.id === projetoId);
+  return p ? `<option value="${p.id}" selected>${p.nome}</option>` : '';
+}
+function gfPendPreencherProjetos(sel) {
+  if (!sel || sel.dataset.cheio) return;
+  const escolhido = parseInt(sel.value) || null;
+  sel.innerHTML = '<option value="">Projeto...</option>' + gfProjetosOptions(escolhido);
+  sel.dataset.cheio = '1';
+}
 function gfPendRowHtml(m) {
   const o = gfPendGetEdit(m.id);
   const tipo = (m.importancia || 0) < 0 ? 'Despesa' : 'Receita';
@@ -19366,21 +19577,23 @@ function gfPendRowHtml(m) {
         <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:${tipo === 'Receita' ? '#FFF7ED' : '#EFF6FF'};color:${tipo === 'Receita' ? '#F97316' : '#2563EB'}">${tipo}</span>
       </td>
       <td style="padding:8px;text-align:right;font-weight:500;white-space:nowrap">${gfFmt(Math.abs(m.importancia || 0))}</td>
-      <td style="padding:8px">
-        <select id="gf-pend-proj-${m.id}" onchange="gfPendProjChange(${m.id})" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;font-size:12px">
-          <option value="">Selecionar...</option>
-          ${gfProjetosOptions(o.projetoId)}
-        </select>
-      </td>
-      <td style="padding:8px">
-        <select id="gf-pend-rub-${m.id}" onchange="gfPendRubChange(${m.id})" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;font-size:12px" ${!o.projetoId ? 'disabled' : ''}>
-          ${o.projetoId ? gfAfetarRubOptions(o.projetoId, tipo, ano, o.rubricaId) : '<option value="">Selecionar projeto...</option>'}
-        </select>
-      </td>
-      <td style="padding:8px">
-        <select id="gf-pend-sol-${m.id}" onchange="gfPendSolChange(${m.id})" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;font-size:12px" ${!o.rubricaId ? 'disabled' : ''}>
-          ${o.rubricaId ? gfAfetarSolOptions(o.rubricaId, o.solicitacaoId) : '<option value="">—</option>'}
-        </select>
+      <td style="padding:8px;min-width:520px;width:42%">
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px">
+          <select id="gf-pend-proj-${m.id}" onchange="gfPendProjChange(${m.id})" onmousedown="gfPendPreencherProjetos(this)" onfocus="gfPendPreencherProjetos(this)" title="Projeto" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;font-size:12px">
+            <option value="">Projeto...</option>
+            ${gfPendProjetoEscolhidoOption(o.projetoId)}
+          </select>
+          <select id="gf-pend-rub-${m.id}" onchange="gfPendRubChange(${m.id})" title="Rúbrica" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;font-size:12px" ${!o.projetoId ? 'disabled' : ''}>
+            ${o.projetoId ? gfAfetarRubOptions(o.projetoId, tipo, ano, o.rubricaId) : '<option value="">Rúbrica (escolhe o projeto)</option>'}
+          </select>
+          <select id="gf-pend-sol-${m.id}" onchange="gfPendSolChange(${m.id})" title="Solicitação (opcional)" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;font-size:12px" ${!o.rubricaId ? 'disabled' : ''}>
+            ${o.rubricaId ? gfAfetarSolOptions(o.rubricaId, o.solicitacaoId) : '<option value="">Solicitação (opcional)</option>'}
+          </select>
+          <select id="gf-pend-parc-${m.id}" onchange="gfPendParcChange(${m.id})" title="Parcela a resolver (opcional)" style="width:100%;padding:6px;border:1px solid var(--border);border-radius:4px;font-size:12px" ${!o.solicitacaoId ? 'disabled' : ''}>
+            ${gfPendParcelaOptions(o.solicitacaoId, o.parcelaId)}
+          </select>
+        </div>
+        ${gfPendParcelaAviso(m, o)}
       </td>
       <td style="padding:8px;text-align:center;white-space:nowrap;position:sticky;right:0;z-index:1;background:${pronto ? '#F0FDF4' : 'var(--surface)'};box-shadow:-2px 0 4px rgba(0,0,0,.06)">
         <a onclick="gfOpenAfetarModal(${m.id})" style="color:var(--mod-financeiro);cursor:pointer;font-size:11px">Repartir</a>
@@ -19388,8 +19601,41 @@ function gfPendRowHtml(m) {
     </tr>`;
 }
 
+// Fase 39 — parcelas ainda por liquidar da Solicitação escolhida (mesmo critério da
+// sincronização de parcelas: exclui Anulada, Confirmada, Paga e Recebida).
+function gfPendParcelasDisponiveis(solicitacaoId) {
+  if (!solicitacaoId) return [];
+  return gfParcelasDaSolicitacao(solicitacaoId).filter(p => !GF_PARCELAS_REALIZADAS.includes(p.estado));
+}
+// Valor da parcela: o confirmado se existir, senão o previsto (como gfSomaParcelasSolicitacao).
+function gfPendValorParcela(p) { return Math.round((p.valorConfirmado || p.valorPrevisto || 0) * 100) / 100; }
+function gfPendParcelaOptions(solicitacaoId, selectedId) {
+  if (!solicitacaoId) return '<option value="">Parcela (opcional)</option>';
+  const ps = gfPendParcelasDisponiveis(solicitacaoId);
+  if (!ps.length) return '<option value="">Sem parcelas por liquidar</option>';
+  return '<option value="">— Sem parcela —</option>' +
+    ps.map(p => `<option value="${p.id}" ${selectedId === p.id ? 'selected' : ''}>${p.dataPrevista ? gfDate(p.dataPrevista) : 's/ data'} · ${gfFmt(gfPendValorParcela(p))}${p.titulo ? ' · ' + p.titulo : ''}</option>`).join('');
+}
+// Mostra, por baixo dos campos, o que vai acontecer à parcela escolhida ao confirmar.
+function gfPendParcelaAviso(m, o) {
+  if (!o.parcelaId) return '';
+  const p = GF_TESOURARIA_PARCELAS.find(x => x.id === o.parcelaId);
+  if (!p) return '';
+  const vMov = Math.round(Math.abs(m.importancia || 0) * 100) / 100;
+  const vPar = gfPendValorParcela(p);
+  const txt = vMov >= vPar - 0.005
+    ? `A parcela de ${gfFmt(vPar)} fica resolvida e é eliminada.`
+    : `A parcela passa de ${gfFmt(vPar)} para ${gfFmt(Math.round((vPar - vMov) * 100) / 100)} e continua prevista.`;
+  return `<div style="margin-top:4px;font-size:11px;color:#065F46">↳ ${txt}</div>`;
+}
+function gfPendParcChange(movId) {
+  const o = gfPendGetEdit(movId);
+  o.parcelaId = parseInt(gfVal(`gf-pend-parc-${movId}`)) || null;
+  gfPendRefreshRow(movId);
+}
+
 function gfPendTbodyHtml(movPendentes) {
-  if (!movPendentes.length) return `<tr><td colspan="9" style="padding:40px;text-align:center;color:var(--text3)">Sem movimentos pendentes 🎉</td></tr>`;
+  if (!movPendentes.length) return `<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--text3)">Sem movimentos pendentes 🎉</td></tr>`;
   return movPendentes.map(m => gfPendRowHtml(m)).join('');
 }
 
@@ -19405,6 +19651,7 @@ function gfPendProjChange(movId) {
   o.projetoId = parseInt(gfVal(`gf-pend-proj-${movId}`)) || null;
   o.rubricaId = null;
   o.solicitacaoId = null;
+  o.parcelaId = null;
   o.checked = false;
   gfPendRefreshRow(movId);
 }
@@ -19420,12 +19667,16 @@ function gfPendRubChange(movId) {
   }
   o.rubricaId = novoId;
   o.solicitacaoId = null;
+  o.parcelaId = null;
   o.checked = !!o.rubricaId; // fica pronta automaticamente assim que há rúbrica escolhida
   gfPendRefreshRow(movId);
 }
 
 function gfPendSolChange(movId) {
-  gfPendGetEdit(movId).solicitacaoId = parseInt(gfVal(`gf-pend-sol-${movId}`)) || null;
+  const o = gfPendGetEdit(movId);
+  o.solicitacaoId = parseInt(gfVal(`gf-pend-sol-${movId}`)) || null;
+  o.parcelaId = null;
+  gfPendRefreshRow(movId); // Fase 39 — ativa/atualiza o campo Parcela
 }
 
 function gfPendCheckChange(movId) {
@@ -19480,48 +19731,68 @@ async function gfPendConfirmarSelecionados() {
   if (!prontos.length) { showNotif('Não há nenhuma linha pronta (preenche Projeto + Rúbrica).', 'error'); return; }
 
   const btn = gfEl('gf-pend-confirmar-btn');
-  if (btn) btn.disabled = true;
-  // Fase 30 — por Solicitação tocada nesta leva, soma o valor afeto (pode haver mais do que
-  // um pendente desta leva para a mesma Solicitação) e guarda a data do último movimento,
-  // para dar à sincronização de parcelas abaixo — mesmos dados que gfSubmitAfetar já usa.
+  if (btn) { btn.disabled = true; btn.textContent = `A confirmar 0/${prontos.length}...`; }
+  // Por Solicitação tocada nesta leva: data do último movimento (para as parcelas que
+  // restarem quando a Solicitação ficar paga — comportamento de sempre).
   const solicitacoesTocadas = new Map();
-  let ok = 0, falhas = 0;
+  // Fase 39 — parcelas escolhidas explicitamente: soma dos movimentos por parcela.
+  const parcelasAResolver = new Map();
+  let ok = 0, falhas = 0, feitos = 0;
 
-  for (let i = 0; i < prontos.length; i++) {
-    const { m, o } = prontos[i];
-    if (btn) btn.textContent = `A confirmar ${i + 1}/${prontos.length}...`;
+  // Fase 39 — cada linha é independente (um Movimento Executado novo + o seu movimento
+  // bancário), por isso gravam até 4 em paralelo em vez de uma de cada vez.
+  await gfComLimiteConcorrencia(prontos, async ({ m, o }) => {
     try {
       const solId = await gfPendGravarLinha(m, o);
-      if (solId) {
-        const prev = solicitacoesTocadas.get(solId) || { valor: 0, dataEfetiva: m.dataMovimento };
-        solicitacoesTocadas.set(solId, { valor: prev.valor + Math.abs(m.importancia || 0), dataEfetiva: m.dataMovimento });
+      if (solId) solicitacoesTocadas.set(solId, { dataEfetiva: m.dataMovimento });
+      if (solId && o.parcelaId) {
+        const prev = parcelasAResolver.get(o.parcelaId) || { valor: 0, dataEfetiva: m.dataMovimento };
+        parcelasAResolver.set(o.parcelaId, { valor: prev.valor + Math.abs(m.importancia || 0), dataEfetiva: m.dataMovimento });
       }
       delete GF_PEND_EDIT[m.id];
       ok++;
     } catch (e) {
       falhas++;
       console.error('Erro ao afetar movimento', m.id, e);
+    } finally {
+      feitos++;
+      if (btn) btn.textContent = `A confirmar ${feitos}/${prontos.length}...`;
     }
-  }
+  }, 4);
+
+  // Fase 39 — resolver as parcelas escolhidas: valor total coberto → elimina a parcela (o
+  // dinheiro já entrou/saiu no banco); parcial → reduz o valor e continua prevista.
+  // Substitui a tentativa automática de casar valores (Fase 30), desligada a pedido do Rui.
+  let erroParcela = false;
+  await gfComLimiteConcorrencia([...parcelasAResolver], async ([parcelaId, { valor }]) => {
+    const p = GF_TESOURARIA_PARCELAS.find(x => x.id === parcelaId);
+    if (!p) return;
+    try {
+      const vMov = Math.round(valor * 100) / 100;
+      const vPar = gfPendValorParcela(p);
+      if (vMov >= vPar - 0.005) {
+        await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${p.id})`, null, 'DELETE');
+      } else {
+        const parcType = await _gfGetTesourariaParcelasType();
+        const body = { __metadata: { type: parcType }, ValorPrevisto: Math.max(0, Math.round(((p.valorPrevisto || 0) - vMov) * 100) / 100) };
+        if (p.valorConfirmado) body.ValorConfirmado = Math.max(0, Math.round((p.valorConfirmado - vMov) * 100) / 100);
+        await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${p.id})`, body, 'MERGE');
+      }
+    } catch (e) {
+      erroParcela = true;
+      console.error('Erro ao resolver parcela', parcelaId, e);
+    }
+  }, 4);
 
   // Recarrega uma única vez, já com todos os Movimentos Executados desta leva criados
-  await gfLoadAll();
-
-  // Fase 30 — antes de verificar se alguma Solicitação ficou 100% paga, tenta casar o valor
-  // afeto com a(s) parcela(s) mais antigas do Plano de Pagamento cuja soma bata certo (mesma
-  // lógica já usada em "Repartir" — gfSubmitAfetar/_gfSincronizarParcelaPorValor). Sem isto,
-  // a parcela "Prevista" ficava para sempre no Operacional/Previsões de Tesouraria mesmo
-  // depois de o movimento bancário já estar afeto a esta Solicitação.
-  for (const [solId, { valor, dataEfetiva }] of solicitacoesTocadas) {
-    try { await _gfSincronizarParcelaPorValor(solId, valor, dataEfetiva); }
-    catch (e) { console.error('Erro ao casar parcela por valor', solId, e); }
-  }
+  await gfRecarregar(['movBancarios', 'movExecutadosNovos', 'solicitacoes', 'parcelas']); // Fase 37 — só o que esta ação altera
+  const _escritasAposRecarga = _spEscritas; // Fase 41
 
   // Solicitações cujo saldo por pagar chegou a 0 → passam a "Pago"
   // (try/catch por solicitação: uma falha aqui não pode impedir o resto do fluxo
   // de terminar nem ficar silenciosa — antes não havia tratamento de erro nesta parte)
   let erroPago = false;
-  for (const [solId, { dataEfetiva }] of solicitacoesTocadas) {
+  await gfComLimiteConcorrencia([...solicitacoesTocadas], async ([solId, { dataEfetiva }]) => {
     const sol = GF_SOLICITACOES.find(s => s.id === solId);
     if (sol && sol.estado !== 'Pago' && gfSolicitacaoSaldoPorPagar(sol) <= 0.005) {
       try {
@@ -19530,18 +19801,23 @@ async function gfPendConfirmarSelecionados() {
           { __metadata: { type: 'SP.Data.FJ_x005f_SolicitacoesListItem' }, Estado: 'Pago', DataPago: new Date().toISOString() },
           'MERGE'
         );
-        // Fase 30 — só agora (movimento bancário real afeto) é que a(s) parcela(s) de
-        // Tesouraria por liquidar desta Solicitação passam a Paga/Recebida.
+        // Só agora (movimento bancário real afeto) é que a(s) parcela(s) de Tesouraria por
+        // liquidar que ainda restem nesta Solicitação passam a Paga/Recebida.
         await _gfSincronizarParcelasPagas(sol.id, dataEfetiva);
       } catch (e) {
         erroPago = true;
         console.error('Erro ao marcar solicitação como Paga', sol.id, e);
       }
     }
-  }
+  }, 4);
 
-  showNotif(falhas || erroPago ? `${ok} movimento(s) afeto(s), ${falhas} com erro${erroPago ? ' (e falha ao marcar alguma solicitação como Paga — usa "+ Pago" manualmente)' : ''} — verifica.` : `${ok} movimento(s) afeto(s) com sucesso! ✓`, (falhas || erroPago) ? 'error' : 'success');
-  await gfLoadAll();
+  const problemas = [];
+  if (falhas) problemas.push(`${falhas} com erro`);
+  if (erroParcela) problemas.push('falha ao atualizar alguma parcela (verifica no Plano de Pagamento)');
+  if (erroPago) problemas.push('falha ao marcar alguma solicitação como Paga — usa "+ Pago" manualmente');
+  showNotif(problemas.length ? `${ok} movimento(s) afeto(s); ${problemas.join('; ')} — verifica.` : `${ok} movimento(s) afeto(s) com sucesso! ✓`, problemas.length ? 'error' : 'success');
+  // Fase 41 — só volta a ler se houve gravações depois do recarregamento (marcar Paga, parcelas)
+  if (_spEscritas !== _escritasAposRecarga) await gfRecarregar(['solicitacoes', 'parcelas']);
   gfRender();
 }
 
