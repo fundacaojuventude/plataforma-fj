@@ -531,7 +531,7 @@ tr:hover td{background:var(--bg3)}
 .hidden{display:none!important}
 
 /* ══ AUSÊNCIAS MODULE ══ */
---au-teal:#0F6E56;--au-teal-bg:#E1F5EE;
+:root{--au-teal:#0F6E56;--au-teal-bg:#E1F5EE}
 .au-page{display:none}.au-page.active{display:block}
 /* ══ CORREIO MODULE ══ */
 .co-page{display:none}.co-page.active{display:block}
@@ -550,7 +550,39 @@ tr:hover td{background:var(--bg3)}
 .au-cal-day.other-month{color:var(--text3)}
 .au-cal-day.weekend{color:var(--text3)}
 .au-cal-dot{width:6px;height:6px;border-radius:50%;margin-top:2px}
-.au-cal-dot.ferias{background:#0F6E56}.au-cal-dot.doenca{background:#D85A30}.au-cal-dot.outro{background:#534AB7}
+.au-pt-tab{table-layout:auto!important}
+.au-pt-tab td,.au-pt-tab th{overflow:visible!important;text-overflow:clip!important;max-width:none!important;text-transform:none;letter-spacing:0}
+.au-pt-tab td{white-space:nowrap;padding:5px 8px;font-size:12px}
+.au-pt-tab tr.nu td{background:#eef0f4}
+.au-pt-tab tr.sel td{box-shadow:inset 0 2px 0 var(--fj-orange),inset 0 -2px 0 var(--fj-orange)}
+.au-pt-tab tr:hover td{background:#e8f0fb}
+.au-pt-h{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.au-pt-h label{font-size:11px;color:var(--text2);display:flex;flex-direction:column;gap:2px}
+.au-pt-h input{font-size:13px;padding:5px 7px;border:1px solid var(--border);border-radius:6px;background:var(--bg)}
+.au-dl{display:flex;gap:4px;align-items:center;margin-bottom:5px}
+.au-dl select,.au-dl input{font-size:12px;padding:4px;border:1px solid var(--border);border-radius:6px;background:var(--bg)}
+.au-ban{font-size:12px;padding:6px 10px;border-radius:6px;background:#eef0f4;color:var(--text2);margin-bottom:6px}
+.au-ban-b{background:#E6F1FB;color:#0C447C}.au-ban-g{background:#E1F5EE;color:#0F6E56}.au-ban-r{background:#FDE8E8;color:#b42318}
+.au-chip-estado{font-size:11px;font-weight:600;padding:3px 9px;border-radius:12px;background:#eef0f4;color:var(--text2)}
+.au-chip-estado.Submetido{background:#FFF3E0;color:#B35C00}.au-chip-estado.Validado{background:#E1F5EE;color:#0F6E56}.au-chip-estado.Devolvido{background:#FDE8E8;color:#b42318}.au-chip-estado.Reaberto{background:#E6F1FB;color:#0C447C}
+@media(max-width:900px){.au-ponto-grid{grid-template-columns:1fr!important}}
+.au-mp-wrap{overflow-x:auto;border:0.5px solid var(--border);border-radius:var(--r-lg);background:var(--bg)}
+.au-mp{border-collapse:separate;border-spacing:0;font-size:11px;width:100%;table-layout:auto!important}
+.au-mp td,.au-mp th{overflow:visible!important;text-overflow:clip!important;max-width:none!important;text-transform:none;letter-spacing:0}
+.au-mp th,.au-mp td{border-right:1px solid #eef0f4;border-bottom:1px solid #eef0f4}
+.au-mp-h{background:var(--bg3);padding:3px 0;text-align:center;width:26px;min-width:26px;font-size:11px}
+.au-mp-h.nu{background:#e4e7ee}
+.au-mp-n{position:sticky;left:0;background:var(--bg);padding:4px 8px;white-space:nowrap;min-width:190px;width:190px;z-index:1;text-align:left}
+th.au-mp-n{background:var(--bg3)}
+.au-mp-c{height:22px;width:26px;min-width:26px;padding:0}
+.au-mp-c.nu{background-color:#eef0f4}
+.au-mp-c.liv{cursor:pointer}.au-mp-c.liv:hover{background:#dbeafe}
+.au-mp-c[onclick]{cursor:pointer}
+.au-mp-t{padding:4px 8px;text-align:center;white-space:nowrap;background:var(--bg3)}
+.au-mp-r{text-align:center;font-size:10px;height:20px}
+.au-mp-a{text-align:center;padding:4px 3px;cursor:pointer;white-space:nowrap}
+.au-mp-leg{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.au-cal-dot.ferias{background:#2563EB}.au-cal-dot.compensacao{background:#0F6E56}.au-cal-dot.doenca{background:#D85A30}.au-cal-dot.outro{background:#534AB7}
 /* request cards */
 .au-card{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:8px;display:flex;align-items:center;gap:16px}
 .au-card:hover{border-color:var(--border2);background:var(--bg3)}
@@ -658,7 +690,7 @@ tr:hover td{background:var(--bg3)}
       <button class="module-tab active" id="tab-rn" onclick="switchModule('rn')">🤝 Reuniões</button>
       <button class="module-tab" id="tab-pl" onclick="switchModule('pl')">📊 Planeamento</button>
       <button class="module-tab" id="tab-gf" onclick="switchModule('gf')">💰 Financeiro</button>
-      <button class="module-tab" id="tab-au" onclick="switchModule('au')">🏖️ Ausências</button>
+      <button class="module-tab" id="tab-au" onclick="switchModule('au')">🏖️ Ausências e Ponto</button>
       <button class="module-tab" id="tab-co" onclick="switchModule('co')">📬 Correio</button>
       <button class="module-tab" id="tab-de" onclick="switchModule('de')" style="display:none">📋 Despacho</button>
       <button class="module-tab" id="tab-pa" onclick="switchModule('pa')" style="display:none">🏛️ Parcerias</button>
@@ -744,15 +776,23 @@ tr:hover td{background:var(--bg3)}
         Relatórios
       </div>
       <div class="sidebar-lbl">Registo Horas</div>
-      <div class="nav-item" id="pl-nav-reg-horas" onclick="plShowPage('reg-horas')" style="color:rgba(255,255,255,.75)">
+      <div class="nav-item" id="pl-nav-ponto-link" onclick="auIrPara('ponto')" style="color:rgba(255,255,255,.75)">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="9" r="5"/><path d="M8 6v3l2 1.5"/><path d="M5.5 1.5L3 4M10.5 1.5L13 4"/></svg>
+        Ponto e horas (Ausências e Ponto)
+      </div>
+      <div class="nav-item" id="pl-nav-analise-link" onclick="auIrPara('analise')" style="color:rgba(255,255,255,.75)">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="1,13 5,8 9,10 15,3"/><line x1="1" y1="15" x2="15" y2="15"/></svg>
+        Análise de tempo
+      </div>
+      <div class="nav-item" id="pl-nav-reg-horas" data-fase54="antigo" style="display:none!important" onclick="plShowPage('reg-horas')">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="9" r="5"/><path d="M8 6v3l2 1.5"/><path d="M5.5 1.5L3 4M10.5 1.5L13 4"/></svg>
         Registar Horas
       </div>
-      <div class="nav-item" id="pl-nav-ver-reg-horas" onclick="plShowPage('ver-reg-horas')" style="color:rgba(255,255,255,.75)">
+      <div class="nav-item" id="pl-nav-ver-reg-horas" data-fase54="antigo" style="display:none!important" onclick="plShowPage('ver-reg-horas')">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="12" height="14" rx="1"/><line x1="5" y1="5" x2="11" y2="5"/><line x1="5" y1="8" x2="11" y2="8"/><line x1="5" y1="11" x2="8" y2="11"/></svg>
         Ver Registos
       </div>
-      <div class="nav-item" id="pl-nav-analise-horas" onclick="plShowPage('analise-horas')" style="color:rgba(255,255,255,.75)">
+      <div class="nav-item" id="pl-nav-analise-horas" data-fase54="antigo" style="display:none!important" onclick="plShowPage('analise-horas')">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="1,13 5,8 9,10 15,3"/><line x1="1" y1="15" x2="15" y2="15"/></svg>
         Análise de Horas
       </div>
@@ -847,6 +887,18 @@ tr:hover td{background:var(--bg3)}
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
     Dashboard
   </div>
+  <div class="nav-item" id="au-nav-mapa" onclick="auNav('mapa')" style="color:rgba(255,255,255,.75)">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="3" width="13" height="11" rx="1.5"/><path d="M1.5 6.5h13M5 1.5v3M11 1.5v3M5 9h2M9 9h2M5 11.5h2"/></svg>
+    Mapa de férias
+  </div>
+  <div class="nav-item" id="au-nav-ponto" onclick="auNav('ponto')" style="color:rgba(255,255,255,.75)">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/><path d="M8 4v4.5l3 1.5"/></svg>
+    O meu ponto
+  </div>
+  <div class="nav-item" id="au-nav-analise" onclick="auNav('analise')" style="color:rgba(255,255,255,.75)">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="1.5,13 5.5,8 9,10.5 14.5,3"/><line x1="1.5" y1="15" x2="14.5" y2="15"/></svg>
+    Análise de tempo
+  </div>
   <div class="nav-item" id="au-nav-pedidos" onclick="auNav('pedidos')" style="color:rgba(255,255,255,.75)">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="9" x2="9" y2="9"/></svg>
     Os meus pedidos
@@ -858,12 +910,16 @@ tr:hover td{background:var(--bg3)}
   <div class="sidebar-label" id="au-lbl-dir" style="color:rgba(255,255,255,.4);display:none">Aprovações</div>
   <div class="nav-item" id="au-nav-aprov-n1" onclick="auNav('aprov-n1')" style="color:rgba(255,255,255,.75);display:none">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3,8 6,11 13,4"/><circle cx="8" cy="8" r="7"/></svg>
-    Aprovações — Nível 1
+    Aprovações — 1.º nível
     <span id="au-badge-n1" style="margin-left:auto;background:var(--fj-orange);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;display:none"></span>
+  </div>
+  <div class="nav-item" id="au-nav-equipa" onclick="auNav('equipa')" style="color:rgba(255,255,255,.75);display:none">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5.5" cy="5" r="2.5"/><circle cx="11" cy="6" r="2"/><path d="M1 14c0-2.5 2-4 4.5-4S10 11.5 10 14M10 10.2c2.5-.4 5 .8 5 3.8"/></svg>
+    Ponto da equipa
   </div>
   <div class="nav-item" id="au-nav-aprov-n2" onclick="auNav('aprov-n2')" style="color:rgba(255,255,255,.75);display:none">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3,8 6,11 13,4"/><polyline points="7,8 10,11 16,4" opacity=".5"/></svg>
-    Aprovações — Nível 2
+    Aprovações — 2.º nível
     <span id="au-badge-n2" style="margin-left:auto;background:var(--fj-orange);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;display:none"></span>
   </div>
   <div class="sidebar-label" id="au-lbl-admin" style="color:rgba(255,255,255,.4);display:none">Administração</div>
@@ -2004,7 +2060,7 @@ tr:hover td{background:var(--bg3)}
 </div><!-- /module-gf -->
 
 <!-- ══════════════ AUSÊNCIAS MODULE ══════════════ -->
-<div id="module-au" style="display:none;padding-top:2rem">
+<div id="module-au" style="display:none;padding-top:2rem;padding-right:2rem;box-sizing:border-box;min-width:0">
 
   <!-- FORM OVERLAY -->
   <div class="overlay" id="au-form-ov">
@@ -2013,8 +2069,9 @@ tr:hover td{background:var(--bg3)}
       <div class="panel-title" id="au-form-title" style="padding-bottom:1rem;padding-right:28px;border-bottom:1px solid var(--border)">Novo pedido de ausência</div>
       <div class="fgrid">
         <div class="fg"><label>Tipo de ausência *</label>
-          <select id="au-f-tipo">
+          <select id="au-f-tipo" onchange="auTipoMudou()">
             <option value="Férias">🏖️ Férias</option>
+            <option value="Compensação">🔁 Compensação (folga por trabalho extra)</option>
             <option value="Doença">🤒 Doença</option>
             <option value="Luto">🕊️ Luto</option>
             <option value="Casamento">💍 Casamento</option>
@@ -2024,7 +2081,8 @@ tr:hover td{background:var(--bg3)}
             <option value="Outro">📋 Outro</option>
           </select>
         </div>
-        <div class="fg"><label>Data de início *</label><input type="date" id="au-f-inicio" onchange="auCalcDias()"></div>
+        <div class="fg" id="au-f-trab-wrap" style="display:none;grid-column:1/-1"><label>Dia em que trabalhaste (fim de semana ou fora do horário) *</label><input type="date" id="au-f-trab"><div style="font-size:11px;color:var(--text3);margin-top:3px">Indica a seguir o dia de folga que propões (datas de início e fim) e justifica nas observações. Nos dias de compensação paga-se subsídio de alimentação.</div></div>
+        <div class="fg"><label id="au-f-inicio-lbl">Data de início *</label><input type="date" id="au-f-inicio" onchange="auCalcDias()"></div>
         <div class="fg"><label>Data de fim *</label><input type="date" id="au-f-fim" onchange="auCalcDias()"></div>
         <div class="fg"><label>Dias úteis</label>
           <input type="text" id="au-f-dias" readonly style="background:var(--bg3);font-weight:600" placeholder="Calculado automaticamente">
@@ -2081,6 +2139,7 @@ tr:hover td{background:var(--bg3)}
       <div class="au-cal-grid" id="au-cal-grid"></div>
       <div style="display:flex;gap:12px;margin-top:10px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><div class="au-cal-dot ferias"></div>Férias</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><div class="au-cal-dot compensacao"></div>Compensação</div>
         <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><div class="au-cal-dot doenca"></div>Doença</div>
         <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)"><div class="au-cal-dot outro"></div>Outros</div>
       </div>
@@ -2097,7 +2156,7 @@ tr:hover td{background:var(--bg3)}
       <button class="btn btn-primary" onclick="auOpenForm()">+ Novo pedido</button>
     </div>
     <div class="toolbar">
-      <select class="flt" id="au-ff-tipo" onchange="auRenderPedidos()"><option value="">Tipo: todos</option><option>Férias</option><option>Doença</option><option>Luto</option><option>Casamento</option><option>Assistência à família</option><option>Consulta médica</option><option>Ausência injustificada</option><option>Outro</option></select>
+      <select class="flt" id="au-ff-tipo" onchange="auRenderPedidos()"><option value="">Tipo: todos</option><option>Férias</option><option>Compensação</option><option>Doença</option><option>Luto</option><option>Casamento</option><option>Assistência à família</option><option>Consulta médica</option><option>Ausência injustificada</option><option>Outro</option></select>
       <select class="flt" id="au-ff-estado" onchange="auRenderPedidos()"><option value="">Estado: todos</option><option>Pendente</option><option>Aprovado N1</option><option>Aprovado</option><option>Recusado</option><option>Cancelado</option></select>
       <select class="flt" id="au-ff-ano" onchange="auRenderPedidos()"><option value="">Ano: todos</option><option>2025</option><option selected>2026</option><option>2027</option></select>
     </div>
@@ -2106,12 +2165,12 @@ tr:hover td{background:var(--bg3)}
 
   <!-- APROVAÇÕES N1 PAGE (Directors) -->
   <div class="au-page" id="au-page-aprov-n1">
-    <div class="page-title">Aprovações — Nível 1 (Diretor de Área)</div>
+    <div class="page-title">Aprovações — 1.º nível</div>
     <div style="background:var(--blue-l);border:0.5px solid var(--fj-blue);border-radius:var(--r);padding:10px 14px;margin-bottom:1rem;font-size:13px;color:var(--blue-d)">
-      Como Diretor de Área, aprova os pedidos da sua equipa antes de seguirem para o Presidente Executivo.
+      Aprovas aqui os pedidos dos colaboradores em que foste definido como aprovador de 1.º nível. Depois de aprovados, seguem para o responsável de RH (2.º nível).
     </div>
     <div class="toolbar">
-      <select class="flt" id="au-ff-n1-tipo" onchange="auRenderN1()"><option value="">Tipo: todos</option><option>Férias</option><option>Doença</option><option>Outro</option></select>
+      <select class="flt" id="au-ff-n1-tipo" onchange="auRenderN1()"><option value="">Tipo: todos</option><option>Férias</option><option>Compensação</option><option>Doença</option><option>Outro</option></select>
       <select class="flt" id="au-ff-n1-area" onchange="auRenderN1()"><option value="">Área: todas</option></select>
       <button class="btn" onclick="auLoadAll().then(()=>auRenderN1())">&#8635; Atualizar</button>
     </div>
@@ -2121,7 +2180,7 @@ tr:hover td{background:var(--bg3)}
   <!-- APROVAÇÕES N2 PAGE (Presidente Executivo) -->
   <div class="au-page" id="au-page-aprov-n2">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem">
-      <div class="page-title" style="margin:0">Aprovações — Nível 2 (Presidente Executivo)</div>
+      <div class="page-title" style="margin:0">Aprovações — 2.º nível (Responsável de RH)</div>
       <button class="btn" onclick="auLoadAll().then(()=>auRenderN2())">&#8635; Atualizar</button>
     </div>
     <!-- Bulk bar -->
@@ -2131,10 +2190,34 @@ tr:hover td{background:var(--bg3)}
       <button class="btn" style="background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3)" onclick="auBulkAprovar()">✔ Aprovar selecionados</button>
     </div>
     <div class="toolbar">
-      <select class="flt" id="au-ff-n2-tipo" onchange="auRenderN2()"><option value="">Tipo: todos</option><option>Férias</option><option>Doença</option><option>Outro</option></select>
+      <select class="flt" id="au-ff-n2-tipo" onchange="auRenderN2()"><option value="">Tipo: todos</option><option>Férias</option><option>Compensação</option><option>Doença</option><option>Outro</option></select>
       <select class="flt" id="au-ff-n2-area" onchange="auRenderN2()"><option value="">Área: todas</option></select>
     </div>
     <div id="au-n2-list"></div>
+  </div>
+
+  <!-- O MEU PONTO -->
+  <div class="au-page" id="au-page-ponto">
+    <div class="page-title">O meu ponto</div>
+    <div id="au-ponto-wrap"></div>
+  </div>
+
+  <!-- ANÁLISE DE TEMPO -->
+  <div class="au-page" id="au-page-analise">
+    <div class="page-title">Análise de tempo</div>
+    <div id="au-analise-wrap"></div>
+  </div>
+
+  <!-- PONTO DA EQUIPA -->
+  <div class="au-page" id="au-page-equipa">
+    <div class="page-title">Ponto da equipa</div>
+    <div id="au-equipa-wrap"></div>
+  </div>
+
+  <!-- MAPA DE FÉRIAS -->
+  <div class="au-page" id="au-page-mapa">
+    <div class="page-title">Mapa de férias</div>
+    <div id="au-mapa-wrap"></div>
   </div>
 
   <!-- ADMIN PAGE -->
@@ -2167,6 +2250,29 @@ tr:hover td{background:var(--bg3)}
         </div>
       </div>
     </div>
+    <div id="au-prep-card" style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:12px;display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+        <div style="font-size:13px;font-weight:600">Preparar o SharePoint (Ponto e Mapa de Férias)</div>
+        <div style="display:flex;gap:6px"><button class="btn btn-sm" onclick="auMostrarEstadoEsquema()">Verificar</button><button class="btn btn-sm btn-primary" id="au-prep-btn" onclick="auPrepararSharePoint()">Preparar o SharePoint</button></div>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:6px">Cria as listas FJ_Ponto, FJ_PontoDistribuicao e FJ_PontoFechoMensal e as colunas novas de Ausências, Feriados e Saldos. Só cria o que falta (pode ser corrido mais vezes).</div>
+      <div id="au-prep-log" style="font-size:12px"></div>
+    </div>
+    <div id="au-mig-card" style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:12px;display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+        <div style="font-size:13px;font-weight:600">Migrar o registo de horas antigo (Planeamento) para o novo ponto</div>
+        <div style="display:flex;gap:6px"><button class="btn btn-sm" onclick="auMigSimular()">Simular</button><button class="btn btn-sm btn-primary" id="au-mig-run" disabled onclick="auMigExecutar()">Migrar</button></div>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:6px">Junta os blocos de cada dia num registo de ponto (entrada = primeiro início, saída = último fim) e converte as horas por projeto em percentagens. A lista antiga não é alterada; o processo é repetível sem duplicar dias.</div>
+      <pre id="au-mig-log" style="font-size:11px;white-space:pre-wrap;max-height:220px;overflow:auto;margin:0"></pre>
+    </div>
+    <div id="au-ciclo-card" style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:12px;display:none">
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Ciclo anual de marcação de férias</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Com a marcação aberta, os pedidos de férias entram como <b>propostas</b> (visíveis no mapa) e não podem ser aprovados. Ao fechar, passam a finais e seguem o circuito normal de aprovação.</div>
+      <div id="au-ciclo-body"></div>
+    </div>
+    <div id="au-cfg-wrap"></div>
+    <div style="font-size:13px;font-weight:600;color:var(--text2);margin:1.25rem 0 .75rem">Saldos de férias (resumo)</div>
     <div id="au-admin-list"></div>
     <div style="margin-top:1.5rem;font-size:13px;font-weight:600;color:var(--text2);margin-bottom:.75rem">Todos os pedidos</div>
     <div class="table-wrap">
@@ -3066,7 +3172,7 @@ function switchModule(mod){
   }
   if(mod==='gf'&&!_gfLoaded){_gfLoaded=true;gfInit();}
   if(mod==='rn')showPage(isMembroFJ()?'externas':'assuntos');
-  if(mod==='au'){if(!_auLoaded){_auLoaded=true;auInit();}else auNav('dashboard');}
+  if(mod==='au'){if(!_auLoaded){_auLoaded=true;auInit();}else{auNav(window._auPaginaInicial||'dashboard');window._auPaginaInicial=null;}}
   if(mod==='co'){if(!_coLoaded){_coLoaded=true;coInit();}else coNav('registo');}
   if(mod==='de'){if(!_deLoaded){_deLoaded=true;deInit();}else deNav('lista');}
   if(mod==='st'){if(!_stLoaded){_stLoaded=true;stInit();}else stNav('permissoes');}
@@ -3254,6 +3360,7 @@ async function loadFJUtilizadores(){
       _financeDepts=[];
     }
     applyRoleVisibilityRN();
+    setTimeout(()=>{try{auLembreteFolha();}catch(e){}},2500);
   }catch(e){
     console.warn('Erro ao carregar FJ_Utilizadores:', e.message);
     fjUtilizadores=[];
@@ -9517,6 +9624,7 @@ const GF_CARREGADORES = {
       console.warn('Lista FJ_Colaboradores indisponível:', e.message);
       GF_COLABORADORES = [];
     }
+    try { if (typeof auCarregarFeriasPrevisao === 'function') await auCarregarFeriasPrevisao(); } catch (e) { /* sem férias na previsão */ }
   },
   bloqueio: async () => {
     // Carregar estado do bloqueio do orçamento (persiste em FJ_Configuracoes)
@@ -10277,7 +10385,8 @@ function _gfDecomporCustoColaboradorMes(c, ano, mesIndex0) {
   const encargosPatronais = vbGross * ((c.taxaEncargos || 0) / 100);
   const ssTrabalhador = vbGross * (GF_TAXA_SS_TRABALHADOR / 100);
   const irs = vbGross * (GF_TAXA_IRS_MEDIA / 100);
-  const sa = (c.subAlimentacaoDia || 0) * _gfDiasUteisMes(ano, mesIndex0);
+  const diasFerias = (typeof auDiasFeriasPrevisao === 'function') ? auDiasFeriasPrevisao(c, ano, mesIndex0) : 0; // Fase 56 — não se paga subsídio de alimentação em férias
+  const sa = (c.subAlimentacaoDia || 0) * Math.max(0, _gfDiasUteisMes(ano, mesIndex0) - diasFerias);
   const transp = c.subTransporte || 0;
   const contribuicoes = encargosPatronais + ssTrabalhador + irs;
   const liquido = vbGross - ssTrabalhador - irs + sa + transp;
@@ -10551,7 +10660,7 @@ function gfRenderQuadroRH() {
           💶 ${gfFmt(liquidoMesAtual)} líquido aos colaboradores (dia 26) · 🏛️ ${gfFmt(contribMesAtual)} SS + IRS ao Estado (dia 20 do mês seguinte)
         </div>
         <div style="font-size:11px;color:var(--text3);margin-top:4px">
-          O líquido já inclui ${gfFmt(saMesAtual)} de subsídio de alimentação (${_gfDiasUteisMes(anoAtual, new Date().getMonth())} dias úteis, sem descontar feriados nem ausências) e ${gfFmt(transpMesAtual)} de subsídio de transporte.
+          O líquido já inclui ${gfFmt(saMesAtual)} de subsídio de alimentação (${_gfDiasUteisMes(anoAtual, new Date().getMonth())} dias úteis, sem descontar feriados; já sem os dias de férias aprovadas) e ${gfFmt(transpMesAtual)} de subsídio de transporte.
           Na previsão de tesouraria estas duas linhas entram com +${GF_MARGEM_RH_PCT}% de margem (${gfFmt((liquidoMesAtual + contribMesAtual) * (1 + GF_MARGEM_RH_PCT / 100))} no mês); aqui vês o custo real.
         </div>
       </div>
@@ -16360,6 +16469,9 @@ let _auRole='worker'; // 'pe','director','admin','worker'
 let _auCalDate=new Date();
 let _auSelectedIds=new Set();
 let _auEditId=null;
+// Fase 50 — configuração das aprovações (FJ_Configuracoes): { n1: {emailColaborador: emailAprovador}, respRH: email, ids: {Title: idSP} }
+let AU_CFG={n1:{},respRH:'',ids:{},kv:{}};
+let AU_FERIADOS_DET=[]; // [{data, ambito, nome}]
 const AU_LIST='FJ_Ausencias';
 const AU_SALDO_LIST='FJ_SaldoFerias';
 const AU_FERIADOS_LIST='FJ_Feriados';
@@ -16379,7 +16491,7 @@ async function auInit(){
   auSetRole();
   auSetupSidebar();
   await auLoadAll();
-  auNav('dashboard');
+  auNav(window._auPaginaInicial||'dashboard');window._auPaginaInicial=null;
 }
 
 function auSetRole(){
@@ -16392,14 +16504,190 @@ function auSetRole(){
 }
 
 function auSetupSidebar(){
-  const isDir=_auRole==='director'||_auRole==='pe';
-  const isPE=_auRole==='pe';
+  // Fase 50 — quem vê o quê depende da configuração das aprovações
+  const me=auMyEmail();
+  const isN1=_auRole==='pe'||Object.values(AU_CFG.n1).includes(me);
+  const isN2=auSouN2()||_auRole==='pe';
+  const admin=auPodeAdministrar();
   const show=(id,v)=>{const e=document.getElementById(id);if(e)e.style.display=v;};
-  show('au-lbl-dir',isDir?'block':'none');
-  show('au-nav-aprov-n1',isDir?'flex':'none');
-  show('au-nav-aprov-n2',isPE?'flex':'none');
-  show('au-lbl-admin',isPE?'block':'none');
-  show('au-nav-admin',isPE?'flex':'none');
+  show('au-lbl-dir',(isN1||isN2)?'block':'none');
+  show('au-nav-aprov-n1',isN1?'flex':'none');
+  show('au-nav-aprov-n2',isN2?'flex':'none');
+  show('au-nav-equipa',(isN1||isN2||admin)?'flex':'none');
+  show('au-lbl-admin',admin?'block':'none');
+  show('au-nav-admin',admin?'flex':'none');
+}
+
+// ── Fase 50: aprovações em dois níveis ──
+function auMyEmail(){return (user?.username||'').toLowerCase();}
+function auCargoDeEmail(email){const u=fjUtilizadores.find(x=>x.email===(email||'').toLowerCase());return u?.cargo||'';}
+// Sou o aprovador de 2.º nível (Responsável de RH). Se ainda não foi definido, é o Presidente Executivo.
+function auSouN2(){return AU_CFG.respRH?auMyEmail()===AU_CFG.respRH:userCargo()==='Presidente Executivo';}
+function auPodeAdministrar(){return _auRole==='pe'||auSouN2();}
+// O colaborador do pedido é ele próprio o aprovador de 2.º nível (não se aprova a si próprio nesse nível)
+function auColabEhN2(p){return AU_CFG.respRH?p.colEmail===AU_CFG.respRH:auCargoDeEmail(p.colEmail)==='Presidente Executivo';}
+// Email do aprovador de 1.º nível que tem de aprovar o pedido, ou '' quando esse nível é saltado
+// (sem aprovador definido, o aprovador é o próprio colaborador, ou é a mesma pessoa do 2.º nível).
+function auPrecisaN1(p){
+  const n1=AU_CFG.n1[p.colEmail]||'';
+  if(!n1||n1===p.colEmail)return '';
+  if(AU_CFG.respRH&&n1===AU_CFG.respRH)return '';
+  return n1;
+}
+function auFilaN1(){
+  const me=auMyEmail();
+  return AU_PEDIDOS.filter(p=>p.estado==='Pendente'&&(()=>{const n1=auPrecisaN1(p);return !!n1&&(n1===me||_auRole==='pe');})());
+}
+function auFilaN2(){
+  return AU_PEDIDOS.filter(p=>p.estado==='Aprovado N1'||(p.estado==='Pendente'&&!auPrecisaN1(p)));
+}
+async function auCfgSet(title,valor){
+  const lst=`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items`;
+  const id=AU_CFG.ids[title];
+  if(!valor){if(id){await spWrite(`${lst}(${id})`,null,'DELETE');delete AU_CFG.ids[title];}return;}
+  const body={__metadata:{type:'SP.Data.FJ_x005f_ConfiguracoesListItem'},Title:title,Valor:valor};
+  if(id){await spWrite(`${lst}(${id})`,body,'MERGE');}
+  else{const r=await spWrite(lst,body,'POST');const d=await r.json();AU_CFG.ids[title]=d.d?.Id||null;}
+}
+async function auSaveN1(email,aprovador){
+  if(!auPodeAdministrar()){showNotif('Sem permissão.','error');return;}
+  aprovador=(aprovador||'').toLowerCase();
+  if(aprovador&&aprovador===email){showNotif('Ninguém aprova o próprio pedido.','error');auRenderCfg();return;}
+  try{
+    await auCfgSet('AU_AprovadorN1_'+email,aprovador);
+    if(aprovador)AU_CFG.n1[email]=aprovador;else delete AU_CFG.n1[email];
+    showNotif(aprovador?`${auNomeDeEmail(email)}: aprova ${auNomeDeEmail(aprovador)}.`:`${auNomeDeEmail(email)}: sem 1.º nível (aprova só o responsável de RH).`,'success');
+    auUpdateBadges();auSetupSidebar();
+  }catch(e){showNotif('Erro ao guardar: '+e.message,'error');}
+}
+async function auSaveCfgColab(chave,valor){
+  if(!auPodeAdministrar()){showNotif('Sem permissão.','error');return;}
+  try{await auCfgSet(chave,valor);AU_CFG.kv[chave]=valor;showNotif('Guardado.','success');}
+  catch(e){showNotif('Erro ao guardar: '+e.message,'error');}
+}
+async function auSaveCfgGeral(chave,valor){
+  if(!auPodeAdministrar()){showNotif('Sem permissão.','error');return;}
+  valor=String(valor||'').trim();
+  try{await auCfgSet(chave,valor);AU_CFG.kv[chave]=valor;showNotif('Guardado.','success');}
+  catch(e){showNotif('Erro ao guardar: '+e.message,'error');}
+}
+async function auSaveRespRH(email){
+  if(_auRole!=='pe'&&!auSouN2()){showNotif('Sem permissão.','error');return;}
+  email=(email||'').toLowerCase();
+  try{
+    await auCfgSet('AU_ResponsavelRH',email);
+    AU_CFG.respRH=email;
+    showNotif(email?`Responsável de RH: ${auNomeDeEmail(email)}.`:'Responsável de RH: Presidente Executivo (por omissão).','success');
+    auUpdateBadges();auSetupSidebar();auRenderCfg();
+  }catch(e){showNotif('Erro ao guardar: '+e.message,'error');}
+}
+function auRenderCfg(){
+  const wrap=document.getElementById('au-cfg-wrap');
+  if(!wrap)return;
+  if(!auPodeAdministrar()){wrap.innerHTML='';return;}
+  const users=fjUtilizadores.filter(u=>u.email).slice().sort((a,b)=>(a.titulo||'').localeCompare(b.titulo||'','pt'));
+  const q=(document.getElementById('au-q-admin')?.value||'').toLowerCase();
+  const areaFiltro=document.getElementById('au-ff-adm-area')?.value||'';
+  const ano=parseInt(document.getElementById('au-ff-adm-ano')?.value)||new Date().getFullYear();
+  const lista=users.filter(u=>{
+    if(q&&!u.email.includes(q)&&!(u.titulo||'').toLowerCase().includes(q))return false;
+    if(areaFiltro&&auAreaDeEmail(u.email)!==areaFiltro)return false;
+    return true;
+  });
+  const optUsers=(sel,excl)=>users.filter(u=>u.email!==excl).map(u=>`<option value="${u.email}" ${u.email===sel?'selected':''}>${u.titulo||u.email}</option>`).join('');
+  const resp=AU_CFG.respRH;
+  const linhasN1=lista.map(u=>`<tr>
+      <td style="padding:6px 8px;font-weight:500">${u.titulo||u.email}</td>
+      <td style="padding:6px 8px;color:var(--text3)">${auAreaDeEmail(u.email)||'—'}</td>
+      <td style="padding:6px 8px"><select class="flt" style="min-width:240px" onchange="auSaveN1('${u.email}',this.value)">
+        <option value="">— Sem 1.º nível (aprova só o responsável de RH) —</option>${optUsers(AU_CFG.n1[u.email]||'',u.email)}</select></td>
+      <td style="padding:6px 8px"><select class="flt" onchange="auSaveCfgColab('AU_Delegacao_${u.email}',this.value)">${['Porto','Lisboa'].map(d=>`<option ${auDelegacao(u.email)===d?'selected':''}>${d}</option>`).join('')}</select></td>
+      <td style="padding:6px 8px"><input type="text" class="flt" style="width:170px" placeholder="ex.: Gestor de Projetos" value="${(auCfgGet('AU_Funcao_'+u.email,'')||'').replace(/"/g,'&quot;')}" onchange="auSaveCfgColab('AU_Funcao_${u.email}',this.value.trim())"></td>
+    </tr>`).join('');
+  const linhasSaldo=lista.map(u=>{
+    const s=AU_SALDOS.find(x=>x.email===u.email&&x.ano===ano);
+    const sd=auGetSaldo(u.email,ano);
+    return `<tr data-email="${u.email}">
+      <td style="padding:6px 8px;font-weight:500">${u.titulo||u.email}</td>
+      <td style="padding:6px 8px"><input type="number" class="au-sd-dir" min="0" max="60" value="${s?s.direito:''}" placeholder="22" style="width:70px" onchange="auSaveSaldoLinha(this)"></td>
+      <td style="padding:6px 8px"><input type="number" class="au-sd-tr" min="-30" max="30" value="${s?s.transitados:0}" style="width:70px" onchange="auSaveSaldoLinha(this)"></td>
+      <td style="padding:6px 8px;text-align:right">${sd.used}</td>
+      <td style="padding:6px 8px;text-align:right">${sd.pending}</td>
+      <td style="padding:6px 8px;text-align:right;font-weight:600;color:var(--green-mid)">${sd.disponivel}</td>
+      <td style="padding:6px 8px;color:var(--text3);font-size:11px">${s?'':'sem saldo (usa 22)'}</td>
+    </tr>`;}).join('');
+  wrap.innerHTML=`
+    <div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Parâmetros do ponto e do mapa</div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;font-size:12px;color:var(--text2)">
+        <label>Dia de fecho da folha de ponto<br><input type="number" min="1" max="28" class="flt" style="width:80px" value="${auDiaFecho()}" onchange="auSaveCfgGeral('AU_DiaFechoPonto',this.value)"><span style="color:var(--text3)"> (a folha de M/AAAA vai do dia seguinte ao fecho do mês anterior até este dia)</span></label>
+        <label>Subsídio de alimentação em fim de semana/feriado trabalhado<br><select class="flt" onchange="auSaveCfgGeral('AU_AlimFimSemana',this.value)"><option value="0" ${auCfgGet('AU_AlimFimSemana','0')==='0'?'selected':''}>Não paga (paga-se no dia de compensação)</option><option value="1" ${auCfgGet('AU_AlimFimSemana','0')==='1'?'selected':''}>Paga</option></select></label>
+        <label>Alerta de cobertura<br><input type="number" min="10" max="100" class="flt" style="width:80px" value="${auCfgGet('AU_CoberturaMaxPct','50')}" onchange="auSaveCfgGeral('AU_CoberturaMaxPct',this.value)"><span style="color:var(--text3)"> % máx. de ausentes da mesma área no mesmo dia</span></label>
+      </div>
+    </div>
+    <div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Responsável de RH da plataforma (2.º nível)</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Dá sempre a segunda aprovação, para toda a estrutura (férias, compensações e outras ausências). Se não for definido, é o Presidente Executivo.</div>
+      <select class="flt" style="min-width:260px" onchange="auSaveRespRH(this.value)"><option value="">— Presidente Executivo (por omissão) —</option>${optUsers(resp,'')}</select>
+    </div>
+    <div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Quem aprova as férias e ausências de cada colaborador (1.º nível)</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Sem aprovador de 1.º nível, o pedido vai direto ao responsável de RH e a aprovação dele é a única. A pesquisa e o filtro de área acima aplicam-se a esta lista.</div>
+      <div class="table-wrap"><table style="width:100%;font-size:12px"><thead><tr><th style="text-align:left;padding:6px 8px">Colaborador</th><th style="text-align:left;padding:6px 8px">Área</th><th style="text-align:left;padding:6px 8px">Aprovador</th><th style="text-align:left;padding:6px 8px">Delegação (feriado municipal)</th><th style="text-align:left;padding:6px 8px">Função (folha de ponto)</th></tr></thead><tbody>${linhasN1||'<tr><td colspan="5" class="empty">Sem colaboradores.</td></tr>'}</tbody></table></div>
+    </div>
+    <div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+        <div style="font-size:13px;font-weight:600">Dias de férias de ${ano}</div>
+        <button class="btn btn-sm" onclick="auCarregarAno()">Carregar o ano (22 dias a quem não tem)</button>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Só o Presidente Executivo e o responsável de RH alteram estes dias. Os colaboradores só podem marcar férias dentro do saldo disponível.</div>
+      <div class="table-wrap"><table style="width:100%;font-size:12px"><thead><tr><th style="text-align:left;padding:6px 8px">Colaborador</th><th style="text-align:left;padding:6px 8px">Dias de direito</th><th style="text-align:left;padding:6px 8px">Transitados</th><th style="text-align:right;padding:6px 8px">Gozados/marcados</th><th style="text-align:right;padding:6px 8px">Em aprovação</th><th style="text-align:right;padding:6px 8px">Disponíveis</th><th></th></tr></thead><tbody>${linhasSaldo||'<tr><td colspan="7" class="empty">Sem colaboradores.</td></tr>'}</tbody></table></div>
+    </div>`;
+}
+async function auGravarSaldo(email,ano,direito,trans){
+  const listType=await auGetListType(AU_SALDO_LIST);
+  const existe=AU_SALDOS.find(s=>s.email===email&&s.ano===ano);
+  const body={__metadata:{type:listType},Title:`${email} - ${ano}`,ColaboradorEmail:email,Ano:ano,DiasDireito:direito,DiasTransitados:trans};
+  if(existe){await spWrite(`${SP}/_api/web/lists/getbytitle('${AU_SALDO_LIST}')/items(${existe.id})`,body,'MERGE');existe.direito=direito;existe.transitados=trans;}
+  else{
+    const r=await spWrite(`${SP}/_api/web/lists/getbytitle('${AU_SALDO_LIST}')/items`,body,'POST');
+    const d=await r.json();
+    AU_SALDOS.push({id:d.d?.Id,etag:'*',email,ano,direito,transitados:trans});
+  }
+}
+async function auSaveSaldoLinha(inputEl){
+  if(!auPodeAdministrar()){showNotif('Sem permissão.','error');return;}
+  const tr=inputEl.closest('tr');
+  const email=tr.dataset.email;
+  const ano=parseInt(document.getElementById('au-ff-adm-ano')?.value)||new Date().getFullYear();
+  const dirTxt=tr.querySelector('.au-sd-dir').value;
+  const direito=dirTxt===''?22:parseInt(dirTxt);
+  const trans=parseInt(tr.querySelector('.au-sd-tr').value)||0;
+  if(isNaN(direito)||direito<0){showNotif('Dias de direito inválidos.','error');return;}
+  try{
+    await auGravarSaldo(email,ano,direito,trans);
+    showNotif(`${auNomeDeEmail(email)}: ${direito} dias de direito${trans?` + ${trans} transitados`:''} em ${ano}.`,'success');
+    auRenderCfg();auRenderAdmin();
+  }catch(e){showNotif('Erro ao guardar: '+e.message,'error');}
+}
+async function auCarregarAno(){
+  if(!auPodeAdministrar()){showNotif('Sem permissão.','error');return;}
+  const ano=parseInt(document.getElementById('au-ff-adm-ano')?.value)||new Date().getFullYear();
+  const faltam=fjUtilizadores.filter(u=>u.email&&!AU_SALDOS.some(s=>s.email===u.email&&s.ano===ano));
+  if(!faltam.length){showNotif(`Todos os colaboradores já têm saldo em ${ano}.`,'info');return;}
+  if(!confirm(`Criar o saldo de ${ano} (22 dias de direito) para ${faltam.length} colaborador(es) que ainda não têm?`))return;
+  try{
+    await gfComLimiteConcorrencia(faltam,u=>auGravarSaldo(u.email,ano,22,0),4);
+    showNotif(`Saldo de ${ano} criado para ${faltam.length} colaborador(es).`,'success');
+    auRenderCfg();auRenderAdmin();
+  }catch(e){showNotif('Erro ao criar saldos: '+e.message,'error');}
+}
+// Formulário: campos próprios do tipo "Compensação"
+function auTipoMudou(){
+  const t=document.getElementById('au-f-tipo')?.value;
+  const comp=t==='Compensação';
+  const w=document.getElementById('au-f-trab-wrap');if(w)w.style.display=comp?'':'none';
+  const l=document.getElementById('au-f-inicio-lbl');if(l)l.textContent=comp?'Dia de folga proposto (início) *':'Data de início *';
 }
 
 // ── Helper: área de um email via FJ_Utilizadores ──
@@ -16436,6 +16724,11 @@ async function auLoadAll(){
       const colNome=r.Colaborador?.Title||colEmail;
       // Área derivada da FJ_Utilizadores em tempo real
       const area=auAreaDeEmail(colEmail);
+      // Fase 50 — compensação: dia trabalhado (coluna DataTrabalhada ou, em alternativa, prefixo nas observações)
+      let obsLimpa=r.Observacoes||'';
+      let trab=r.DataTrabalhada?String(r.DataTrabalhada).split('T')[0]:'';
+      const mt=/^\[Dia trabalhado: (\d{4}-\d{2}-\d{2})\]\s*/.exec(obsLimpa);
+      if(mt){if(!trab)trab=mt[1];obsLimpa=obsLimpa.slice(mt[0].length);}
       return{
         id:r.Id, etag:r.__metadata?.etag||'*',
         tipo:r.TipoAusencia||'Outro',
@@ -16443,8 +16736,8 @@ async function auLoadAll(){
         fim:r.DataFim?r.DataFim.split('T')[0]:'',
         dias:r.DiasUteis||0,
         meioDia:r.MeioDia||'',
-        obs:r.Observacoes||'',
-        estado:r.Estado||'Pendente',
+        obs:obsLimpa, trabalhada:trab,
+        estado:r.Estado||'Pendente', marcacao:r.EstadoMarcacao||'',
         colEmail, colNome, area,
         aprov1:r.AprovadorN1?.Title||'',
         aprov2:r.AprovadorN2?.Title||'',
@@ -16472,17 +16765,32 @@ async function auLoadAll(){
     }));
   }catch(e){ AU_SALDOS=[]; }
   try{
-    const f=await spRead(`${SP}/_api/web/lists/getbytitle('${AU_FERIADOS_LIST}')/items?$select=Data&$top=200`);
-    AU_FERIADOS=f.d.results.map(r=>r.Data?r.Data.split('T')[0]:'').filter(Boolean);
-  }catch(e){ AU_FERIADOS=[]; }
+    let f;
+    try{f=await spRead(`${SP}/_api/web/lists/getbytitle('${AU_FERIADOS_LIST}')/items?$select=Data,Title,Ambito&$top=500`);}
+    catch(e2){f=await spRead(`${SP}/_api/web/lists/getbytitle('${AU_FERIADOS_LIST}')/items?$select=Data,Title&$top=500`);}
+    AU_FERIADOS_DET=f.d.results.map(r=>({data:r.Data?r.Data.split('T')[0]:'',ambito:r.Ambito||'',nome:r.Title||''})).filter(x=>x.data);
+    // dias úteis dos pedidos: só feriados nacionais (ou sem âmbito) valem para toda a gente; os municipais entram em auCalcDiasUteis
+    AU_FERIADOS=AU_FERIADOS_DET.filter(x=>!x.ambito||x.ambito==='Nacional').map(x=>x.data);
+  }catch(e){ AU_FERIADOS=[]; AU_FERIADOS_DET=[]; }
+  try{ // Fase 50 — aprovadores e responsável de RH
+    const cf=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$select=Id,Title,Valor&$filter=startswith(Title,'AU_')&$top=500`);
+    AU_CFG={n1:{},respRH:'',ids:{},kv:{}};
+    (cf.d?.results||[]).forEach(r=>{
+      AU_CFG.ids[r.Title]=r.Id;AU_CFG.kv[r.Title]=r.Valor||'';
+      const v=(r.Valor||'').trim().toLowerCase();
+      if(r.Title==='AU_ResponsavelRH')AU_CFG.respRH=v;
+      else if(r.Title.startsWith('AU_AprovadorN1_')&&v)AU_CFG.n1[r.Title.slice(15).toLowerCase()]=v;
+    });
+  }catch(e){ console.warn('auLoadAll config:',e); }
   auUpdateBadges();
+  auSetupSidebar();
 }
 
 function auUpdateBadges(){
   // N1: pedidos Pendentes (aguardam director)
   // N2: pedidos Aprovado N1 (aguardam PE)
-  const pendN1=AU_PEDIDOS.filter(p=>p.estado==='Pendente').length;
-  const pendN2=AU_PEDIDOS.filter(p=>p.estado==='Aprovado N1').length;
+  const pendN1=auFilaN1().length;
+  const pendN2=auFilaN2().length;
   const b1=document.getElementById('au-badge-n1');
   const b2=document.getElementById('au-badge-n2');
   if(b1){b1.textContent=pendN1;b1.style.display=pendN1>0?'inline':'none';}
@@ -16499,23 +16807,21 @@ function auNav(page){
   if(navEl)navEl.classList.add('active');
   if(page==='dashboard')auRenderDashboard();
   if(page==='pedidos')auRenderPedidos();
+  if(page==='ponto')auPontoInit();
+  if(page==='equipa')auEquipaInit();
+  if(page==='analise')auAnaliseInit();
+  if(page==='mapa'){auRenderMapa();auMapaPrepararProjetos().then(()=>{if(document.getElementById('au-page-mapa')?.classList.contains('active'))auRenderMapa();});}
   if(page==='aprov-n1')auRenderN1();
   if(page==='aprov-n2')auRenderN2();
   if(page==='admin'){auRenderAdmin();auRenderAdminTable();}
 }
 
 // ── Cálculo de dias úteis ──
-function auCalcDiasUteis(ini,fim){
-  if(!ini||!fim)return 0;
-  const d1=new Date(ini),d2=new Date(fim);
-  if(d2<d1)return 0;
+function auCalcDiasUteis(ini,fim,email){
+  if(!ini||!fim||fim<ini)return 0;
   let dias=0;
-  const cur=new Date(d1);
-  while(cur<=d2){
-    const dow=cur.getDay();
-    const ds=cur.toISOString().split('T')[0];
-    if(dow!==0&&dow!==6&&!AU_FERIADOS.includes(ds))dias++;
-    cur.setDate(cur.getDate()+1);
+  for(let ds=ini;ds<=fim;ds=auAddDias(ds,1)){
+    if(!auEhNaoUtil(ds,email||auMyEmail()))dias++;
   }
   return dias;
 }
@@ -16535,7 +16841,7 @@ function auBadge(estado){
 }
 
 function auTipoIcon(tipo){
-  const map={'Férias':'🏖️','Doença':'🤒','Luto':'🕊️','Casamento':'💍','Assistência à família':'👨‍👩‍👧','Consulta médica':'🏥','Ausência injustificada':'❌'};
+  const map={'Compensação':'🔁','Férias':'🏖️','Doença':'🤒','Luto':'🕊️','Casamento':'💍','Assistência à família':'👨‍👩‍👧','Consulta médica':'🏥','Ausência injustificada':'❌'};
   return map[tipo]||'📋';
 }
 
@@ -16589,7 +16895,7 @@ function auRenderDashboard(){
   const meus=AU_PEDIDOS.filter(p=>p.colEmail===email);
   const stats=[
     {n:meus.filter(p=>p.estado==='Pendente').length,l:'Pendentes',c:'var(--amber)'},
-    {n:meus.filter(p=>p.estado==='Aprovado N1').length,l:'Aguarda N2',c:'var(--blue-d)'},
+    {n:meus.filter(p=>p.estado==='Aprovado N1').length,l:'Aguarda 2.º nível',c:'var(--blue-d)'},
     {n:meus.filter(p=>p.estado==='Aprovado').length,l:'Aprovados',c:'var(--green-mid)'},
     {n:meus.filter(p=>p.estado==='Recusado').length,l:'Recusados',c:'var(--red)'}
   ];
@@ -16625,7 +16931,7 @@ function auRenderCal(){
     const isWe=dow===0||dow===6;
     const isToday=ds===today;
     const abHere=aprovados.filter(p=>p.inicio<=ds&&p.fim>=ds);
-    const dot=abHere.length?`<div class="au-cal-dot ${abHere[0].tipo==='Férias'?'ferias':abHere[0].tipo==='Doença'?'doenca':'outro'}"></div>`:'';
+    const dot=abHere.length?`<div class="au-cal-dot ${abHere[0].tipo==='Férias'?'ferias':abHere[0].tipo==='Compensação'?'compensacao':abHere[0].tipo==='Doença'?'doenca':'outro'}"></div>`:'';
     html+=`<div class="au-cal-day${isToday?' today':''}${isWe?' weekend':''}" title="${abHere.map(p=>p.tipo).join(', ')}">${d}${dot}</div>`;
   }
   grid.innerHTML=html;
@@ -16635,6 +16941,9 @@ function auCalNext(){_auCalDate=new Date(_auCalDate.getFullYear(),_auCalDate.get
 
 // ── Card HTML ──
 function auCardHtml(p,showColaborador=false){
+  const n1req=auPrecisaN1(p); // Fase 50
+  const n1Nome=p.aprov1||(n1req?auNomeDeEmail(n1req):'');
+  const semN1=!n1req&&!p.dataAprov1;
   const myEmail=(user?.username||'').toLowerCase();
   const isMine=p.colEmail===myEmail;
   const timeline=`
@@ -16644,12 +16953,12 @@ function auCardHtml(p,showColaborador=false){
         <div><div class="au-tl-title">Pedido submetido</div><div class="au-tl-sub">${auFormatDate(p.dataSubmissao||p.created)}</div></div>
       </div>
       <div class="au-tl-item">
-        <div class="au-tl-dot ${p.estado==='Pendente'?'current':['Aprovado N1','Aprovado'].includes(p.estado)?'done':p.estado==='Recusado'?'rejected':'wait'}">2</div>
-        <div><div class="au-tl-title">Diretor de Área</div><div class="au-tl-sub">${p.dataAprov1?'Aprovado em '+auFormatDate(p.dataAprov1):p.estado==='Recusado'?'Recusado':'Aguarda aprovação'}</div></div>
+        <div class="au-tl-dot ${semN1?'done':p.estado==='Pendente'?'current':['Aprovado N1','Aprovado'].includes(p.estado)?'done':p.estado==='Recusado'?'rejected':'wait'}">2</div>
+        <div><div class="au-tl-title">${semN1?'Sem 1.º nível':'1.º nível'+(n1Nome?' — '+n1Nome:'')}</div><div class="au-tl-sub">${semN1?'Vai direto ao responsável de RH':p.dataAprov1?'Aprovado em '+auFormatDate(p.dataAprov1):p.estado==='Recusado'?'Recusado':'Aguarda aprovação'}</div></div>
       </div>
       <div class="au-tl-item">
-        <div class="au-tl-dot ${p.estado==='Aprovado N1'?'current':p.estado==='Aprovado'?'done':['Recusado','Cancelado'].includes(p.estado)?'rejected':'wait'}">3</div>
-        <div><div class="au-tl-title">Presidente Executivo</div><div class="au-tl-sub">${p.dataAprov2?'Aprovado em '+auFormatDate(p.dataAprov2):p.estado==='Aprovado N1'?'A aguardar':p.estado==='Aprovado'?'Aprovado':'—'}</div></div>
+        <div class="au-tl-dot ${(p.estado==='Aprovado N1'||(p.estado==='Pendente'&&semN1))?'current':p.estado==='Aprovado'?'done':['Recusado','Cancelado'].includes(p.estado)?'rejected':'wait'}">3</div>
+        <div><div class="au-tl-title">Responsável de RH${AU_CFG.respRH?' — '+auNomeDeEmail(AU_CFG.respRH):''}</div><div class="au-tl-sub">${p.dataAprov2?'Aprovado em '+auFormatDate(p.dataAprov2):(p.estado==='Aprovado N1'||(p.estado==='Pendente'&&semN1))?'A aguardar':p.estado==='Aprovado'?'Aprovado':'—'}</div></div>
       </div>
     </div>`;
   const actions=isMine&&p.estado==='Pendente'?`<button class="btn btn-sm btn-danger" onclick="auCancelar(${p.id})">Cancelar</button>`:'';
@@ -16663,8 +16972,9 @@ function auCardHtml(p,showColaborador=false){
         <div class="au-card-meta">
           <span>${auFormatDate(p.inicio)} → ${auFormatDate(p.fim)}</span>
           <span style="font-weight:600">${p.dias} dia${p.dias!==1?'s':''}</span>
+          ${p.tipo==='Compensação'&&p.trabalhada?`<span>trabalhou em ${auFormatDate(p.trabalhada)}</span>`:''}
           ${areaTag}
-          ${auBadge(p.estado)}
+          ${auBadge(p.estado)}${auMarcacaoBloqueada(p)?'<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;background:#FFF3E0;color:#B35C00">Proposta</span>':''}
         </div>
       </div>
       <div class="au-card-actions">${actions}</div>
@@ -16695,11 +17005,7 @@ function auRenderPedidos(){
 function auRenderN1(){
   const tipo=document.getElementById('au-ff-n1-tipo')?.value||'';
   const areaFiltro=document.getElementById('au-ff-n1-area')?.value||'';
-  let list=AU_PEDIDOS.filter(p=>p.estado==='Pendente');
-  // Diretor de área: filtrar pelos seus departamentos; PE: vê tudo
-  if(_auRole==='director'&&_financeDepts?.length){
-    list=list.filter(p=>_financeDepts.includes(p.area));
-  }
+  let list=auFilaN1(); // Fase 50: só os pedidos dos colaboradores em que sou o aprovador de 1.º nível
   if(tipo)list=list.filter(p=>p.tipo===tipo);
   if(areaFiltro)list=list.filter(p=>p.area===areaFiltro);
   const wrap=document.getElementById('au-n1-list');
@@ -16731,7 +17037,7 @@ function auRenderN1(){
 function auRenderN2(){
   const tipo=document.getElementById('au-ff-n2-tipo')?.value||'';
   const areaFiltro=document.getElementById('au-ff-n2-area')?.value||'';
-  let list=AU_PEDIDOS.filter(p=>p.estado==='Aprovado N1');
+  let list=auFilaN2(); // Fase 50: aprovados no 1.º nível, ou sem 1.º nível
   if(tipo)list=list.filter(p=>p.tipo===tipo);
   if(areaFiltro)list=list.filter(p=>p.area===areaFiltro);
   const wrap=document.getElementById('au-n2-list');
@@ -16740,7 +17046,7 @@ function auRenderN2(){
   if(bar)bar.classList.toggle('show',list.length>0);
   _auSelectedIds=new Set();
   auUpdateBulkCount();
-  if(!list.length){wrap.innerHTML=`<div class="empty">Sem pedidos aprovados no nível 1 para aprovação final.</div>`;return;}
+  if(!list.length){wrap.innerHTML=`<div class="empty">Sem pedidos para aprovação final.</div>`;return;}
   wrap.innerHTML=list.map(p=>`
     <div class="au-card" id="au-n2-card-${p.id}" style="flex-direction:column;align-items:flex-start">
       <div style="display:flex;width:100%;align-items:center;gap:12px">
@@ -16753,7 +17059,7 @@ function auRenderN2(){
             <span style="font-weight:600">${p.dias} dia${p.dias!==1?'s':''}</span>
             ${p.area?`<span class="badge b-info">${p.area}</span>`:''}
             ${auBadge(p.estado)}
-            <span style="color:var(--text3);font-size:11px">N1: ${auFormatDate(p.dataAprov1)}</span>
+            <span style="color:var(--text3);font-size:11px">${p.dataAprov1?'1.º nível: '+auFormatDate(p.dataAprov1):'sem 1.º nível'}</span>
           </div>
           ${p.obs?`<div style="font-size:12px;color:var(--text2);margin-top:4px">${p.obs}</div>`:''}
         </div>
@@ -16805,26 +17111,33 @@ async function auBulkAprovar(){
 
 // ── Ações de aprovação ──
 async function auAprovarN1(id){
-  if(!confirm('Confirmas a aprovação deste pedido (Nível 1)?'))return;
+  const p=AU_PEDIDOS.find(x=>x.id===id);
+  if(!p)return;
+  if(auMarcacaoBloqueada(p)){showNotif('A marcação anual de férias ainda está aberta: as propostas só podem ser aprovadas depois de fechar o ciclo.','error');return;}
+  if(!(auMyEmail()===auPrecisaN1(p)||_auRole==='pe')){showNotif('Não és o aprovador de 1.º nível deste colaborador.','error');return;}
+  if(!confirm('Confirmas a aprovação deste pedido (1.º nível)?'))return;
   try{
     const uid=await getCurrentUserId();
-    const auType=await auGetListType(AU_LIST);const body={__metadata:{type:auType},Estado:'Aprovado N1',DataAprovN1:new Date().toISOString()};
+    const final=auColabEhN2(p); // o colaborador é o 2.º nível: não se aprova a si próprio, termina aqui
+    const auType=await auGetListType(AU_LIST);const body={__metadata:{type:auType},Estado:final?'Aprovado':'Aprovado N1',DataAprovN1:new Date().toISOString()};
     if(uid)body.AprovadorN1Id=uid;
     await spWrite(`${SP}/_api/web/lists/getbytitle('${AU_LIST}')/items(${id})`,body,'MERGE');
-    showNotif('Aprovado. O pedido segue para o Presidente Executivo.','success');
+    showNotif(final?'Pedido aprovado.':'Aprovado. O pedido segue para o responsável de RH.','success');
     await auLoadAll();
     auRenderN1();
   }catch(e){showNotif('Erro: '+e.message,'error');}
 }
 
 async function auAprovarN2(id){
-  await auAprovarN2Single(id);
+  try{await auAprovarN2Single(id);}catch(e){showNotif(e.message,'error');return;}
   showNotif('Pedido aprovado definitivamente!','success');
   await auLoadAll();
   auRenderN2();
 }
 
 async function auAprovarN2Single(id){
+  if(!(auSouN2()||_auRole==='pe'))throw new Error('Só o responsável de RH aprova no 2.º nível.');
+  if(auMarcacaoBloqueada(AU_PEDIDOS.find(x=>x.id===id)))throw new Error('A marcação anual de férias ainda está aberta: as propostas só podem ser aprovadas depois de fechar o ciclo.');
   const uid=await getCurrentUserId();
   const auType2=await auGetListType(AU_LIST);const body={__metadata:{type:auType2},Estado:'Aprovado',DataAprovN2:new Date().toISOString()};
   if(uid)body.AprovadorN2Id=uid;
@@ -16880,7 +17193,9 @@ function auOpenForm(id){
     document.getElementById('au-f-dias').value='';
     document.getElementById('au-f-obs').value='';
     document.getElementById('au-f-meio').value='';
+    const tr=document.getElementById('au-f-trab');if(tr)tr.value='';
   }
+  auTipoMudou();
   document.getElementById('au-form-ov').classList.add('open');
 }
 
@@ -16892,17 +17207,33 @@ async function auSaveForm(){
   const fim=document.getElementById('au-f-fim').value;
   const obs=document.getElementById('au-f-obs').value.trim();
   const meio=document.getElementById('au-f-meio').value;
+  const trab=document.getElementById('au-f-trab')?.value||'';
+  const comp=tipo==='Compensação';
   if(!inicio||!fim){showNotif('Preenche as datas de início e fim.','error');return;}
   if(fim<inicio){showNotif('A data de fim não pode ser anterior ao início.','error');return;}
   const dias=auCalcDiasUteis(inicio,fim);
   if(dias<=0){showNotif('O período selecionado não contém dias úteis.','error');return;}
+  const emailUser=auMyEmail();
+  if(comp){ // Fase 50 — compensação: dia trabalhado e justificação obrigatórios
+    if(!trab){showNotif('Indica o dia em que trabalhaste.','error');return;}
+    if(!obs){showNotif('Justifica o trabalho nesse dia nas observações.','error');return;}
+    if(AU_PEDIDOS.some(p=>p.colEmail===emailUser&&p.tipo==='Compensação'&&p.trabalhada===trab&&!['Recusado','Cancelado'].includes(p.estado))){
+      showNotif('Esse dia trabalhado já tem um pedido de compensação.','error');return;
+    }
+    const dw=new Date(trab+'T12:00:00').getDay();
+    if(dw!==0&&dw!==6&&!AU_FERIADOS.includes(trab)&&!confirm('O dia trabalhado é um dia útil normal (não é fim de semana nem feriado). Queres mesmo pedir compensação por esse dia?'))return;
+  }
+  if(tipo==='Férias'){ // Fase 50 — só dentro do saldo disponível
+    const sal=auGetSaldo(emailUser,inicio.slice(0,4));
+    if(dias>sal.disponivel){showNotif(`Saldo insuficiente: pedes ${dias} dia(s) e tens ${sal.disponivel} disponível(eis) em ${inicio.slice(0,4)}.`,'error');return;}
+  }
   const btn=document.getElementById('au-save-btn');
   btn.disabled=true;btn.textContent='A guardar...';
   try{
     const uid=await getCurrentUserId();
-    const emailUser=(user?.username||'').toLowerCase();
-    // Corpo limpo: sem ColaboradorEmail nem AreaColaborador
-    // Área e nome são sempre derivados de FJ_Utilizadores em runtime
+    // Sem 1.º nível e o próprio colaborador é o 2.º nível: ninguém pode aprovar, fica aprovado e registado.
+    const fake={colEmail:emailUser};
+    const autoAprov=auColabEhN2(fake)&&!auPrecisaN1(fake);
     const body={
       __metadata:{type:await auGetListType(AU_LIST)},
       Title:`${tipo} - ${inicio} - ${emailUser}`,
@@ -16911,19 +17242,30 @@ async function auSaveForm(){
       DataFim:fim+'T23:59:59Z',
       DiasUteis:dias,
       MeioDia:meio,
-      Observacoes:obs,
-      Estado:'Pendente',
+      Observacoes:comp?`[Dia trabalhado: ${trab}] ${obs}`:obs,
+      Estado:autoAprov?'Aprovado':'Pendente',
       DataSubmissao:new Date().toISOString()
     };
+    if(autoAprov)body.DataAprovN2=new Date().toISOString();
+    if(comp)body.DataTrabalhada=trab+'T00:00:00Z';
+    if(tipo==='Férias'&&auCicloAberto(inicio.slice(0,4))&&!autoAprov)body.EstadoMarcacao='Proposta';
     // Colaborador: campo Pessoa do SP (obrigatório para expandir Title/EMail)
     if(uid)body.ColaboradorId=uid;
-    const res=await spWrite(`${SP}/_api/web/lists/getbytitle('${AU_LIST}')/items`,body,'POST');
-    const newId=res.d?.Id;
+    const url=`${SP}/_api/web/lists/getbytitle('${AU_LIST}')/items`;
+    let res;
+    try{res=await spWrite(url,body,'POST');}
+    catch(e){
+      // coluna DataTrabalhada ainda não criada no SharePoint: grava na mesma (o dia fica nas observações)
+      if(/DataTrabalhada|EstadoMarcacao/i.test(e.message||'')){delete body.DataTrabalhada;delete body.EstadoMarcacao;res=await spWrite(url,body,'POST');}
+      else throw e;
+    }
+    const d=await res.json().catch(()=>({}));
+    const newId=d.d?.Id;
     const fileInput=document.getElementById('au-f-file');
     if(newId&&fileInput?.files?.length){
-      try{await uploadAttachment(AU_LIST,newId,fileInput.files[0]);}catch(e){console.warn('Attach error',e);}
+      try{await uploadAttachment(AU_LIST,newId,fileInput.files[0]);}catch(e){console.warn('Attach error',e);showNotif('Pedido guardado, mas o anexo não foi enviado.','error');}
     }
-    showNotif(`Pedido de ${tipo.toLowerCase()} submetido (${dias} dia${dias!==1?'s':''}).`,'success');
+    showNotif(autoAprov?`Pedido de ${tipo.toLowerCase()} registado e aprovado (não há outro aprovador acima de ti).`:`Pedido de ${tipo.toLowerCase()} submetido (${dias} dia${dias!==1?'s':''}).`,'success');
     auCloseForm();
     await auLoadAll();
     auRenderDashboard();
@@ -16935,8 +17277,1609 @@ async function auSaveForm(){
   }
 }
 
+// ══════════ Fase 51 — base comum: configuração, datas, períodos de ponto (25→24) ══════════
+function auCfgGet(chave,def){const v=AU_CFG.kv?.[chave];return (v===undefined||v===null||v==='')?def:v;}
+function auDiaFecho(){const n=parseInt(auCfgGet('AU_DiaFechoPonto','24'));return (n>=1&&n<=28)?n:24;}
+function auDelegacao(email){return auCfgGet('AU_Delegacao_'+(email||'').toLowerCase(),'Porto');}
+function auFuncaoDe(email){
+  const f=auCfgGet('AU_Funcao_'+(email||'').toLowerCase(),'');
+  if(f)return f;
+  const c=auCargoDeEmail(email);
+  return (c&&c!=='Membro')?c:'';
+}
+// datas como texto AAAA-MM-DD (sem fusos horários)
+function auD(s){const[a,m,d]=s.split('-').map(Number);return new Date(Date.UTC(a,m-1,d,12));}
+function auS(d){return d.toISOString().slice(0,10);}
+function auAddDias(s,n){const d=auD(s);d.setUTCDate(d.getUTCDate()+n);return auS(d);}
+function auDow(s){return auD(s).getUTCDay();}
+function auDDMM(s){return s.slice(8,10)+'/'+s.slice(5,7);}
+function auDMY(s){return s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4);}
+function auDiasEntre(ini,fim){const out=[];for(let d=ini;d<=fim;d=auAddDias(d,1))out.push(d);return out;}
+const AU_MESES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const AU_DSEM=['dom','seg','ter','qua','qui','sex','sáb'];
+// Período de ponto "mês M": do dia a seguir ao fecho do mês anterior até ao dia de fecho do mês M
+function auPeriodo(ano,mes){
+  const df=auDiaFecho();
+  const p2=n=>String(n).padStart(2,'0');
+  const fim=`${ano}-${p2(mes)}-${p2(df)}`;
+  const pa=mes===1?{a:ano-1,m:12}:{a:ano,m:mes-1};
+  const ini=auAddDias(`${pa.a}-${p2(pa.m)}-${p2(df)}`,1);
+  return{ano,mes,ini,fim,key:`${ano}-${p2(mes)}`,label:`${mes}/${ano}`,nome:`${AU_MESES[mes-1]} de ${ano}`};
+}
+function auPeriodoDeData(s){
+  let a=+s.slice(0,4),m=+s.slice(5,7);const d=+s.slice(8,10);
+  if(d>auDiaFecho()){m++;if(m>12){m=1;a++;}}
+  return auPeriodo(a,m);
+}
+function auPeriodoAtual(){return auPeriodoDeData(auHoje());}
+function auPeriodoAnterior(p){return p.mes===1?auPeriodo(p.ano-1,12):auPeriodo(p.ano,p.mes-1);}
+function auPeriodoSeguinte(p){return p.mes===12?auPeriodo(p.ano+1,1):auPeriodo(p.ano,p.mes+1);}
+function auPeriodoDeKey(k){return auPeriodo(+k.slice(0,4),+k.slice(5,7));}
+// Feriados: nacionais para todos; municipais só para a delegação do colaborador
+function auFeriadoDe(data,email){
+  const lista=AU_FERIADOS_DET||[];
+  const deleg=auDelegacao(email||auMyEmail());
+  return lista.find(f=>f.data===data&&(!f.ambito||f.ambito==='Nacional'||f.ambito===deleg))||null;
+}
+function auEhNaoUtil(data,email){const w=auDow(data);return w===0||w===6||!!auFeriadoDe(data,email);}
+// Pedidos de um colaborador que cobrem um dia (ignora Recusado/Cancelado)
+function auPedidoNoDia(email,data,soAtivos=true){
+  return AU_PEDIDOS.find(p=>p.colEmail===email&&p.inicio<=data&&p.fim>=data&&(!soAtivos||!['Recusado','Cancelado'].includes(p.estado)))||null;
+}
+function auEstadoFinal(p){return ['Aprovado N1','Aprovado'].includes(p.estado);}
+
+// ══════════ Fase 51 — Preparar o SharePoint (listas e colunas de Ausências e Ponto) ══════════
+// Idempotente: só cria o que falta. Corre com a sessão de quem clica (precisa de permissões de dono do site).
+const AU_ESQUEMA = [
+  { lista:'FJ_Ponto', campos:[
+    {n:'Colaborador',t:'User'},{n:'Data',t:'Date'},{n:'AnoMes',t:'Text'},
+    {n:'HoraEntrada',t:'Text'},{n:'HoraSaidaAlmoco',t:'Text'},{n:'HoraEntradaAlmoco',t:'Text'},{n:'HoraSaida',t:'Text'},
+    {n:'PausaMinutos',t:'Number'},{n:'HorasTrabalhadas',t:'Number'},
+    {n:'TipoDia',t:'Choice',c:['Trabalho','Férias','Compensação','Doença','Feriado','Fim de semana','Outra ausência']},
+    {n:'NotaFolha',t:'Text'},
+    {n:'Origem',t:'Choice',c:['Manual','Migrado','Repetido']},
+    {n:'HistoricoAlteracoes',t:'Note'}]},
+  { lista:'FJ_PontoDistribuicao', campos:[
+    {n:'PontoId',t:'Number'},{n:'Colaborador',t:'User'},{n:'AnoMes',t:'Text'},{n:'Data',t:'Date'},
+    {n:'TipoLinha',t:'Choice',c:['Projeto','Interno']},
+    {n:'ProjetoId',t:'Number'},{n:'AcaoId',t:'Number'},
+    {n:'Categoria',t:'Choice',c:['Administrativo','Comunicação interna','Reuniões internas','Formação','Outro']},
+    {n:'Percentagem',t:'Number'},{n:'Horas',t:'Number'}]},
+  { lista:'FJ_PontoFechoMensal', campos:[
+    {n:'Colaborador',t:'User'},{n:'AnoMes',t:'Text'},
+    {n:'Estado',t:'Choice',c:['Aberto','Submetido','Validado','Devolvido','Reaberto']},
+    {n:'DataSubmissao',t:'DateTime'},{n:'DataValidacao',t:'DateTime'},{n:'Validador',t:'User'},
+    {n:'Comentario',t:'Note'},{n:'FolhaExportadaEm',t:'DateTime'},{n:'FolhaDevolvidaEm',t:'DateTime'}]},
+  { lista:'FJ_Ausencias', existente:true, campos:[
+    {n:'DataTrabalhada',t:'Date'},
+    {n:'EstadoMarcacao',t:'Choice',c:['Proposta','Final']}],
+    escolhas:{TipoAusencia:['Compensação']} },
+  { lista:'FJ_Feriados', existente:true, campos:[{n:'Ambito',t:'Choice',c:['Nacional','Porto','Lisboa']}] },
+  { lista:'FJ_SaldoFerias', existente:true, campos:[{n:'DataLimiteTransitados',t:'Date'}] }
+];
+function _auXmlEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function auXmlCampo(f){
+  const b=`DisplayName="${_auXmlEsc(f.n)}" Name="${_auXmlEsc(f.n)}" StaticName="${_auXmlEsc(f.n)}" Required="FALSE"`;
+  if(f.t==='User')return `<Field Type="User" ${b} UserSelectionMode="0" UserSelectionScope="0"/>`;
+  if(f.t==='Date')return `<Field Type="DateTime" ${b} Format="DateOnly"/>`;
+  if(f.t==='DateTime')return `<Field Type="DateTime" ${b} Format="DateTime"/>`;
+  if(f.t==='Number')return `<Field Type="Number" ${b} Decimals="2"/>`;
+  if(f.t==='Note')return `<Field Type="Note" ${b} NumLines="6" RichText="FALSE"/>`;
+  if(f.t==='Choice')return `<Field Type="Choice" ${b} Format="Dropdown"><CHOICES>${f.c.map(x=>`<CHOICE>${_auXmlEsc(x)}</CHOICE>`).join('')}</CHOICES></Field>`;
+  return `<Field Type="Text" ${b} MaxLength="255"/>`;
+}
+async function auListaExiste(titulo){
+  try{await spRead(`${SP}/_api/web/lists/getbytitle('${titulo}')?$select=Id`);return true;}
+  catch(e){if(/404/.test(e.message||''))return false;throw e;}
+}
+// Devolve o estado do esquema: lista de {lista, existe, faltam:[campos], escolhasEmFalta:{}}
+async function auVerificarEsquema(){
+  const out=[];
+  for(const s of AU_ESQUEMA){
+    const existe=await auListaExiste(s.lista);
+    const r={lista:s.lista,existe,faltam:[],escolhasEmFalta:{}};
+    if(!existe){r.faltam=s.campos.map(c=>c.n);out.push(r);continue;}
+    const fl=await spRead(`${SP}/_api/web/lists/getbytitle('${s.lista}')/fields?$select=InternalName,Choices&$top=500`);
+    const nomes=new Set((fl.d?.results||[]).map(f=>f.InternalName));
+    r.faltam=s.campos.filter(c=>!nomes.has(c.n)).map(c=>c.n);
+    for(const [campo,vals] of Object.entries(s.escolhas||{})){
+      const f=(fl.d?.results||[]).find(x=>x.InternalName===campo);
+      const atuais=f?.Choices?.results||[];
+      const falta=vals.filter(v=>!atuais.includes(v));
+      if(falta.length)r.escolhasEmFalta[campo]=falta;
+    }
+    out.push(r);
+  }
+  return out;
+}
+async function auPrepararSharePoint(){
+  if(!auPodeAdministrar()){showNotif('Só o PE ou o responsável de RH prepara o SharePoint.','error');return;}
+  const log=document.getElementById('au-prep-log');
+  const btn=document.getElementById('au-prep-btn');
+  const linhas=[];
+  const say=(t,erro)=>{linhas.push(`<div style="color:${erro?'var(--red,#b42318)':'var(--text2)'}">${t}</div>`);if(log)log.innerHTML=linhas.join('');};
+  if(btn){btn.disabled=true;btn.textContent='A preparar…';}
+  let erros=0,criados=0;
+  try{
+    for(const s of AU_ESQUEMA){
+      let existe=await auListaExiste(s.lista);
+      if(!existe){
+        try{
+          await spWrite(`${SP}/_api/web/lists`,{__metadata:{type:'SP.List'},AllowContentTypes:true,BaseTemplate:100,ContentTypesEnabled:false,Description:'Ausências e Ponto (criada pela plataforma)',Title:s.lista},'POST');
+          say(`✓ Lista ${s.lista} criada`);criados++;existe=true;
+        }catch(e){say(`✗ Lista ${s.lista}: ${e.message}`,true);erros++;continue;}
+      }
+      const fl=await spRead(`${SP}/_api/web/lists/getbytitle('${s.lista}')/fields?$select=InternalName,Choices&$top=500`);
+      const campos=fl.d?.results||[];
+      const nomes=new Set(campos.map(f=>f.InternalName));
+      for(const c of s.campos){
+        if(nomes.has(c.n))continue;
+        try{
+          await spWrite(`${SP}/_api/web/lists/getbytitle('${s.lista}')/fields/createfieldasxml`,
+            {parameters:{__metadata:{type:'SP.XmlSchemaFieldCreationInformation'},SchemaXml:auXmlCampo(c),Options:8}},'POST');
+          say(`✓ ${s.lista}: coluna ${c.n}`);criados++;
+        }catch(e){say(`✗ ${s.lista}.${c.n}: ${e.message}`,true);erros++;}
+      }
+      for(const [campo,vals] of Object.entries(s.escolhas||{})){
+        const f=campos.find(x=>x.InternalName===campo);
+        const atuais=f?.Choices?.results||[];
+        const falta=vals.filter(v=>!atuais.includes(v));
+        if(!falta.length)continue;
+        try{
+          await spWrite(`${SP}/_api/web/lists/getbytitle('${s.lista}')/fields/getbyinternalnameortitle('${campo}')`,
+            {__metadata:{type:'SP.FieldChoice'},Choices:{__metadata:{type:'Collection(Edm.String)'},results:atuais.concat(falta)}},'MERGE');
+          say(`✓ ${s.lista}: opção ${falta.join(', ')} em ${campo}`);criados++;
+        }catch(e){say(`✗ ${s.lista}.${campo}: ${e.message}`,true);erros++;}
+      }
+    }
+    say(erros?`<b>Terminado com ${erros} erro(s).</b> Se for falta de permissões, pede a um dono do site para correr este botão.`:`<b>Pronto.</b> ${criados?criados+' alteração(ões) feita(s).':'O SharePoint já estava preparado.'}`,!!erros);
+    if(!erros)showNotif('SharePoint preparado ✓','success');
+  }catch(e){say('✗ '+e.message,true);}
+  if(btn){btn.disabled=false;btn.textContent='Preparar o SharePoint';}
+  AU_PONTO_PRONTO=null;
+}
+async function auMostrarEstadoEsquema(){
+  const log=document.getElementById('au-prep-log');if(!log)return;
+  log.innerHTML='<div style="color:var(--text3)">A verificar…</div>';
+  try{
+    const r=await auVerificarEsquema();
+    log.innerHTML=r.map(x=>{
+      const falta=x.faltam.length||Object.keys(x.escolhasEmFalta).length;
+      const txt=!x.existe?'lista em falta':(falta?`faltam: ${x.faltam.concat(Object.entries(x.escolhasEmFalta).map(([k,v])=>k+': '+v.join('/'))).join(', ')}`:'tudo certo');
+      return `<div style="color:${falta||!x.existe?'var(--fj-orange)':'var(--green-mid)'}">${falta||!x.existe?'●':'✓'} ${x.lista}: ${txt}</div>`;
+    }).join('');
+  }catch(e){log.innerHTML=`<div style="color:var(--red,#b42318)">${e.message}</div>`;}
+}
+let AU_PONTO_PRONTO=null;
+
+// ══════════ Fase 52 — Mapa de Férias de equipa ══════════
+const AU_COR={Férias:'#2563EB','Compensação':'#0F6E56',Doença:'#DC2626',outra:'#D97706',generica:'#8892A6'};
+let _auMapa={vista:'mes',ano:new Date().getFullYear(),mes:new Date().getMonth()+1,area:'',projeto:'',q:''};
+
+// mini-modal reutilizável
+function auMini(titulo,html){
+  let ov=document.getElementById('au-mini-ov');
+  if(!ov){ov=document.createElement('div');ov.id='au-mini-ov';ov.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:450;align-items:center;justify-content:center;padding:16px';
+    ov.onclick=e=>{if(e.target===ov)auMiniFechar();};
+    ov.innerHTML='<div style="background:var(--bg);border-radius:12px;padding:20px 22px;max-width:480px;width:100%;max-height:85vh;overflow:auto"><div id="au-mini-t" style="font-size:15px;font-weight:600;margin-bottom:10px"></div><div id="au-mini-b" style="font-size:13px"></div><div style="text-align:right;margin-top:14px"><button class="btn" onclick="auMiniFechar()">Fechar</button></div></div>';
+    document.body.appendChild(ov);}
+  document.getElementById('au-mini-t').textContent=titulo;
+  document.getElementById('au-mini-b').innerHTML=html;
+  ov.style.display='flex';
+}
+function auMiniFechar(){const ov=document.getElementById('au-mini-ov');if(ov)ov.style.display='none';}
+
+function auCorTipo(tipo){return AU_COR[tipo]||AU_COR.outra;}
+// o que o utilizador atual pode ver do tipo de ausência de outra pessoa
+function auPodeVerTipo(p){
+  if(p.colEmail===auMyEmail())return true;
+  if(auPodeAdministrar())return true;
+  if(p.tipo==='Férias'||p.tipo==='Compensação')return true;
+  return AU_CFG.n1[p.colEmail]===auMyEmail();
+}
+function auMapaPessoas(){
+  const q=(_auMapa.q||'').toLowerCase();
+  let us=fjUtilizadores.filter(u=>u.email);
+  if(_auMapa.area)us=us.filter(u=>auAreaDeEmail(u.email)===_auMapa.area);
+  if(_auMapa.projeto){
+    const pr=plProjetos.find(p=>String(p.id)===String(_auMapa.projeto));
+    us=us.filter(u=>(u.projetos||[]).map(String).includes(String(_auMapa.projeto))||(pr?.membrosAfetos||[]).some(m=>m.email===u.email)||pr?.respEmail===u.email);
+  }
+  if(q)us=us.filter(u=>(u.titulo||'').toLowerCase().includes(q)||u.email.includes(q));
+  return us.slice().sort((a,b)=>(auAreaDeEmail(a.email)).localeCompare(auAreaDeEmail(b.email),'pt')||(a.titulo||'').localeCompare(b.titulo||'','pt'));
+}
+function auCelulaDia(email,data){
+  const fer=auFeriadoDe(data,email);
+  const wk=auDow(data)===0||auDow(data)===6;
+  const p=auPedidoNoDia(email,data);
+  return{fer,wk,p};
+}
+// dias (úteis) por mês de um colaborador num ano, por categoria
+function auContaAno(email,ano){
+  const r={ferias:Array(12).fill(0),comp:Array(12).fill(0),pend:Array(12).fill(0),outras:Array(12).fill(0)};
+  AU_PEDIDOS.filter(p=>p.colEmail===email&&!['Recusado','Cancelado'].includes(p.estado)&&p.inicio<=`${ano}-12-31`&&p.fim>=`${ano}-01-01`).forEach(p=>{
+    for(const d of auDiasEntre(p.inicio<`${ano}-01-01`?`${ano}-01-01`:p.inicio,p.fim>`${ano}-12-31`?`${ano}-12-31`:p.fim)){
+      if(auEhNaoUtil(d,email))continue;
+      const m=+d.slice(5,7)-1;const v=(p.meioDia&&p.inicio===p.fim)?0.5:1;
+      if(p.estado==='Pendente'){r.pend[m]+=v;continue;}
+      if(p.tipo==='Férias')r.ferias[m]+=v;else if(p.tipo==='Compensação')r.comp[m]+=v;else r.outras[m]+=v;
+    }
+  });
+  return r;
+}
+function auAlertasCobertura(pessoas,dias){
+  const max=parseFloat(auCfgGet('AU_CoberturaMaxPct','50'))||50;
+  const porArea={};
+  pessoas.forEach(u=>{const a=auAreaDeEmail(u.email)||'—';(porArea[a]=porArea[a]||[]).push(u.email);});
+  const alertas=[];
+  dias.forEach(d=>{
+    Object.entries(porArea).forEach(([area,mails])=>{
+      if(mails.length<2)return;
+      const aus=mails.filter(e=>{const c=auCelulaDia(e,d);return !c.wk&&!c.fer&&c.p;});
+      if(aus.length&&aus.length*100/mails.length>max)alertas.push({data:d,area,aus:aus.length,total:mails.length});
+    });
+  });
+  return alertas;
+}
+function auMapaSet(k,v){_auMapa[k]=v;auRenderMapa();}
+function auMapaNav(delta){
+  if(_auMapa.vista==='ano'){_auMapa.ano+=delta;}
+  else{let m=_auMapa.mes+delta,a=_auMapa.ano;if(m<1){m=12;a--;}if(m>12){m=1;a++;}_auMapa.mes=m;_auMapa.ano=a;}
+  auRenderMapa();
+}
+async function auMapaPrepararProjetos(){
+  if(plProjetos.length)return;
+  try{await loadProjetos();}catch(e){}
+}
+function auRenderMapa(){
+  const wrap=document.getElementById('au-mapa-wrap');if(!wrap)return;
+  const pessoas=auMapaPessoas();
+  const areas=[...new Set(fjUtilizadores.filter(u=>u.email).map(u=>auAreaDeEmail(u.email)).filter(Boolean))].sort();
+  const admin=auPodeAdministrar();
+  const bar=`<div class="toolbar" style="flex-wrap:wrap;gap:8px">
+    <button class="btn btn-sm" onclick="auMapaNav(-1)">‹</button>
+    <div style="font-weight:600;min-width:150px;text-align:center">${_auMapa.vista==='ano'?_auMapa.ano:AU_MESES[_auMapa.mes-1]+' '+_auMapa.ano}</div>
+    <button class="btn btn-sm" onclick="auMapaNav(1)">›</button>
+    <select class="flt" onchange="auMapaSet('vista',this.value)"><option value="mes" ${_auMapa.vista==='mes'?'selected':''}>Vista mensal</option><option value="ano" ${_auMapa.vista==='ano'?'selected':''}>Vista anual</option></select>
+    <select class="flt" onchange="auMapaSet('area',this.value)"><option value="">Departamento: todos</option>${areas.map(a=>`<option ${a===_auMapa.area?'selected':''}>${a}</option>`).join('')}</select>
+    ${plProjetos.length?`<select class="flt" onchange="auMapaSet('projeto',this.value)"><option value="">Projeto: todos</option>${plProjetos.map(p=>`<option value="${p.id}" ${String(p.id)===String(_auMapa.projeto)?'selected':''}>${p.nome}</option>`).join('')}</select>`:''}
+    <div class="search-wrap"><span class="si">&#9906;</span><input type="text" placeholder="Pesquisar…" value="${(_auMapa.q||'').replace(/"/g,'&quot;')}" oninput="_auMapa.q=this.value;clearTimeout(window._auMapaT);window._auMapaT=setTimeout(auRenderMapa,250)"></div>
+    ${admin?`<span style="margin-left:auto;display:flex;gap:6px"><button class="btn btn-sm" onclick="auMapaExportarExcel()">Exportar Excel</button><button class="btn btn-sm btn-primary" onclick="auMapaExportarPDF()">Exportar PDF</button></span>`:''}
+  </div>
+  <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--text2);margin:6px 0 10px">
+    <span><span class="au-mp-leg" style="background:${AU_COR['Férias']}"></span>Férias</span>
+    <span><span class="au-mp-leg" style="background:${AU_COR['Compensação']}"></span>Compensação</span>
+    <span><span class="au-mp-leg" style="background:${AU_COR.outra}"></span>Outras ausências</span>
+    <span><span class="au-mp-leg" style="background:${AU_COR.generica}"></span>Ausente (motivo reservado)</span>
+    <span><span class="au-mp-leg" style="background:repeating-linear-gradient(45deg,#888 0 3px,#fff 3px 6px)"></span>Por aprovar (tracejado)</span>
+    <span><span class="au-mp-leg" style="background:#eef0f4;border:1px solid #d5d9e2"></span>Fim de semana / feriado</span>
+    <span style="color:var(--text3)">Clica num dia livre da tua linha para pedir.</span>
+  </div>`;
+  if(!pessoas.length){wrap.innerHTML=bar+'<div class="empty">Sem colaboradores com este filtro.</div>';return;}
+  wrap.innerHTML=bar+(_auMapa.vista==='ano'?auMapaAnualHtml(pessoas):auMapaMensalHtml(pessoas));
+}
+function auMapaCorCelula(c,email){
+  if(c.p&&!c.wk&&!c.fer){
+    const p=c.p;
+    const cor=auPodeVerTipo(p)?auCorTipo(p.tipo):AU_COR.generica;
+    const pend=p.estado==='Pendente';
+    const meio=(p.meioDia&&p.inicio===p.fim);
+    let bg=cor;
+    if(pend)bg=`repeating-linear-gradient(45deg,${cor} 0 4px,#ffffffcc 4px 7px)`;
+    if(meio)bg=`linear-gradient(${p.meioDia==='Manhã'?'90deg':'270deg'},${bg} 50%,transparent 50%)`;
+    return `background:${bg};`;
+  }
+  return '';
+}
+function auMapaMensalHtml(pessoas){
+  const a=_auMapa.ano,m=_auMapa.mes;
+  const ini=`${a}-${String(m).padStart(2,'0')}-01`;
+  const nDias=new Date(Date.UTC(a,m,0)).getUTCDate();
+  const dias=auDiasEntre(ini,`${a}-${String(m).padStart(2,'0')}-${String(nDias).padStart(2,'0')}`);
+  const me=auMyEmail();
+  const hoje=auHoje();
+  const th=dias.map(d=>{const w=auDow(d);return `<th class="au-mp-h ${(w===0||w===6)?'nu':''}" style="${d===hoje?'outline:2px solid var(--fj-orange);outline-offset:-2px':''}"><div>${+d.slice(8)}</div><div style="font-weight:400;font-size:9px">${AU_DSEM[w]}</div></th>`;}).join('');
+  let ultimaArea=null;
+  const linhas=pessoas.map(u=>{
+    const area=auAreaDeEmail(u.email)||'—';
+    let cab='';
+    if(area!==ultimaArea){ultimaArea=area;cab=`<tr><td colspan="${dias.length+2}" style="background:var(--bg3);font-size:11px;font-weight:600;padding:3px 8px;color:var(--text2)">${area}</td></tr>`;}
+    const usadosAno=auGetSaldo(u.email,a);
+    const tds=dias.map(d=>{
+      const c=auCelulaDia(u.email,d);
+      const nu=c.wk||c.fer;
+      const dev=c.fer?c.fer.nome||'Feriado':'';
+      let tit=auDMY(d)+(dev?' · '+dev:'');
+      let cls='au-mp-c'+(nu?' nu':'');
+      let onclick='';
+      if(c.p&&!nu){
+        const vis=auPodeVerTipo(c.p);
+        tit+=` · ${vis?c.p.tipo:'Ausente'}${c.p.estado==='Pendente'?' (por aprovar)':''}${c.p.meioDia?' · '+c.p.meioDia:''}`;
+        onclick=` onclick="auMapaClicaPedido(${c.p.id})"`;
+      }else if(u.email===me&&!nu&&d>=hoje){
+        onclick=` onclick="auMapaPedirDia('${d}')"`;cls+=' liv';
+      }
+      return `<td class="${cls}" title="${tit.replace(/"/g,'&quot;')}" style="${auMapaCorCelula(c,u.email)}"${onclick}></td>`;
+    }).join('');
+    return cab+`<tr><td class="au-mp-n" title="${u.email}">${u.titulo||u.email}${u.email===me?' <span style="color:var(--fj-orange)">●</span>':''}</td>${tds}<td class="au-mp-t">${usadosAno.used}/${usadosAno.direito}</td></tr>`;
+  }).join('');
+  // cobertura
+  const alertas=auAlertasCobertura(pessoas,dias);
+  const porDia={};alertas.forEach(x=>{(porDia[x.data]=porDia[x.data]||[]).push(`${x.area}: ${x.aus}/${x.total}`);});
+  const rodape=dias.map(d=>{
+    const n=pessoas.filter(u=>{const c=auCelulaDia(u.email,d);return !c.wk&&!c.fer&&c.p;}).length;
+    const al=porDia[d];
+    return `<td class="au-mp-r" style="${al?'background:#FDE8E8;color:#b42318;font-weight:700':''}" title="${al?('Cobertura em risco: '+al.join(' · ')):''}">${n||''}</td>`;
+  }).join('');
+  const alHtml=alertas.length?`<div style="margin-top:10px;padding:10px 12px;border:1px solid #F3B4B4;background:#FFF5F5;border-radius:8px;font-size:12px"><b style="color:#b42318">Cobertura em risco</b> (mais de ${auCfgGet('AU_CoberturaMaxPct','50')}% da área ausente): ${alertas.slice(0,12).map(x=>`${auDDMM(x.data)} ${x.area} (${x.aus}/${x.total})`).join(' · ')}${alertas.length>12?' …':''}</div>`:'';
+  return `<div class="au-mp-wrap"><table class="au-mp"><thead><tr><th class="au-mp-n">Colaborador</th>${th}<th class="au-mp-t">Férias</th></tr></thead><tbody>${linhas}<tr><td class="au-mp-n" style="font-size:10px;color:var(--text3)">Ausentes no dia</td>${rodape}<td></td></tr></tbody></table></div>${alHtml}`;
+}
+function auMapaAnualHtml(pessoas){
+  const a=_auMapa.ano;
+  const th=AU_MESES.map(n=>`<th class="au-mp-h" style="min-width:48px">${n.slice(0,3)}</th>`).join('');
+  let ultimaArea=null;
+  const linhas=pessoas.map(u=>{
+    const area=auAreaDeEmail(u.email)||'—';
+    let cab='';
+    if(area!==ultimaArea){ultimaArea=area;cab=`<tr><td colspan="16" style="background:var(--bg3);font-size:11px;font-weight:600;padding:3px 8px;color:var(--text2)">${area}</td></tr>`;}
+    const r=auContaAno(u.email,a);
+    const s=auGetSaldo(u.email,a);
+    const tds=AU_MESES.map((_,i)=>{
+      const f=r.ferias[i],c=r.comp[i],p=r.pend[i],o=r.outras[i];
+      const partes=[];
+      if(f)partes.push(`<span style="color:${AU_COR['Férias']};font-weight:600">${f}</span>`);
+      if(c)partes.push(`<span style="color:${AU_COR['Compensação']};font-weight:600">${c}</span>`);
+      if(o&&(u.email===auMyEmail()||auPodeAdministrar()))partes.push(`<span style="color:${AU_COR.outra}">${o}</span>`);
+      if(p)partes.push(`<span style="color:#888;font-style:italic">${p}?</span>`);
+      const tot=f+c;
+      const bg=tot?`rgba(37,99,235,${Math.min(.35,tot/22*1.6)})`:'';
+      return `<td class="au-mp-a" style="background:${bg}" onclick="_auMapa.vista='mes';_auMapa.mes=${i+1};auRenderMapa()" title="${AU_MESES[i]}: férias ${f} · compensação ${c}${p?' · por aprovar '+p:''}">${partes.join(' ')||''}</td>`;
+    }).join('');
+    const totF=r.ferias.reduce((x,y)=>x+y,0),totC=r.comp.reduce((x,y)=>x+y,0);
+    return cab+`<tr><td class="au-mp-n">${u.titulo||u.email}</td>${tds}<td class="au-mp-t"><b>${totF}</b>/${s.direito}</td><td class="au-mp-t">${totC}</td><td class="au-mp-t" style="color:var(--green-mid);font-weight:600">${s.disponivel}</td></tr>`;
+  }).join('');
+  return `<div class="au-mp-wrap"><table class="au-mp"><thead><tr><th class="au-mp-n">Colaborador</th>${th}<th class="au-mp-t">Férias/direito</th><th class="au-mp-t">Compens.</th><th class="au-mp-t">Disp.</th></tr></thead><tbody>${linhas}</tbody></table></div><div style="font-size:11px;color:var(--text3);margin-top:6px">Azul: férias aprovadas · verde: compensações · laranja: outras ausências (só visíveis ao próprio e ao RH) · cinzento com ?: por aprovar. Clica num mês para o abrir.</div>`;
+}
+function auMapaPedirDia(d){
+  auOpenForm();
+  const i=document.getElementById('au-f-inicio'),f=document.getElementById('au-f-fim');
+  if(i)i.value=d;if(f)f.value=d;
+  auCalcDias();
+}
+function auMapaClicaPedido(id){
+  const p=AU_PEDIDOS.find(x=>x.id===id);if(!p)return;
+  const vis=auPodeVerTipo(p);
+  const html=`<div><b>${p.colNome}</b> · ${vis?p.tipo:'Ausente'}</div>
+    <div style="margin:6px 0">${auDMY(p.inicio)}${p.fim!==p.inicio?' a '+auDMY(p.fim):''} · ${p.dias} dia(s)${p.meioDia?' ('+p.meioDia+')':''}</div>
+    <div>${auBadge(p.estado)}</div>
+    ${vis&&p.trabalhada?`<div style="margin-top:6px;color:var(--text2)">Dia trabalhado: ${auDMY(p.trabalhada)}</div>`:''}
+    ${vis&&p.obs?`<div style="margin-top:6px;color:var(--text2)">${p.obs.replace(/</g,'&lt;')}</div>`:''}`;
+  auMini(vis?`${auTipoIcon(p.tipo)} ${p.tipo}`:'Ausência',html);
+}
+// ── Exportações (PE / responsável de RH) ──
+function auMapaCodigo(c,email){
+  if(c.fer&&!c.p)return 'FER';
+  if(c.wk)return '';
+  if(!c.p)return '';
+  const p=c.p;
+  const pend=p.estado==='Pendente'?'?':'';
+  const t=p.tipo==='Férias'?'F':p.tipo==='Compensação'?'C':'A';
+  return t+pend;
+}
+async function auMapaExportarExcel(){
+  if(!auPodeAdministrar()){showNotif('Sem permissão.','error');return;}
+  try{await gfCarregarScript(GF_CDN_XLSX);}catch(e){showNotif('Não foi possível carregar o módulo de Excel.','error');return;}
+  const pessoas=auMapaPessoas();
+  const a=_auMapa.ano;
+  const wb=XLSX.utils.book_new();
+  // 12 folhas mensais
+  for(let m=1;m<=12;m++){
+    const ini=`${a}-${String(m).padStart(2,'0')}-01`;
+    const nd=new Date(Date.UTC(a,m,0)).getUTCDate();
+    const dias=auDiasEntre(ini,`${a}-${String(m).padStart(2,'0')}-${String(nd).padStart(2,'0')}`);
+    const rows=[['Colaborador','Departamento',...dias.map(d=>+d.slice(8)+' '+AU_DSEM[auDow(d)]),'Férias','Compensações']];
+    pessoas.forEach(u=>{
+      let f=0,c=0;
+      const cel=dias.map(d=>{const x=auCelulaDia(u.email,d);const cod=auMapaCodigo(x,u.email);
+        if(x.p&&!x.wk&&!x.fer&&x.p.estado!=='Pendente'){const v=(x.p.meioDia&&x.p.inicio===x.p.fim)?.5:1;if(x.p.tipo==='Férias')f+=v;else if(x.p.tipo==='Compensação')c+=v;}
+        return cod;});
+      rows.push([u.titulo||u.email,auAreaDeEmail(u.email),...cel,f,c]);
+    });
+    rows.push([]);rows.push(['Legenda: F=férias · C=compensação · A=outra ausência · ?=por aprovar · FER=feriado']);
+    const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:30},{wch:12},...dias.map(()=>({wch:4})),{wch:8},{wch:12}];
+    XLSX.utils.book_append_sheet(wb,ws,AU_MESES[m-1].slice(0,3));
+  }
+  // resumo anual
+  const res=[['Colaborador','Departamento','Direito+transitados','Férias gozadas/aprovadas','Compensações','Por aprovar','Disponível',...AU_MESES.map(n=>n.slice(0,3)+' (F)')]];
+  pessoas.forEach(u=>{const r=auContaAno(u.email,a);const s=auGetSaldo(u.email,a);
+    res.push([u.titulo||u.email,auAreaDeEmail(u.email),s.direito,r.ferias.reduce((x,y)=>x+y,0),r.comp.reduce((x,y)=>x+y,0),r.pend.reduce((x,y)=>x+y,0),s.disponivel,...r.ferias]);});
+  const wr=XLSX.utils.aoa_to_sheet(res);wr['!cols']=[{wch:30},{wch:12},{wch:18},{wch:22},{wch:14},{wch:12},{wch:11},...AU_MESES.map(()=>({wch:8}))];
+  XLSX.utils.book_append_sheet(wb,wr,'Resumo '+a);
+  XLSX.writeFile(wb,`Mapa_Ferias_FJ_${a}.xlsx`);
+  showNotif('Excel do mapa exportado.','success');
+}
+async function auMapaExportarPDF(){
+  if(!auPodeAdministrar()){showNotif('Sem permissão.','error');return;}
+  try{await gfCarregarScript(GF_CDN_JSPDF);}catch(e){showNotif('Não foi possível carregar o módulo de PDF.','error');return;}
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'a4',orientation:'landscape'});
+  const pessoas=auMapaPessoas();
+  const a=_auMapa.ano,m=_auMapa.mes;
+  const ini=`${a}-${String(m).padStart(2,'0')}-01`;
+  const nd=new Date(Date.UTC(a,m,0)).getUTCDate();
+  const dias=auDiasEntre(ini,`${a}-${String(m).padStart(2,'0')}-${String(nd).padStart(2,'0')}`);
+  const W=297,H=210,M=10,wNome=52,wTot=14;
+  const wDia=(W-2*M-wNome-wTot)/dias.length,hL=5.6;
+  const hex=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+  const cab=()=>{
+    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(0,48,135);
+    doc.text(`Mapa de Férias · ${AU_MESES[m-1]} ${a}`,M,M+5);
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(90,98,120);
+    doc.text(`Fundação da Juventude · ${_auMapa.area||'todos os departamentos'} · emitido a ${auDMY(auHoje())}`,M,M+10);
+    // legenda
+    let lx=W-M-130;[['Férias',AU_COR['Férias']],['Compensação',AU_COR['Compensação']],['Outras',AU_COR.outra]].forEach(([t,c])=>{doc.setFillColor(...hex(c));doc.rect(lx,M+2,3,3,'F');doc.setTextColor(60);doc.text(t,lx+4.5,M+4.6);lx+=30;});
+    doc.setFillColor(238,240,244);doc.rect(lx,M+2,3,3,'F');doc.text('Fim de semana / feriado',lx+4.5,M+4.6);
+    let y=M+14;
+    doc.setFillColor(0,48,135);doc.rect(M,y,W-2*M,9,'F');doc.setTextColor(255);doc.setFontSize(7);doc.setFont('helvetica','bold');
+    doc.text('Colaborador',M+1.5,y+5.5);
+    dias.forEach((d,i)=>{const x=M+wNome+i*wDia;doc.text(String(+d.slice(8)),x+wDia/2,y+4,{align:'center'});doc.setFont('helvetica','normal');doc.setFontSize(5);doc.text(AU_DSEM[auDow(d)].slice(0,1).toUpperCase(),x+wDia/2,y+7.5,{align:'center'});doc.setFont('helvetica','bold');doc.setFontSize(7);});
+    doc.text('Férias',W-M-wTot/2,y+5.5,{align:'center'});
+    return y+9;
+  };
+  let y=cab();let area=null;
+  doc.setFontSize(7);
+  for(const u of pessoas){
+    const ar=auAreaDeEmail(u.email)||'—';
+    const need=hL+(ar!==area?hL:0);
+    if(y+need>H-M-8){doc.addPage();y=cab();area=null;}
+    if(ar!==area){area=ar;doc.setFillColor(232,236,244);doc.rect(M,y,W-2*M,hL,'F');doc.setFont('helvetica','bold');doc.setTextColor(40);doc.text(ar,M+1.5,y+hL-1.6);y+=hL;}
+    doc.setFont('helvetica','normal');doc.setTextColor(30);
+    doc.text((u.titulo||u.email).slice(0,32),M+1.5,y+hL-1.6);
+    dias.forEach((d,i)=>{
+      const x=M+wNome+i*wDia;const c=auCelulaDia(u.email,d);
+      if(c.wk||c.fer){doc.setFillColor(238,240,244);doc.rect(x,y,wDia,hL,'F');}
+      if(c.p){
+        const cor=hex(auCorTipo(c.p.tipo));
+        if(c.p.estado==='Pendente'){doc.setFillColor(Math.round(cor[0]*.45+140),Math.round(cor[1]*.45+140),Math.round(cor[2]*.45+140));}else doc.setFillColor(...cor);
+        doc.rect(x+.15,y+.4,wDia-.3,hL-.8,'F');
+      }
+      doc.setDrawColor(220);doc.setLineWidth(.1);doc.rect(x,y,wDia,hL);
+    });
+    const sd=auGetSaldo(u.email,a);
+    doc.setTextColor(30);doc.text(`${sd.used}/${sd.direito}`,W-M-wTot/2,y+hL-1.6,{align:'center'});
+    y+=hL;
+  }
+  doc.setFontSize(6.5);doc.setTextColor(120);
+  doc.text('Cor mais clara = pedido por aprovar. Compensação paga subsídio de alimentação; férias não.',M,H-M);
+  doc.save(`Mapa_Ferias_FJ_${AU_MESES[m-1]}_${a}.pdf`);
+  showNotif('PDF do mapa exportado.','success');
+}
+
+// ══════════ Fase 53 — Registo diário de ponto ("O meu ponto") e folha RH-T-0010-01 ══════════
+let PONTO=[], PONTO_DIST=[], AU_FECHOS=[];
+let _auPonto={per:null,dia:null,ed:null,emEdicaoId:null,modo:'meu'};
+function auHoje(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function auMin(h){if(!h||!/^\d{1,2}:\d{2}/.test(h))return null;const[a,b]=h.split(':');return (+a)*60+(+b);}
+function auFmtH(min){if(min==null||isNaN(min))return '—';const h=Math.floor(Math.abs(min)/60),m=Math.round(Math.abs(min)%60);return (min<0?'-':'')+h+'h'+String(m).padStart(2,'0');}
+function auHH(h){return h?String(h).slice(0,5):'';}
+// minutos trabalhados num dia: (saída − entrada) − almoço − pausa
+function auCalcMinDia(r){
+  const e=auMin(r.entrada),s=auMin(r.saida);
+  if(e==null||s==null||s<=e)return 0;
+  let t=s-e;
+  const sa=auMin(r.saidaAlm),ea=auMin(r.entradaAlm);
+  if(sa!=null&&ea!=null&&ea>sa)t-=(ea-sa);
+  t-=(parseInt(r.pausa)||0);
+  return Math.max(0,t);
+}
+async function auPontoListasOk(){
+  if(AU_PONTO_PRONTO!==null)return AU_PONTO_PRONTO;
+  try{
+    await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Ponto')?$select=Id`);
+    await spRead(`${SP}/_api/web/lists/getbytitle('FJ_PontoDistribuicao')?$select=Id`);
+    AU_PONTO_PRONTO=true;
+  }catch(e){AU_PONTO_PRONTO=/404/.test(e.message||'')?false:null;if(AU_PONTO_PRONTO===null)throw e;}
+  return AU_PONTO_PRONTO;
+}
+function auMapPonto(r){
+  return{id:r.Id,etag:r.__metadata?.etag||'*',
+    email:(r.Colaborador?.EMail||'').toLowerCase(),nome:r.Colaborador?.Title||'',
+    data:r.Data?String(r.Data).split('T')[0]:'',anoMes:r.AnoMes||'',
+    entrada:auHH(r.HoraEntrada),saidaAlm:auHH(r.HoraSaidaAlmoco),entradaAlm:auHH(r.HoraEntradaAlmoco),saida:auHH(r.HoraSaida),
+    pausa:r.PausaMinutos||0,horas:r.HorasTrabalhadas||0,tipoDia:r.TipoDia||'Trabalho',nota:r.NotaFolha||'',origem:r.Origem||'Manual',
+    hist:(()=>{try{return JSON.parse(r.HistoricoAlteracoes||'[]');}catch(e){return[];}})()};
+}
+function auMapDist(r){
+  return{id:r.Id,pontoId:r.PontoId,email:(r.Colaborador?.EMail||'').toLowerCase(),data:r.Data?String(r.Data).split('T')[0]:'',
+    tipo:r.TipoLinha||'Projeto',projetoId:r.ProjetoId||null,acaoId:r.AcaoId||null,cat:r.Categoria||'',pct:r.Percentagem||0,horas:r.Horas||0};
+}
+function auFiltroPeriodoPonto(ini,fim){return `Data ge datetime'${ini}T00:00:00Z' and Data le datetime'${fim}T23:59:59Z'`;}
+// Carrega o período (e o anterior). Quem não administra só carrega as suas linhas.
+async function auPontoCarregar(per,todos){
+  const ant=auPeriodoAnterior(per);
+  const ini=ant.ini,fim=per.fim;
+  let filtro=auFiltroPeriodoPonto(ini,fim);
+  if(!todos){const uid=await getCurrentUserId();if(uid)filtro+=` and Colaborador/Id eq ${uid}`;}
+  const base=`${SP}/_api/web/lists/getbytitle`;
+  const [a,b]=await Promise.all([
+    spReadAll(`${base}('FJ_Ponto')/items?$select=*,Colaborador/EMail,Colaborador/Title&$expand=Colaborador&$filter=${encodeURIComponent(filtro).replace(/%24/g,'$')}&$top=5000`),
+    spReadAll(`${base}('FJ_PontoDistribuicao')/items?$select=*,Colaborador/EMail&$expand=Colaborador&$filter=${encodeURIComponent(filtro).replace(/%24/g,'$')}&$top=5000`)
+  ]);
+  PONTO=(a.d?.results||[]).map(auMapPonto);
+  PONTO_DIST=(b.d?.results||[]).map(auMapDist);
+  await auFechoCarregar([ant.key,per.key],todos);
+}
+async function auFechoCarregar(keys,todos){
+  try{
+    let f=keys.map(k=>`AnoMes eq '${k}'`).join(' or ');
+    const d=await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_PontoFechoMensal')/items?$select=*,Colaborador/EMail,Colaborador/Title,Validador/Title&$expand=Colaborador,Validador&$filter=${encodeURIComponent(f)}&$top=5000`);
+    AU_FECHOS=(d.d?.results||[]).map(r=>({id:r.Id,etag:r.__metadata?.etag||'*',email:(r.Colaborador?.EMail||'').toLowerCase(),nome:r.Colaborador?.Title||'',
+      key:r.AnoMes||'',estado:r.Estado||'Aberto',submetidoEm:r.DataSubmissao||'',validadoEm:r.DataValidacao||'',validador:r.Validador?.Title||'',
+      comentario:r.Comentario||'',exportadaEm:r.FolhaExportadaEm||'',devolvidaEm:r.FolhaDevolvidaEm||'',anexos:!!r.Attachments}));
+  }catch(e){console.warn('auFechoCarregar',e);AU_FECHOS=[];}
+}
+function auFechoDe(email,key){return AU_FECHOS.find(f=>f.email===email&&f.key===key)||null;}
+function auMesBloqueado(email,key){
+  const f=auFechoDe(email,key);
+  return !!f&&['Submetido','Validado'].includes(f.estado);
+}
+// Tipo e descrição do dia para a folha e para o editor
+function auInfoDia(email,d){
+  const fer=auFeriadoDe(d,email);
+  const wk=auDow(d)===0||auDow(d)===6;
+  const p=auPedidoNoDia(email,d);
+  const final=p&&auEstadoFinal(p);
+  const pend=p&&p.estado==='Pendente';
+  let tipo='Trabalho',nota='',diaCompleto=false;
+  if(p&&(final||pend)){
+    tipo=p.tipo;
+    const meio=p.meioDia&&p.inicio===p.fim;
+    const nome=p.tipo==='Férias'?'Férias':p.tipo==='Compensação'?'Compensação (folga)':p.tipo==='Doença'?'Ausência por doença':p.tipo;
+    if(meio){nota=`${nome}_meio dia (${p.meioDia.toLowerCase()})${pend?' (por aprovar)':''}`;}
+    else{nota=nome+(pend?' (por aprovar)':'');diaCompleto=!wk&&!fer;}
+  }
+  if(!p||(!final&&!pend)){}
+  return{fer,wk,p,final,pend,tipo,nota,diaCompleto,naoUtil:wk||!!fer};
+}
+function auPontoRegDe(email,d){return PONTO.find(r=>r.email===email&&r.data===d)||null;}
+function auDistDe(pontoId){return PONTO_DIST.filter(x=>x.pontoId===pontoId);}
+// Dias úteis do período em que falta registo (sem ausência final nem pedido pendente que cubra todo o dia)
+function auDiasEmFalta(email,per){
+  const hoje=auHoje();
+  return auDiasEntre(per.ini,per.fim<hoje?per.fim:auAddDias(hoje,-1)).filter(d=>{
+    const i=auInfoDia(email,d);
+    if(i.naoUtil||i.diaCompleto)return false;
+    const r=auPontoRegDe(email,d);
+    return !r||!r.entrada||!r.saida;
+  });
+}
+// ───── Projetos e ações disponíveis para a distribuição ─────
+function auProjetosParaPonto(){
+  let ps=plProjetos.filter(p=>!['closed','Concluído','concluido','arquivado'].includes(p.estado));
+  if(plCanSeeAll())return ps;
+  const me=auMyEmail();const u=fjUtilizadores.find(x=>x.email===me);
+  const meus=ps.filter(p=>(u?.projetos||[]).map(String).includes(String(p.id))||p.respEmail===me||(p.membrosAfetos||[]).some(m=>m.email===me));
+  return meus.length?meus:ps;
+}
+const AU_CATS=['Administrativo','Comunicação interna','Reuniões internas','Formação','Outro'];
+// ───── Modelos pessoais (só neste browser) ─────
+function auModelos(){try{return JSON.parse(localStorage.getItem('fjPontoModelos_'+auMyEmail())||'[]');}catch(e){return[];}}
+function auGuardarModelos(l){try{localStorage.setItem('fjPontoModelos_'+auMyEmail(),JSON.stringify(l));}catch(e){}}
+// ───── Página ─────
+async function auPontoInit(){
+  const wrap=document.getElementById('au-ponto-wrap');if(!wrap)return;
+  wrap.innerHTML='<div class="empty">A carregar…</div>';
+  try{
+    if(!(await auPontoListasOk())){
+      wrap.innerHTML=`<div class="empty" style="text-align:left;max-width:560px">As listas do ponto ainda não existem no SharePoint.${auPodeAdministrar()?' Vai a <b>Gestão / RH</b> e carrega em <b>Preparar o SharePoint</b>.':' Pede ao Presidente Executivo ou ao responsável de RH para as preparar.'}</div>`;return;
+    }
+    if(!plProjetos.length){try{await loadProjetos();}catch(e){}}
+    if(!plAcoes.length){try{await loadAcoes();}catch(e){}}
+    if(!_auPonto.per)_auPonto.per=auPeriodoAtual();
+    if(!_auPonto.dia){const h=auHoje();_auPonto.dia=(h>=_auPonto.per.ini&&h<=_auPonto.per.fim)?h:_auPonto.per.fim;}
+    await auPontoCarregar(_auPonto.per,false);
+    auPontoEditarDia(_auPonto.dia);
+  }catch(e){wrap.innerHTML=`<div class="empty">Erro ao carregar o ponto: ${e.message}</div>`;}
+}
+async function auPontoMes(delta){
+  _auPonto.per=delta>0?auPeriodoSeguinte(_auPonto.per):auPeriodoAnterior(_auPonto.per);
+  _auPonto.dia=_auPonto.per.fim;
+  const wrap=document.getElementById('au-ponto-wrap');if(wrap)wrap.style.opacity=.5;
+  try{await auPontoCarregar(_auPonto.per,false);}catch(e){showNotif('Erro: '+e.message,'error');}
+  if(wrap)wrap.style.opacity=1;
+  auPontoEditarDia(_auPonto.dia);
+}
+function auPontoEditarDia(d){
+  const me=auMyEmail();
+  _auPonto.dia=d;
+  const r=auPontoRegDe(me,d);
+  const dist=r?auDistDe(r.id):[];
+  _auPonto.ed={entrada:r?.entrada||'',saidaAlm:r?.saidaAlm||'',entradaAlm:r?.entradaAlm||'',saida:r?.saida||'',pausa:r?.pausa||0,nota:r?.nota||'',
+    linhas:dist.map(x=>({tipo:x.tipo,projetoId:x.projetoId,acaoId:x.acaoId,cat:x.cat,pct:x.pct}))};
+  _auPonto.emEdicaoId=r?.id||null;
+  auRenderPonto();
+}
+function auRenderPonto(){
+  const wrap=document.getElementById('au-ponto-wrap');if(!wrap)return;
+  const me=auMyEmail();const per=_auPonto.per;const d=_auPonto.dia;const ed=_auPonto.ed;
+  const info=auInfoDia(me,d);
+  const fecho=auFechoDe(me,per.key);
+  const bloq=auMesBloqueado(me,auPeriodoDeData(d).key);
+  const falta=auDiasEmFalta(me,per);
+  // resumo do mês
+  let totMin=0,diasTrab=0;
+  auDiasEntre(per.ini,per.fim).forEach(x=>{const r=auPontoRegDe(me,x);if(r){const m=auCalcMinDia(r);if(m>0){totMin+=m;diasTrab++;}}});
+  const estadoChip=fecho?`<span class="au-chip-estado ${fecho.estado}">${fecho.estado}</span>`:'<span class="au-chip-estado Aberto">Aberto</span>';
+  const tabela=auDiasEntre(per.ini,per.fim).map(x=>{
+    const i=auInfoDia(me,x);const r=auPontoRegDe(me,x);
+    const m=r?auCalcMinDia(r):0;
+    const emFalta=falta.includes(x);
+    const nota=[i.nota,r?.nota].filter(Boolean).join(' · ');
+    const ds=auDist2txt(r);
+    return `<tr class="${i.naoUtil?'nu':''} ${x===d?'sel':''}" onclick="auPontoEditarDia('${x}')" style="cursor:pointer">
+      <td><b>${auDDMM(x)}</b> <span style="color:var(--text3);font-size:10px">${AU_DSEM[auDow(x)]}</span></td>
+      <td>${r?.entrada||''}</td><td>${r?.saida||''}</td><td style="text-align:right">${m?auFmtH(m):''}</td>
+      <td style="font-size:11px;color:var(--text2);white-space:normal">${i.fer?(i.fer.nome||'Feriado')+(nota?' · ':''):''}${nota}</td>
+      <td style="font-size:11px;color:var(--text3);white-space:normal">${ds}</td>
+      <td style="text-align:center">${emFalta?'<span title="Falta registar" style="color:var(--fj-orange)">●</span>':(r&&m?'<span style="color:var(--green-mid)">✓</span>':'')}</td></tr>`;
+  }).join('');
+  wrap.innerHTML=`
+  <div class="toolbar" style="gap:8px;flex-wrap:wrap">
+    <button class="btn btn-sm" onclick="auPontoMes(-1)">‹</button>
+    <div style="font-weight:600;min-width:170px;text-align:center">${per.nome}<div style="font-size:10px;font-weight:400;color:var(--text3)">${auDMY(per.ini)} a ${auDMY(per.fim)}</div></div>
+    <button class="btn btn-sm" onclick="auPontoMes(1)">›</button>
+    ${estadoChip}
+    <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-sm" onclick="auFolhaPDF('${me}','${per.key}')">Exportar folha (PDF)</button>
+      ${auFechoBotoesHtml?auFechoBotoesHtml(me,per,fecho,falta):''}
+    </span>
+  </div>
+  ${auFechoAvisoHtml?auFechoAvisoHtml(me,per,fecho,falta):''}
+  <div style="display:grid;grid-template-columns:minmax(330px,420px) 1fr;gap:14px;align-items:start" class="au-ponto-grid">
+    <div class="au-ponto-ed">${auEditorHtml(me,d,info,ed,bloq)}</div>
+    <div>
+      <div style="display:flex;gap:18px;font-size:12px;color:var(--text2);margin-bottom:6px;flex-wrap:wrap"><span><b>${diasTrab}</b> dia(s) registados</span><span><b>${auFmtH(totMin)}</b> trabalhadas</span><span style="color:${falta.length?'var(--fj-orange)':'var(--green-mid)'}">${falta.length?falta.length+' dia(s) por registar':'Sem dias em falta'}</span></div>
+      <div class="table-wrap" style="max-height:560px;overflow:auto"><table class="au-pt-tab"><thead><tr><th style="width:90px">Dia</th><th style="width:60px">Entrada</th><th style="width:60px">Saída</th><th style="width:60px;text-align:right">Horas</th><th>Observações</th><th>Distribuição</th><th style="width:28px"></th></tr></thead><tbody>${tabela}</tbody></table></div>
+    </div>
+  </div>`;
+  auPontoRecalc();
+}
+function auDist2txt(r){
+  if(!r)return '';
+  return auDistDe(r.id).map(l=>{
+    const nome=l.tipo==='Projeto'?(plProjetos.find(p=>String(p.id)===String(l.projetoId))?.nome||'Projeto'):l.cat;
+    return `${nome} ${Math.round(l.pct)}%`;
+  }).join(' · ');
+}
+function auEditorHtml(me,d,info,ed,bloq){
+  const dis=bloq?'disabled':'';
+  const banner=[];
+  if(bloq)banner.push('<div class="au-ban au-ban-r">Este mês já foi submetido: para alterar, pede ao teu aprovador que o devolva.</div>');
+  if(info.fer)banner.push(`<div class="au-ban">${info.fer.nome||'Feriado'} (feriado)</div>`);
+  else if(info.wk)banner.push('<div class="au-ban">Fim de semana</div>');
+  if(info.p&&(info.final||info.pend)&&info.diaCompleto)banner.push(`<div class="au-ban au-ban-b">${info.nota}. Não precisas de registar horas neste dia.</div>`);
+  else if(info.p&&(info.final||info.pend))banner.push(`<div class="au-ban au-ban-b">${info.nota}</div>`);
+  const trabalhoExtra=(info.naoUtil)&&(ed.entrada&&ed.saida);
+  if(trabalhoExtra)banner.push(`<div class="au-ban au-ban-g">Trabalhaste num dia não útil. <a href="#" onclick="auPontoPedirCompensacao('${d}');return false" style="color:inherit;font-weight:600">Pedir compensação</a></div>`);
+  const projs=auProjetosParaPonto();
+  const linhas=ed.linhas.map((l,i)=>{
+    const acoes=l.projetoId?plAcoes.filter(a=>String(a.projetoId)===String(l.projetoId)):[];
+    return `<div class="au-dl">
+      <select ${dis} onchange="auDistSet(${i},'tipo',this.value)"><option ${l.tipo==='Projeto'?'selected':''}>Projeto</option><option ${l.tipo==='Interno'?'selected':''}>Interno</option></select>
+      ${l.tipo==='Projeto'?`<select ${dis} onchange="auDistSet(${i},'projetoId',this.value)" style="flex:1;min-width:0"><option value="">— Projeto —</option>${projs.map(p=>`<option value="${p.id}" ${String(p.id)===String(l.projetoId)?'selected':''}>${p.nome}</option>`).join('')}</select>
+        <select ${dis} onchange="auDistSet(${i},'acaoId',this.value)" style="flex:1;min-width:0"><option value="">— Ação (opcional) —</option>${acoes.map(a=>`<option value="${a.id}" ${String(a.id)===String(l.acaoId)?'selected':''}>${a.nome}</option>`).join('')}</select>`
+      :`<select ${dis} onchange="auDistSet(${i},'cat',this.value)" style="flex:2;min-width:0"><option value="">— Categoria —</option>${AU_CATS.map(c=>`<option ${c===l.cat?'selected':''}>${c}</option>`).join('')}</select>`}
+      <input type="number" ${dis} min="0" max="100" step="5" value="${l.pct}" oninput="auDistSet(${i},'pct',this.value,true)" style="width:58px"><span style="font-size:11px">%</span>
+      <span class="au-dl-h" id="au-dl-h-${i}" style="font-size:11px;color:var(--text3);min-width:42px;text-align:right"></span>
+      <button class="btn btn-sm" ${dis} onclick="auDistRem(${i})" title="Remover">×</button></div>`;
+  }).join('');
+  const mods=auModelos();
+  return `<div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <input type="date" value="${d}" min="${_auPonto.per.ini}" max="${_auPonto.per.fim}" onchange="auPontoEditarDia(this.value)" style="font-weight:600">
+      <span style="font-size:12px;color:var(--text3)">${AU_DSEM[auDow(d)]}</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--text3)">${_auPonto.emEdicaoId?'Registo gravado':'Sem registo'}</span>
+    </div>
+    ${banner.join('')}
+    <div class="au-pt-h">
+      <label>Entrada<input type="time" id="pt-ent" ${dis} value="${ed.entrada}" oninput="auPontoCampo('entrada',this.value)"></label>
+      <label>Saída almoço<input type="time" id="pt-sal" ${dis} value="${ed.saidaAlm}" oninput="auPontoCampo('saidaAlm',this.value)"></label>
+      <label>Entrada almoço<input type="time" id="pt-eal" ${dis} value="${ed.entradaAlm}" oninput="auPontoCampo('entradaAlm',this.value)"></label>
+      <label>Saída<input type="time" id="pt-sai" ${dis} value="${ed.saida}" oninput="auPontoCampo('saida',this.value)"></label>
+      <label>Outra pausa (min)<input type="number" id="pt-pau" ${dis} min="0" step="5" value="${ed.pausa||0}" oninput="auPontoCampo('pausa',this.value)"></label>
+      <label style="grid-column:1/-1">Nota para a folha (opcional)<input type="text" id="pt-nota" ${dis} value="${(ed.nota||'').replace(/"/g,'&quot;')}" placeholder="ex.: Reunião de pais na escola" oninput="auPontoCampo('nota',this.value)"></label>
+    </div>
+    <div style="font-size:12px;margin:8px 0 10px"><b id="pt-total">—</b> <span style="color:var(--text3)">trabalhadas</span></div>
+    <div style="font-size:12px;font-weight:600;margin-bottom:4px">Distribuição do dia (soma 100%)</div>
+    <div id="pt-linhas">${linhas||'<div style="font-size:12px;color:var(--text3);margin-bottom:6px">Sem linhas. Adiciona o projeto ou a categoria interna.</div>'}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">
+      <button class="btn btn-sm" ${dis} onclick="auDistAdd('Projeto')">+ Projeto</button>
+      <button class="btn btn-sm" ${dis} onclick="auDistAdd('Interno')">+ Interno</button>
+      <button class="btn btn-sm" ${dis} onclick="auDistIgual()">Dividir por igual</button>
+      <button class="btn btn-sm" ${dis} onclick="auPontoRepetirAnterior()">Repetir dia anterior</button>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+      <select class="flt" id="pt-mod" onchange="auModeloAplicar(this.value);this.value=''" ${dis}><option value="">Modelos…</option>${mods.map((m,i)=>`<option value="${i}">${m.nome}</option>`).join('')}</select>
+      <button class="btn btn-sm" ${dis} onclick="auModeloGuardar()">Guardar como modelo</button>
+      ${mods.length?`<button class="btn btn-sm" onclick="auModeloApagar()">Apagar modelo…</button>`:''}
+    </div>
+    <div id="pt-pct" style="font-size:12px;margin-bottom:8px"></div>
+    <button class="btn btn-primary" id="pt-guardar" ${dis} onclick="auPontoGuardar()">Guardar dia</button>
+    ${_auPonto.emEdicaoId?`<button class="btn" style="margin-left:6px" ${dis} onclick="auPontoLimparDia()">Apagar registo</button><button class="btn btn-sm" style="margin-left:6px" onclick="auPontoVerHistorico()">Histórico</button>`:''}
+  </div>`;
+}
+function auPontoCampo(k,v){_auPonto.ed[k]=(k==='pausa')?(parseInt(v)||0):v;auPontoRecalc();}
+function auPontoRecalc(){
+  const ed=_auPonto.ed;if(!ed)return;
+  const m=auCalcMinDia(ed);
+  const t=document.getElementById('pt-total');if(t)t.textContent=m?auFmtH(m):'0h00';
+  let soma=0;ed.linhas.forEach((l,i)=>{soma+=parseFloat(l.pct)||0;const h=document.getElementById('au-dl-h-'+i);if(h)h.textContent=m?auFmtH(m*(parseFloat(l.pct)||0)/100):'';});
+  const p=document.getElementById('pt-pct');
+  if(p){
+    if(!ed.linhas.length)p.innerHTML=m?'<span style="color:var(--fj-orange)">Falta distribuir as horas.</span>':'';
+    else p.innerHTML=Math.abs(soma-100)<0.01?`<span style="color:var(--green-mid)">Total 100% ✓</span>`:`<span style="color:var(--red,#b42318)">Total ${Math.round(soma*100)/100}% (tem de dar 100%)</span>`;
+  }
+}
+function auDistAdd(tipo){
+  const ed=_auPonto.ed;
+  const soma=ed.linhas.reduce((a,l)=>a+(parseFloat(l.pct)||0),0);
+  ed.linhas.push({tipo,projetoId:null,acaoId:null,cat:'',pct:Math.max(0,Math.min(100,100-soma))||0});
+  auRerenderEditor();
+}
+function auDistRem(i){_auPonto.ed.linhas.splice(i,1);auRerenderEditor();}
+function auDistSet(i,k,v,semRender){
+  const l=_auPonto.ed.linhas[i];if(!l)return;
+  if(k==='pct')l.pct=parseFloat(v)||0;
+  else if(k==='tipo'){l.tipo=v;l.projetoId=null;l.acaoId=null;l.cat='';}
+  else if(k==='projetoId'){l.projetoId=v?parseInt(v):null;l.acaoId=null;}
+  else if(k==='acaoId')l.acaoId=v?parseInt(v):null;
+  else l[k]=v;
+  if(k==='pct'||semRender){auPontoRecalc();return;}
+  auRerenderEditor();
+}
+function auDistIgual(){
+  const ls=_auPonto.ed.linhas;if(!ls.length)return;
+  const base=Math.floor(10000/ls.length)/100;
+  ls.forEach((l,i)=>l.pct=i===ls.length-1?Math.round((100-base*(ls.length-1))*100)/100:base);
+  auRerenderEditor();
+}
+function auRerenderEditor(){
+  const me=auMyEmail();const d=_auPonto.dia;
+  const box=document.querySelector('.au-ponto-ed');
+  if(box){box.innerHTML=auEditorHtml(me,d,auInfoDia(me,d),_auPonto.ed,auMesBloqueado(me,auPeriodoDeData(d).key));auPontoRecalc();}
+}
+function auPontoRepetirAnterior(){
+  const me=auMyEmail();
+  const anteriores=PONTO.filter(r=>r.email===me&&r.data<_auPonto.dia&&r.entrada&&r.saida).sort((a,b)=>b.data.localeCompare(a.data));
+  const r=anteriores[0];
+  if(!r){showNotif('Não há um dia anterior registado para repetir.','error');return;}
+  const dist=auDistDe(r.id);
+  Object.assign(_auPonto.ed,{entrada:r.entrada,saidaAlm:r.saidaAlm,entradaAlm:r.entradaAlm,saida:r.saida,pausa:r.pausa,
+    linhas:dist.map(x=>({tipo:x.tipo,projetoId:x.projetoId,acaoId:x.acaoId,cat:x.cat,pct:x.pct}))});
+  auRerenderEditor();
+  showNotif(`Copiado de ${auDDMM(r.data)}. Confirma e guarda.`,'info');
+}
+function auModeloGuardar(){
+  const ed=_auPonto.ed;
+  if(!ed.linhas.length){showNotif('Cria primeiro a distribuição do dia.','error');return;}
+  const nome=prompt('Nome do modelo (ex.: "Dia de projeto X")');if(!nome)return;
+  const l=auModelos().filter(m=>m.nome!==nome);
+  l.push({nome,linhas:ed.linhas.map(x=>({...x})),horario:{entrada:ed.entrada,saidaAlm:ed.saidaAlm,entradaAlm:ed.entradaAlm,saida:ed.saida,pausa:ed.pausa}});
+  auGuardarModelos(l);auRerenderEditor();showNotif('Modelo guardado neste browser.','success');
+}
+function auModeloAplicar(i){
+  if(i==='')return;const m=auModelos()[+i];if(!m)return;
+  _auPonto.ed.linhas=m.linhas.map(x=>({...x}));
+  if(m.horario&&!_auPonto.ed.entrada)Object.assign(_auPonto.ed,m.horario);
+  auRerenderEditor();
+}
+function auModeloApagar(){
+  const mods=auModelos();const nome=prompt('Qual modelo apagar?\n'+mods.map(m=>m.nome).join('\n'));
+  if(!nome)return;auGuardarModelos(mods.filter(m=>m.nome!==nome));auRerenderEditor();
+}
+function auPontoPedirCompensacao(d){
+  auOpenForm();
+  const t=document.getElementById('au-f-tipo');if(t){t.value='Compensação';auTipoMudou();}
+  const w=document.getElementById('au-f-trab');if(w)w.value=d;
+}
+function auPontoVerHistorico(){
+  const r=PONTO.find(x=>x.id===_auPonto.emEdicaoId);if(!r)return;
+  const h=(r.hist||[]).slice().reverse();
+  auMini('Histórico de alterações · '+auDMY(r.data),h.length?h.map(x=>`<div style="padding:6px 0;border-bottom:1px solid var(--border)"><div style="font-size:11px;color:var(--text3)">${(x.em||'').replace('T',' ').slice(0,16)} · ${x.por||''}</div><div>${x.antes?`Antes: ${x.antes.entrada||'—'} / ${x.antes.saidaAlm||'—'} / ${x.antes.entradaAlm||'—'} / ${x.antes.saida||'—'}`:'Criado'}</div></div>`).join(''):'<div>Sem alterações registadas.</div>');
+}
+async function auPontoGuardar(){
+  const me=auMyEmail();const d=_auPonto.dia;const ed=_auPonto.ed;
+  if(auMesBloqueado(me,auPeriodoDeData(d).key)){showNotif('Mês submetido: não pode ser alterado.','error');return;}
+  const info=auInfoDia(me,d);
+  if(!ed.entrada||!ed.saida){showNotif('Preenche a entrada e a saída.','error');return;}
+  if(auMin(ed.saida)<=auMin(ed.entrada)){showNotif('A saída tem de ser depois da entrada.','error');return;}
+  if(!!ed.saidaAlm!==!!ed.entradaAlm){showNotif('Preenche a saída e a entrada do almoço (ou nenhuma das duas).','error');return;}
+  if(ed.saidaAlm&&auMin(ed.entradaAlm)<=auMin(ed.saidaAlm)){showNotif('A entrada do almoço tem de ser depois da saída.','error');return;}
+  const min=auCalcMinDia(ed);
+  if(min<=0){showNotif('As horas trabalhadas ficam a zero. Verifica os horários.','error');return;}
+  if(ed.linhas.length){
+    const soma=ed.linhas.reduce((a,l)=>a+(parseFloat(l.pct)||0),0);
+    if(Math.abs(soma-100)>0.01){showNotif('A distribuição tem de somar 100%.','error');return;}
+    for(const l of ed.linhas){
+      if(l.tipo==='Projeto'&&!l.projetoId){showNotif('Escolhe o projeto em todas as linhas de projeto.','error');return;}
+      if(l.tipo==='Interno'&&!l.cat){showNotif('Escolhe a categoria em todas as linhas internas.','error');return;}
+    }
+  }else if(!confirm('Guardar o dia sem distribuição por projetos?'))return;
+  const btn=document.getElementById('pt-guardar');if(btn){btn.disabled=true;btn.textContent='A guardar…';}
+  try{
+    const uid=await getCurrentUserId();
+    const per=auPeriodoDeData(d);
+    const ant=PONTO.find(r=>r.id===_auPonto.emEdicaoId);
+    const hist=ant?ant.hist.slice():[];
+    if(ant)hist.push({em:new Date().toISOString(),por:auMyEmail(),antes:{entrada:ant.entrada,saidaAlm:ant.saidaAlm,entradaAlm:ant.entradaAlm,saida:ant.saida,pausa:ant.pausa}});
+    const body={__metadata:{type:await auGetListType('FJ_Ponto')},Title:`${me} ${d}`,ColaboradorId:uid,Data:d+'T00:00:00Z',AnoMes:per.key,
+      HoraEntrada:ed.entrada,HoraSaidaAlmoco:ed.saidaAlm||'',HoraEntradaAlmoco:ed.entradaAlm||'',HoraSaida:ed.saida,
+      PausaMinutos:parseInt(ed.pausa)||0,HorasTrabalhadas:Math.round(min/60*100)/100,
+      TipoDia:info.fer?'Feriado':info.wk?'Fim de semana':'Trabalho',NotaFolha:ed.nota||'',Origem:ant?.origem||'Manual',HistoricoAlteracoes:JSON.stringify(hist)};
+    let pid=ant?.id;
+    const base=`${SP}/_api/web/lists/getbytitle('FJ_Ponto')/items`;
+    if(ant){await spWrite(`${base}(${ant.id})`,body,'MERGE',ant.etag);}
+    else{const r=await spWrite(base,body,'POST');const j=await r.json();pid=j.d?.Id;}
+    // distribuição: substitui as linhas do dia
+    const baseD=`${SP}/_api/web/lists/getbytitle('FJ_PontoDistribuicao')/items`;
+    const velhas=ant?auDistDe(ant.id):[];
+    await gfComLimiteConcorrencia(velhas,async v=>{await spWrite(`${baseD}(${v.id})`,null,'DELETE');},4);
+    const tipoD=await auGetListType('FJ_PontoDistribuicao');
+    await gfComLimiteConcorrencia(ed.linhas,async l=>{
+      const b={__metadata:{type:tipoD},Title:`${me} ${d}`,PontoId:pid,ColaboradorId:uid,AnoMes:per.key,Data:d+'T00:00:00Z',TipoLinha:l.tipo,
+        Percentagem:parseFloat(l.pct)||0,Horas:Math.round(min*(parseFloat(l.pct)||0)/60)/100};
+      if(l.tipo==='Projeto'){b.ProjetoId=parseInt(l.projetoId);if(l.acaoId)b.AcaoId=parseInt(l.acaoId);}else b.Categoria=l.cat;
+      await spWrite(baseD,b,'POST');
+    },4);
+    showNotif(`Dia ${auDDMM(d)} guardado (${auFmtH(min)}).`,'success');
+    await auPontoCarregar(_auPonto.per,false);
+    // passa ao próximo dia útil por registar
+    const prox=auDiasEmFalta(me,_auPonto.per).find(x=>x>d);
+    auPontoEditarDia(prox||d);
+  }catch(e){showNotif('Erro ao guardar: '+e.message,'error');if(btn){btn.disabled=false;btn.textContent='Guardar dia';}}
+}
+async function auPontoLimparDia(){
+  const me=auMyEmail();const r=PONTO.find(x=>x.id===_auPonto.emEdicaoId);if(!r)return;
+  if(auMesBloqueado(me,auPeriodoDeData(r.data).key)){showNotif('Mês submetido: não pode ser alterado.','error');return;}
+  if(!confirm(`Apagar o registo de ${auDMY(r.data)}?`))return;
+  try{
+    const baseD=`${SP}/_api/web/lists/getbytitle('FJ_PontoDistribuicao')/items`;
+    await gfComLimiteConcorrencia(auDistDe(r.id),async v=>{await spWrite(`${baseD}(${v.id})`,null,'DELETE');},4);
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Ponto')/items(${r.id})`,null,'DELETE');
+    await auPontoCarregar(_auPonto.per,false);auPontoEditarDia(r.data);showNotif('Registo apagado.','success');
+  }catch(e){showNotif('Erro: '+e.message,'error');}
+}
+
+// ═════ Folha de ponto RH-T-0010-01 (PDF) ═════
+// Linhas da folha de um colaborador num período (dados prontos a desenhar)
+function auFolhaLinhas(email,per){
+  return auDiasEntre(per.ini,per.fim).map(d=>{
+    const i=auInfoDia(email,d);const r=PONTO.find(x=>x.email===email&&x.data===d)||null;
+    const obs=[i.fer&&!r?(i.fer.nome||'Feriado'):'',i.nota,r?.nota].filter(Boolean).join(' · ');
+    return{data:d,nu:i.naoUtil||i.diaCompleto,entrada:r?.entrada||'',saidaAlm:r?.saidaAlm||'',entradaAlm:r?.entradaAlm||'',saida:r?.saida||'',obs};
+  });
+}
+function auLogoDataUrl(){try{return document.querySelector('#login-screen img')?.src||'';}catch(e){return '';}}
+async function auFolhaDesenhar(doc,email,per,primeira){
+  if(!primeira)doc.addPage();
+  const W=210,M=14;
+  const nome=auNomeDeEmail(email),funcao=auFuncaoDe(email);
+  doc.setTextColor(30);doc.setFont('helvetica','bold');doc.setFontSize(16);doc.text('FOLHA DE PONTO INDIVIDUAL',M,18);
+  doc.setFontSize(12);doc.text('RH-T-0010-01',W-M,18,{align:'right'});
+  doc.setFontSize(9.5);doc.text('FUNDAÇÃO DA JUVENTUDE',M,25);
+  const logo=auLogoDataUrl();
+  if(logo){try{doc.addImage(logo,'PNG',W-M-44,22,44,16.7);}catch(e){}}
+  doc.setFontSize(10);doc.setFont('helvetica','bold');
+  doc.text(`Nome: ${nome}`,M+6,36);
+  doc.text(`Função: ${funcao||''}`,M+6,46);
+  doc.text(`Mês: ${per.label}`,M+6,54);
+  doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(90);
+  doc.text(`Período: ${auDMY(per.ini)} a ${auDMY(per.fim)}`,M+6+30,54);
+  doc.setTextColor(30);
+  // tabela
+  const linhas=auFolhaLinhas(email,per);
+  const cols=[{t:'DIAS',w:17},{t:'Entrada',w:24},{t:'Saída:\nAlmoço',w:22},{t:'Entrada:\nAlmoço',w:22},{t:'Saída',w:24},{t:'OBSERVAÇÕES / NOTAS',w:73}];
+  const x0=M;const tw=cols.reduce((a,c)=>a+c.w,0);
+  let y=60;const hh=11;
+  doc.setDrawColor(40);doc.setLineWidth(.25);
+  doc.setFont('helvetica','bold');doc.setFontSize(8.5);
+  let x=x0;
+  cols.forEach(c=>{doc.rect(x,y,c.w,hh);const ls=c.t.split('\n');ls.forEach((l,k)=>doc.text(l,x+c.w/2,y+(ls.length===1?6.4:4.6+k*3.8),{align:'center'}));x+=c.w;});
+  y+=hh;
+  const n=linhas.length;const rh=Math.min(6.4,(260-y)/Math.max(n,31));
+  doc.setFontSize(8.5);
+  linhas.forEach(l=>{
+    x=x0;
+    if(l.nu){doc.setFillColor(222,225,232);doc.rect(x0,y,tw,rh,'F');}
+    const vals=[auDDMM(l.data),l.entrada?l.entrada:'',l.saidaAlm,l.entradaAlm,l.saida,l.obs];
+    cols.forEach((c,k)=>{
+      doc.rect(x,y,c.w,rh);
+      doc.setFont('helvetica',k===0?'bold':'normal');
+      let t=String(vals[k]||'');
+      if(k===5){doc.setFontSize(7.5);const sp=doc.splitTextToSize(t,c.w-3);t=sp[0]||'';}
+      doc.text(t,k===5?x+1.6:x+c.w/2,y+rh-1.9,{align:k===5?'left':'center'});
+      if(k===5)doc.setFontSize(8.5);
+      x+=c.w;
+    });
+    y+=rh;
+  });
+  y+=9;
+  doc.setFont('helvetica','bold');doc.setFontSize(9.5);
+  doc.text(`Data: ${auDMY(auHoje())}`,M+6,y);
+  y+=10;
+  doc.text('Assinatura:',M+6,y);
+  doc.setDrawColor(60);doc.setLineWidth(.3);doc.line(M+30,y+1,M+30+80,y+1);
+}
+async function auFolhaPDF(email,perKey,opts){
+  try{await gfCarregarScript(GF_CDN_JSPDF);}catch(e){showNotif('Não foi possível carregar o módulo de PDF.','error');return;}
+  const per=auPeriodoDeKey(perKey);
+  // garantir dados do período (outro colaborador / outro período)
+  const temDados=PONTO.some(r=>r.data>=per.ini&&r.data<=per.fim)||_auPonto.per?.key===per.key;
+  if(!temDados||(email!==auMyEmail()&&!PONTO.some(r=>r.email===email))){try{await auPontoCarregar(per,auPodeAdministrar()||email!==auMyEmail());}catch(e){showNotif('Erro a carregar o ponto: '+e.message,'error');return;}}
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+  await auFolhaDesenhar(doc,email,per,true);
+  const nm=auNomeDeEmail(email).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w]+/g,'_');
+  const nomeF=`Folha_Ponto_${nm}_${String(per.mes).padStart(2,'0')}-${per.ano}.pdf`;
+  if(opts&&opts.devolverDoc)return{doc,nomeF};
+  doc.save(nomeF);
+  try{if(typeof auFechoMarcarExportada==='function')auFechoMarcarExportada(email,per);}catch(e){}
+  showNotif('Folha de ponto exportada.','success');
+}
+
+// ══════════ Fase 54 — Migração de FJ_RegistoHoras para FJ_Ponto / FJ_PontoDistribuicao ══════════
+// Idempotente: um dia (colaborador + data) que já exista em FJ_Ponto é saltado. FJ_RegistoHoras não é alterada nem apagada.
+const _auUidCache={};
+async function auUserIdPorEmail(email){
+  email=(email||'').toLowerCase();
+  if(_auUidCache[email]!==undefined)return _auUidCache[email];
+  if(email===auMyEmail()){const id=await getCurrentUserId();_auUidCache[email]=id||null;return _auUidCache[email];}
+  try{
+    const r=await spWrite(`${SP}/_api/web/ensureuser`,{logonName:`i:0#.f|membership|${email}`},'POST');
+    const j=await r.json();_auUidCache[email]=j.d?.Id||null;
+  }catch(e){_auUidCache[email]=null;}
+  return _auUidCache[email];
+}
+// Constrói, a partir dos blocos antigos, o plano de migração (sem escrever nada)
+function auMigPlano(antigos,existentes){
+  const grupos={};
+  antigos.forEach(r=>{
+    if(!r.trabalhadorEmail||!r.data)return;
+    const k=r.trabalhadorEmail+'|'+r.data;(grupos[k]=grupos[k]||[]).push(r);
+  });
+  const jaTem=new Set(existentes.map(p=>p.email+'|'+p.data));
+  const plano=[],saltados=[],invalidos=[];
+  Object.entries(grupos).forEach(([k,blocos])=>{
+    const [email,data]=k.split('|');
+    if(jaTem.has(k)){saltados.push({email,data,blocos:blocos.length});return;}
+    const validos=blocos.filter(b=>auMin(b.horaInicio)!=null&&auMin(b.horaFim)!=null&&auMin(b.horaFim)>auMin(b.horaInicio));
+    if(!validos.length){invalidos.push({email,data,motivo:'horas inválidas'});return;}
+    const ini=Math.min(...validos.map(b=>auMin(b.horaInicio))),fim=Math.max(...validos.map(b=>auMin(b.horaFim)));
+    const total=validos.reduce((a,b)=>a+(b.totalMinutos||(auMin(b.horaFim)-auMin(b.horaInicio))),0);
+    const pausa=Math.max(0,(fim-ini)-total);
+    const hh=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+    // distribuição por projeto/ação
+    const porChave={};
+    validos.forEach(b=>{
+      const mins=b.totalMinutos||(auMin(b.horaFim)-auMin(b.horaInicio));
+      const ch=(b.projetoId||'')+'|'+(b.acaoId||'');
+      porChave[ch]=porChave[ch]||{projetoId:b.projetoId||null,acaoId:b.acaoId||null,min:0};
+      porChave[ch].min+=mins;
+    });
+    const linhas=Object.values(porChave);
+    let acum=0;
+    linhas.forEach((l,i)=>{
+      l.pct=i===linhas.length-1?Math.round((100-acum)*100)/100:Math.round(l.min/total*10000)/100;
+      acum+=l.pct;
+      l.tipo=l.projetoId?'Projeto':'Interno';
+      if(!l.projetoId)l.cat='Outro';
+    });
+    plano.push({email,data,entrada:hh(ini),saida:hh(fim),pausa,min:total,linhas,nome:blocos[0].trabalhador||'',
+      blocosOriginais:blocos.map(b=>({id:b.id,ini:b.horaInicio,fim:b.horaFim,min:b.totalMinutos,projetoId:b.projetoId,acaoId:b.acaoId,tarefa:b.tarefaId||''}))});
+  });
+  return{plano,saltados,invalidos,totalBlocos:antigos.length,totalDias:Object.keys(grupos).length};
+}
+async function auMigCarregarAntigos(){
+  rhLoaded=false;await rhLoadRegistos();
+  const d=await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Ponto')/items?$select=Id,Data,Colaborador/EMail&$expand=Colaborador&$top=5000`);
+  const existentes=(d.d?.results||[]).map(r=>({email:(r.Colaborador?.EMail||'').toLowerCase(),data:r.Data?String(r.Data).split('T')[0]:''}));
+  return{antigos:rhRegistos,existentes};
+}
+function auMigRelatorioTxt(res,modo,extra){
+  const l=[];
+  l.push(`Migração de FJ_RegistoHoras para FJ_Ponto (${modo}) · ${new Date().toLocaleString('pt-PT')}`);
+  l.push(`Blocos antigos lidos: ${res.totalBlocos} · dias (colaborador+data): ${res.totalDias}`);
+  l.push(`A migrar: ${res.plano.length} dia(s) · já existiam e foram saltados: ${res.saltados.length} · inválidos: ${res.invalidos.length}`);
+  if(extra){l.push(`Gravados: ${extra.gravados} dia(s), ${extra.linhas} linha(s) de distribuição · erros: ${extra.erros.length}`);extra.erros.forEach(e=>l.push('  ERRO '+e));}
+  res.invalidos.forEach(x=>l.push(`  INVÁLIDO ${x.email} ${x.data}: ${x.motivo}`));
+  res.saltados.forEach(x=>l.push(`  SALTADO ${x.email} ${x.data} (${x.blocos} bloco(s))`));
+  const porPessoa={};res.plano.forEach(p=>{porPessoa[p.email]=(porPessoa[p.email]||0)+1;});
+  Object.entries(porPessoa).forEach(([e,n])=>l.push(`  ${e}: ${n} dia(s)`));
+  l.push('Notas: a lista FJ_RegistoHoras não foi alterada. A tarefa de cada bloco antigo fica guardada no histórico de cada dia migrado. Horas sem registo de almoço: o intervalo entre blocos fica como "outra pausa".');
+  return l.join('\n');
+}
+function auMigDescarregar(txt){
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain;charset=utf-8'}));
+  a.download='Relatorio_migracao_horas_'+auHoje()+'.txt';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+}
+let _auMigRes=null;
+async function auMigSimular(){
+  if(!auPodeAdministrar()){showNotif('Sem permissão.','error');return;}
+  const out=document.getElementById('au-mig-log');if(out)out.textContent='A ler registos antigos…';
+  try{
+    if(!(await auPontoListasOk())){if(out)out.textContent='Prepara primeiro o SharePoint (botão acima).';return;}
+    const {antigos,existentes}=await auMigCarregarAntigos();
+    _auMigRes=auMigPlano(antigos,existentes);
+    const txt=auMigRelatorioTxt(_auMigRes,'simulação');
+    if(out)out.textContent=txt;
+    const b=document.getElementById('au-mig-run');if(b)b.disabled=!_auMigRes.plano.length;
+  }catch(e){if(out)out.textContent='Erro: '+e.message;}
+}
+async function auMigExecutar(){
+  if(!auPodeAdministrar()||!_auMigRes?.plano.length)return;
+  if(!confirm(`Migrar ${_auMigRes.plano.length} dia(s) para o novo ponto? A lista antiga não é alterada e o processo pode ser repetido sem duplicar.`))return;
+  const out=document.getElementById('au-mig-log');const btn=document.getElementById('au-mig-run');if(btn)btn.disabled=true;
+  const erros=[];let gravados=0,linhas=0,feitos=0;
+  const tipoP=await auGetListType('FJ_Ponto'),tipoD=await auGetListType('FJ_PontoDistribuicao');
+  const baseP=`${SP}/_api/web/lists/getbytitle('FJ_Ponto')/items`,baseD=`${SP}/_api/web/lists/getbytitle('FJ_PontoDistribuicao')/items`;
+  await gfComLimiteConcorrencia(_auMigRes.plano,async p=>{
+    try{
+      const uid=await auUserIdPorEmail(p.email);
+      if(!uid)throw new Error(`utilizador ${p.email} não encontrado no SharePoint`);
+      const per=auPeriodoDeData(p.data);
+      const body={__metadata:{type:tipoP},Title:`${p.email} ${p.data}`,ColaboradorId:uid,Data:p.data+'T00:00:00Z',AnoMes:per.key,
+        HoraEntrada:p.entrada,HoraSaida:p.saida,HoraSaidaAlmoco:'',HoraEntradaAlmoco:'',PausaMinutos:p.pausa,HorasTrabalhadas:Math.round(p.min/60*100)/100,
+        TipoDia:'Trabalho',NotaFolha:'',Origem:'Migrado',
+        HistoricoAlteracoes:JSON.stringify([{em:new Date().toISOString(),por:auMyEmail(),migrado:true,blocosOriginais:p.blocosOriginais}])};
+      const r=await spWrite(baseP,body,'POST');const j=await r.json();const pid=j.d?.Id;
+      for(const l of p.linhas){
+        const b={__metadata:{type:tipoD},Title:`${p.email} ${p.data}`,PontoId:pid,ColaboradorId:uid,AnoMes:per.key,Data:p.data+'T00:00:00Z',TipoLinha:l.tipo,
+          Percentagem:l.pct,Horas:Math.round(p.min*l.pct/60)/100};
+        if(l.projetoId){b.ProjetoId=parseInt(l.projetoId);if(l.acaoId)b.AcaoId=parseInt(l.acaoId);}else b.Categoria=l.cat||'Outro';
+        await spWrite(baseD,b,'POST');linhas++;
+      }
+      gravados++;
+    }catch(e){erros.push(`${p.email} ${p.data}: ${e.message}`);}
+    feitos++;if(out&&feitos%10===0)out.textContent=`A migrar… ${feitos}/${_auMigRes.plano.length}`;
+  },4);
+  const txt=auMigRelatorioTxt(_auMigRes,'execução',{gravados,linhas,erros});
+  if(out)out.textContent=txt;
+  auMigDescarregar(txt);
+  showNotif(erros.length?`Migração com ${erros.length} erro(s). Relatório descarregado.`:`Migração concluída: ${gravados} dia(s). Relatório descarregado.`,erros.length?'error':'success');
+  _auMigRes=null;
+}
+
+function auIrPara(p){window._auPaginaInicial=p;switchModule('au');}
+// ══════════ Fase 55 — Fecho mensal, validação, folha assinada, lembrete e subsídio de alimentação ══════════
+const AU_FECHO_LIST='FJ_PontoFechoMensal';
+async function auFechoGarantir(email,key){
+  let f=auFechoDe(email,key);
+  if(f)return f;
+  const uid=await auUserIdPorEmail(email);
+  if(!uid)throw new Error('utilizador não encontrado no SharePoint');
+  const body={__metadata:{type:await auGetListType(AU_FECHO_LIST)},Title:`${email} ${key}`,ColaboradorId:uid,AnoMes:key,Estado:'Aberto'};
+  const r=await spWrite(`${SP}/_api/web/lists/getbytitle('${AU_FECHO_LIST}')/items`,body,'POST');
+  const j=await r.json();
+  f={id:j.d?.Id,etag:'*',email,nome:auNomeDeEmail(email),key,estado:'Aberto',submetidoEm:'',validadoEm:'',validador:'',comentario:'',exportadaEm:'',devolvidaEm:'',anexos:false};
+  AU_FECHOS.push(f);
+  return f;
+}
+async function auFechoSet(email,key,campos){
+  const f=await auFechoGarantir(email,key);
+  const body={__metadata:{type:await auGetListType(AU_FECHO_LIST)},...campos};
+  await spWrite(`${SP}/_api/web/lists/getbytitle('${AU_FECHO_LIST}')/items(${f.id})`,body,'MERGE');
+  return f;
+}
+async function auFechoMarcarExportada(email,per){
+  if(email!==auMyEmail())return;
+  const f=auFechoDe(email,per.key);
+  if(f&&f.exportadaEm)return;
+  try{const x=await auFechoSet(email,per.key,{FolhaExportadaEm:new Date().toISOString()});x.exportadaEm=new Date().toISOString();}catch(e){console.warn('exportada',e);}
+}
+async function auFechoSubmeter(){
+  const me=auMyEmail();const per=_auPonto.per;
+  const falta=auDiasEmFalta(me,per);
+  if(falta.length){showNotif(`Faltam ${falta.length} dia(s) por registar (ex.: ${falta.slice(0,4).map(auDDMM).join(', ')}). Regista-os ou pede a ausência correspondente.`,'error');return;}
+  if(!confirm(`Submeter o ponto de ${per.label} (${auDMY(per.ini)} a ${auDMY(per.fim)})? Depois de submetido só o teu aprovador o pode devolver.`))return;
+  try{
+    await auFechoSet(me,per.key,{Estado:'Submetido',DataSubmissao:new Date().toISOString(),Comentario:''});
+    const f=auFechoDe(me,per.key);Object.assign(f,{estado:'Submetido',submetidoEm:new Date().toISOString(),comentario:''});
+    showNotif('Mês submetido para validação.','success');auRenderPonto();
+  }catch(e){showNotif('Erro ao submeter: '+e.message,'error');}
+}
+function auFechoBotoesHtml(me,per,fecho,falta){
+  const est=fecho?.estado||'Aberto';
+  const pode=['Aberto','Devolvido','Reaberto'].includes(est);
+  return `${pode?`<button class="btn btn-sm btn-primary" onclick="auFechoSubmeter()">Submeter mês</button>`:''}
+    <button class="btn btn-sm" onclick="auFolhaDevolverUI()">Devolver folha assinada</button>`;
+}
+function auFechoAvisoHtml(me,per,fecho,falta){
+  const out=[];
+  const hoje=auHoje();
+  if(fecho?.estado==='Devolvido')out.push(`<div class="au-ban au-ban-r">O mês foi devolvido${fecho.validador?' por '+fecho.validador:''}${fecho.comentario?': '+fecho.comentario.replace(/</g,'&lt;'):'.'} Corrige e submete outra vez.</div>`);
+  if(fecho?.estado==='Submetido')out.push('<div class="au-ban au-ban-b">Mês submetido. Aguarda validação.</div>');
+  if(fecho?.estado==='Validado')out.push(`<div class="au-ban au-ban-g">Mês validado${fecho.validador?' por '+fecho.validador:''}.</div>`);
+  if(hoje>per.fim&&!fecho?.devolvidaEm)out.push(`<div class="au-ban" style="background:#FFF3E0;color:#B35C00">O período ${per.label} já fechou a ${auDMY(per.fim)}. Exporta a folha, assina-a e devolve-a aqui (botão <b>Devolver folha assinada</b>).${fecho?.exportadaEm?' Folha exportada a '+auDMY(fecho.exportadaEm.slice(0,10))+'.':''}</div>`);
+  if(fecho?.devolvidaEm)out.push(`<div class="au-ban au-ban-g">Folha assinada devolvida a ${auDMY(fecho.devolvidaEm.slice(0,10))}.</div>`);
+  return out.join('');
+}
+// Devolver folha assinada: escolhe-se o mês e o ano
+function auFolhaDevolverUI(){
+  const per=_auPonto.per||auPeriodoAtual();
+  const anoAt=new Date().getFullYear();
+  const html=`<div style="display:flex;gap:8px;margin-bottom:10px">
+      <select id="fd-mes" class="flt">${AU_MESES.map((n,i)=>`<option value="${i+1}" ${i+1===per.mes?'selected':''}>${n}</option>`).join('')}</select>
+      <select id="fd-ano" class="flt">${[anoAt-1,anoAt,anoAt+1].map(a=>`<option ${a===per.ano?'selected':''}>${a}</option>`).join('')}</select></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Escolhe o mês da folha (a folha de M/AAAA vai de 25 do mês anterior a 24 desse mês).</div>
+    <input type="file" id="fd-file" accept=".pdf,.jpg,.jpeg,.png" style="margin-bottom:10px"><br>
+    <button class="btn btn-primary" id="fd-btn" onclick="auFolhaDevolver()">Devolver</button>`;
+  auMini('Devolver folha de ponto assinada',html);
+}
+async function auFolhaDevolver(){
+  const me=auMyEmail();
+  const mes=+document.getElementById('fd-mes').value,ano=+document.getElementById('fd-ano').value;
+  const file=document.getElementById('fd-file').files[0];
+  if(!file){showNotif('Escolhe o ficheiro da folha assinada.','error');return;}
+  const btn=document.getElementById('fd-btn');btn.disabled=true;btn.textContent='A enviar…';
+  try{
+    const per=auPeriodo(ano,mes);
+    await auFechoCarregar([per.key],false);
+    const f=await auFechoGarantir(me,per.key);
+    await uploadAttachment(AU_FECHO_LIST,f.id,file);
+    const agora=new Date().toISOString();
+    await auFechoSet(me,per.key,{FolhaDevolvidaEm:agora});
+    f.devolvidaEm=agora;f.anexos=true;
+    showNotif(`Folha de ${per.label} devolvida. Obrigado!`,'success');
+    auMiniFechar();
+    if(_auPonto.per?.key===per.key)await auFechoCarregar([auPeriodoAnterior(_auPonto.per).key,_auPonto.per.key],false);
+    auRenderPonto();
+  }catch(e){showNotif('Erro ao devolver a folha: '+e.message,'error');btn.disabled=false;btn.textContent='Devolver';}
+}
+// Lembrete (pop-up) enquanto a folha do último período fechado não for devolvida
+async function auLembreteFolha(){
+  try{
+    if(sessionStorage.getItem('fjLembreteFolha')==='1')return;
+  }catch(e){}
+  const me=auMyEmail();if(!me||!fjUtilizadores.length)return;
+  if(!Object.keys(AU_CFG.kv).length){ // configuração (dia de fecho) ainda não carregada
+    try{const cf=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$select=Id,Title,Valor&$filter=startswith(Title,'AU_')&$top=500`);
+      (cf.d?.results||[]).forEach(r=>{AU_CFG.kv[r.Title]=r.Valor||'';});}catch(e){}
+  }
+  const atual=auPeriodoAtual();
+  const alvo=auPeriodoAnterior(atual); // último período já fechado
+  if(auHoje()<=alvo.fim)return;
+  if(!(await auPontoListasOk()))return;
+  await auFechoCarregar([alvo.key],false);
+  const f=auFechoDe(me,alvo.key);
+  if(f&&f.devolvidaEm)return;
+  try{sessionStorage.setItem('fjLembreteFolha','1');}catch(e){}
+  auMini('Folha de ponto por devolver',`<div style="margin-bottom:10px">O período <b>${alvo.label}</b> (${auDMY(alvo.ini)} a ${auDMY(alvo.fim)}) já fechou. Exporta a tua folha, assina-a e devolve-a na plataforma.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="auMiniFechar();auIrPara('ponto')">Ir para o meu ponto</button><button class="btn" onclick="auMiniFechar()">Lembrar mais tarde</button></div>`);
+}
+// ═════ Ponto da equipa (validação) ═════
+let _auEq={per:null,todos:false};
+function auPodeValidar(email){return auPodeAdministrar()||AU_CFG.n1[email]===auMyEmail();}
+function auEquipaPessoas(){
+  const me=auMyEmail();
+  return fjUtilizadores.filter(u=>u.email&&(auPodeAdministrar()||AU_CFG.n1[u.email]===me)).sort((a,b)=>(a.titulo||'').localeCompare(b.titulo||'','pt'));
+}
+async function auEquipaInit(){
+  const wrap=document.getElementById('au-equipa-wrap');if(!wrap)return;
+  wrap.innerHTML='<div class="empty">A carregar…</div>';
+  try{
+    if(!(await auPontoListasOk())){wrap.innerHTML='<div class="empty">As listas do ponto ainda não existem no SharePoint (Gestão / RH → Preparar o SharePoint).</div>';return;}
+    if(!_auEq.per)_auEq.per=auPeriodoAnterior(auPeriodoAtual());
+    await auPontoCarregar(_auEq.per,true);
+    auRenderEquipa();
+  }catch(e){wrap.innerHTML=`<div class="empty">Erro: ${e.message}</div>`;}
+}
+async function auEquipaMes(delta){
+  _auEq.per=delta>0?auPeriodoSeguinte(_auEq.per):auPeriodoAnterior(_auEq.per);
+  await auEquipaInit();
+}
+function auVerValores(){return _financeRole==='pe'||_financeRole==='df'||isFinanceiroEquipa();}
+function auNorm(s){return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();}
+function auSubAlimDia(email){
+  const u=fjUtilizadores.find(x=>x.email===email);
+  const c=GF_COLABORADORES.find(x=>auNorm(x.nome)===auNorm(u?.titulo));
+  return c?c.subAlimentacaoDia:null;
+}
+// Classifica os dias de um colaborador no período para o subsídio de alimentação
+function auAlimentacao(email,per){
+  const r={trab:0,trabNU:0,comp:0,ferias:0,outras:0,pagos:0,detalhe:[]};
+  const pagaNU=auCfgGet('AU_AlimFimSemana','0')==='1';
+  auDiasEntre(per.ini,per.fim).forEach(d=>{
+    const i=auInfoDia(email,d);const reg=auPontoRegDe(email,d);
+    const trabalhou=reg&&auCalcMinDia(reg)>0;
+    const p=i.p&&i.p.estado==='Aprovado'?i.p:null;
+    let cat='';
+    if(trabalhou&&!i.naoUtil){r.trab++;cat='trabalho';}
+    else if(trabalhou&&i.naoUtil){r.trabNU++;cat=pagaNU?'trabalho (dia não útil)':'trabalho em dia não útil (não pago)';}
+    else if(!i.naoUtil&&p&&p.tipo==='Compensação'&&!(p.meioDia&&p.inicio===p.fim)){r.comp++;cat='compensação';}
+    else if(!i.naoUtil&&p&&p.tipo==='Férias'){r.ferias++;cat='férias (não pago)';}
+    else if(!i.naoUtil&&p){r.outras++;cat='outra ausência (não pago)';}
+    if(cat)r.detalhe.push({data:d,cat});
+  });
+  r.pagos=r.trab+r.comp+(pagaNU?r.trabNU:0);
+  return r;
+}
+function auRenderEquipa(){
+  const wrap=document.getElementById('au-equipa-wrap');if(!wrap)return;
+  const per=_auEq.per;const pessoas=auEquipaPessoas();
+  const valores=auVerValores();
+  const linhas=pessoas.map(u=>{
+    const f=auFechoDe(u.email,per.key);const est=f?.estado||'Aberto';
+    const regs=PONTO.filter(r=>r.email===u.email&&r.data>=per.ini&&r.data<=per.fim);
+    const min=regs.reduce((a,r)=>a+auCalcMinDia(r),0);
+    const falta=auDiasEmFalta(u.email,per).length;
+    const al=auAlimentacao(u.email,per);
+    const sa=valores?auSubAlimDia(u.email):null;
+    return `<tr>
+      <td style="font-weight:500">${u.titulo||u.email}</td>
+      <td><span class="au-chip-estado ${est}">${est}</span></td>
+      <td style="text-align:right">${regs.length}</td><td style="text-align:right">${auFmtH(min)}</td>
+      <td style="text-align:right;color:${falta?'var(--fj-orange)':'var(--text3)'}">${falta||'—'}</td>
+      <td style="text-align:center">${f?.devolvidaEm?`<span style="color:var(--green-mid)" title="${auDMY(f.devolvidaEm.slice(0,10))}">✓</span>`:'—'}</td>
+      <td style="text-align:right" title="trabalhados ${al.trab} + compensação ${al.comp}${al.trabNU?' · fim de semana/feriado trabalhado: '+al.trabNU:''}"><b>${al.pagos}</b></td>
+      <td style="text-align:right;color:var(--text3)">${al.ferias}</td>
+      <td style="text-align:right;color:var(--text3)">${al.outras}</td>
+      ${valores?`<td style="text-align:right">${sa!=null?gfFmt(al.pagos*sa):'—'}</td>`:''}
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" onclick="auFolhaPDF('${u.email}','${per.key}')">Folha</button>
+        ${f?.anexos?`<button class="btn btn-sm" onclick="auFolhaVerAssinada('${u.email}','${per.key}')">Assinada</button>`:''}
+        ${est==='Submetido'?`<button class="btn btn-sm btn-primary" onclick="auEquipaValidar('${u.email}')">Validar</button><button class="btn btn-sm" onclick="auEquipaDevolver('${u.email}')">Devolver</button>`:''}
+        ${['Validado','Submetido'].includes(est)&&auPodeAdministrar()?`<button class="btn btn-sm" onclick="auEquipaReabrir('${u.email}')">Reabrir</button>`:''}
+      </td></tr>`;
+  }).join('');
+  wrap.innerHTML=`<div class="toolbar" style="gap:8px;flex-wrap:wrap">
+      <button class="btn btn-sm" onclick="auEquipaMes(-1)">‹</button>
+      <div style="font-weight:600;min-width:170px;text-align:center">${per.nome}<div style="font-size:10px;font-weight:400;color:var(--text3)">${auDMY(per.ini)} a ${auDMY(per.fim)}</div></div>
+      <button class="btn btn-sm" onclick="auEquipaMes(1)">›</button>
+      <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-sm" onclick="auEquipaPDF()">Folhas de todos (PDF)</button>
+        <button class="btn btn-sm btn-primary" onclick="auEquipaExcel()">Horas e alimentação (Excel)</button></span></div>
+    <div class="table-wrap"><table class="au-pt-tab"><thead><tr><th>Colaborador</th><th>Estado</th><th style="text-align:right">Dias</th><th style="text-align:right">Horas</th><th style="text-align:right">Em falta</th><th style="text-align:center">Folha assinada</th><th style="text-align:right" title="Dias trabalhados + dias de compensação">Alim. (dias pagos)</th><th style="text-align:right">Férias</th><th style="text-align:right">Outras aus.</th>${valores?'<th style="text-align:right">Subsídio</th>':''}<th></th></tr></thead><tbody>${linhas||'<tr><td colspan="11" class="empty">Sem colaboradores atribuídos a ti.</td></tr>'}</tbody></table></div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">Subsídio de alimentação: pago nos dias trabalhados e nos dias de compensação aprovados; não é pago em férias nem noutras ausências${auCfgGet('AU_AlimFimSemana','0')==='1'?'; os dias de fim de semana/feriado trabalhados também são pagos':'; trabalhar ao fim de semana/feriado não conta (a folga é paga no dia de compensação)'}.${valores?'':' Os valores em euros só são visíveis ao Presidente Executivo e ao Financeiro.'}</div>`;
+  if(valores&&!GF_COLABORADORES.length&&!_auEq.carregouQP){_auEq.carregouQP=true;GF_CARREGADORES.colaboradores().then(()=>auRenderEquipa()).catch(()=>{});}
+}
+async function auEquipaValidar(email){
+  if(!auPodeValidar(email)){showNotif('Sem permissão.','error');return;}
+  const per=_auEq.per;
+  try{
+    const uid=await getCurrentUserId();
+    await auFechoSet(email,per.key,{Estado:'Validado',DataValidacao:new Date().toISOString(),ValidadorId:uid,Comentario:''});
+    const f=auFechoDe(email,per.key);Object.assign(f,{estado:'Validado',validador:auNomeDeEmail(auMyEmail()),comentario:''});
+    showNotif(`${auNomeDeEmail(email)}: ponto validado.`,'success');auRenderEquipa();
+  }catch(e){showNotif('Erro: '+e.message,'error');}
+}
+async function auEquipaDevolver(email){
+  if(!auPodeValidar(email)){showNotif('Sem permissão.','error');return;}
+  const motivo=prompt('Motivo da devolução (o colaborador vai ver esta mensagem):');
+  if(!motivo)return;
+  try{
+    const uid=await getCurrentUserId();
+    await auFechoSet(email,_auEq.per.key,{Estado:'Devolvido',Comentario:motivo,ValidadorId:uid});
+    const f=auFechoDe(email,_auEq.per.key);Object.assign(f,{estado:'Devolvido',comentario:motivo,validador:auNomeDeEmail(auMyEmail())});
+    showNotif('Devolvido ao colaborador.','success');auRenderEquipa();
+  }catch(e){showNotif('Erro: '+e.message,'error');}
+}
+async function auEquipaReabrir(email){
+  if(!auPodeAdministrar()){showNotif('Sem permissão.','error');return;}
+  if(!confirm(`Reabrir o ponto de ${auNomeDeEmail(email)} para edição?`))return;
+  try{await auFechoSet(email,_auEq.per.key,{Estado:'Reaberto'});auFechoDe(email,_auEq.per.key).estado='Reaberto';showNotif('Mês reaberto.','success');auRenderEquipa();}
+  catch(e){showNotif('Erro: '+e.message,'error');}
+}
+async function auFolhaVerAssinada(email,key){
+  const f=auFechoDe(email,key);if(!f)return;
+  try{
+    const d=await spRead(`${SP}/_api/web/lists/getbytitle('${AU_FECHO_LIST}')/items(${f.id})/AttachmentFiles`);
+    const ficheiros=d.d?.results||[];
+    if(!ficheiros.length){showNotif('Sem anexo.','info');return;}
+    auMini('Folhas assinadas',ficheiros.map(a=>`<div><a href="${SP.replace(/\/sites\/.*$/,'')}${a.ServerRelativeUrl}" target="_blank" rel="noopener">${a.FileName}</a></div>`).join(''));
+  }catch(e){showNotif('Erro: '+e.message,'error');}
+}
+async function auEquipaPDF(){
+  try{await gfCarregarScript(GF_CDN_JSPDF);}catch(e){showNotif('Não foi possível carregar o módulo de PDF.','error');return;}
+  const per=_auEq.per;const pessoas=auEquipaPessoas();
+  if(!pessoas.length){showNotif('Sem colaboradores.','info');return;}
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+  for(let i=0;i<pessoas.length;i++)await auFolhaDesenhar(doc,pessoas[i].email,per,i===0);
+  doc.save(`Folhas_Ponto_${String(per.mes).padStart(2,'0')}-${per.ano}.pdf`);
+  showNotif('PDF com as folhas exportado.','success');
+}
+async function auEquipaExcel(){
+  try{await gfCarregarScript(GF_CDN_XLSX);}catch(e){showNotif('Não foi possível carregar o módulo de Excel.','error');return;}
+  const per=_auEq.per;const pessoas=auEquipaPessoas();const valores=auVerValores();
+  const wb=XLSX.utils.book_new();
+  const res=[['Colaborador','Departamento','Estado','Dias registados','Horas trabalhadas','Dias em falta','Folha assinada','Dias trabalhados (úteis)','Dias de compensação','Dias pagos (alimentação)','Dias de férias (não pagos)','Outras ausências','Trabalho em dia não útil',...(valores?['Subsídio/dia','Subsídio total']:[])]];
+  const det=[['Colaborador','Data','Dia','Entrada','Saída almoço','Entrada almoço','Saída','Pausa (min)','Horas','Tipo de dia','Alimentação','Projetos','Notas']];
+  pessoas.forEach(u=>{
+    const f=auFechoDe(u.email,per.key);const regs=PONTO.filter(r=>r.email===u.email&&r.data>=per.ini&&r.data<=per.fim);
+    const min=regs.reduce((a,r)=>a+auCalcMinDia(r),0);const al=auAlimentacao(u.email,per);const sa=valores?auSubAlimDia(u.email):null;
+    res.push([u.titulo||u.email,auAreaDeEmail(u.email),f?.estado||'Aberto',regs.length,Math.round(min/60*100)/100,auDiasEmFalta(u.email,per).length,f?.devolvidaEm?'Sim':'Não',al.trab,al.comp,al.pagos,al.ferias,al.outras,al.trabNU,...(valores?[sa??'',sa!=null?Math.round(al.pagos*sa*100)/100:'']:[])]);
+    auDiasEntre(per.ini,per.fim).forEach(d=>{
+      const i=auInfoDia(u.email,d);const r=auPontoRegDe(u.email,d);const c=al.detalhe.find(x=>x.data===d);
+      if(!r&&!i.p&&!i.fer&&!i.wk)return;
+      det.push([u.titulo||u.email,auDMY(d),AU_DSEM[auDow(d)],r?.entrada||'',r?.saidaAlm||'',r?.entradaAlm||'',r?.saida||'',r?.pausa||'',r?auCalcMinDia(r)/60:'',i.fer?(i.fer.nome||'Feriado'):i.wk?'Fim de semana':(i.p?i.tipo:'Trabalho'),c?.cat||'',r?auDist2txt(r):'',[i.nota,r?.nota].filter(Boolean).join(' · ')]);
+    });
+  });
+  const w1=XLSX.utils.aoa_to_sheet(res);w1['!cols']=[{wch:28},{wch:12},{wch:11},{wch:10},{wch:12},{wch:10},{wch:10},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12},{wch:10},{wch:12}];
+  const w2=XLSX.utils.aoa_to_sheet(det);w2['!cols']=[{wch:28},{wch:11},{wch:6},{wch:8},{wch:10},{wch:10},{wch:8},{wch:8},{wch:8},{wch:18},{wch:30},{wch:40},{wch:36}];
+  XLSX.utils.book_append_sheet(wb,w1,'Resumo e alimentação');XLSX.utils.book_append_sheet(wb,w2,'Dia a dia');
+  XLSX.writeFile(wb,`Ponto_${String(per.mes).padStart(2,'0')}-${per.ano}.xlsx`);
+  showNotif('Excel exportado.','success');
+}
+
+
+// ══════════ Fase 56 — Análise de tempo, Afetar RH, custo RH por projeto, ciclo anual, férias na previsão ══════════
+// ───── Férias aprovadas na previsão de RH (subsídio de alimentação não se paga em férias) ─────
+let AU_FERIAS_PREV={}; // email → Set(AAAA-MM-DD) (dias úteis de férias aprovadas)
+async function auCarregarFeriasPrevisao(){
+  try{
+    const [a,f]=await Promise.all([
+      spReadAll(`${SP}/_api/web/lists/getbytitle('${AU_LIST}')/items?$select=DataInicio,DataFim,MeioDia,Colaborador/EMail&$expand=Colaborador&$filter=${encodeURIComponent("TipoAusencia eq 'Férias' and Estado eq 'Aprovado'")}&$top=5000`),
+      spRead(`${SP}/_api/web/lists/getbytitle('${AU_FERIADOS_LIST}')/items?$select=Data,Ambito&$top=500`).catch(()=>spRead(`${SP}/_api/web/lists/getbytitle('${AU_FERIADOS_LIST}')/items?$select=Data&$top=500`))
+    ]);
+    const fer=new Set((f.d?.results||[]).filter(r=>!r.Ambito||r.Ambito==='Nacional').map(r=>String(r.Data).split('T')[0]));
+    AU_FERIAS_PREV={};
+    (a.d?.results||[]).forEach(r=>{
+      const em=(r.Colaborador?.EMail||'').toLowerCase();if(!em||!r.DataInicio||!r.DataFim)return;
+      const ini=String(r.DataInicio).split('T')[0],fim=String(r.DataFim).split('T')[0];
+      const s=AU_FERIAS_PREV[em]=AU_FERIAS_PREV[em]||new Set();
+      for(let d=ini;d<=fim;d=auAddDias(d,1)){const w=auDow(d);if(w!==0&&w!==6&&!fer.has(d))s.add(d);}
+    });
+  }catch(e){AU_FERIAS_PREV={};}
+}
+// dias de férias aprovadas de um colaborador do Quadro de Pessoal num mês (mesIndex0)
+function auDiasFeriasPrevisao(c,ano,mesIndex0){
+  const u=fjUtilizadores.find(x=>auNorm(x.titulo)===auNorm(c.nome));
+  const s=u&&AU_FERIAS_PREV[u.email];if(!s)return 0;
+  const pref=`${ano}-${String(mesIndex0+1).padStart(2,'0')}-`;
+  let n=0;s.forEach(d=>{if(d.startsWith(pref))n++;});return n;
+}
+// ───── Ciclo anual de marcação de férias ─────
+function auCicloAberto(ano){return auCfgGet('AU_CicloAberto_'+ano,'0')==='1';}
+function auMarcacaoBloqueada(p){return p&&p.tipo==='Férias'&&p.marcacao==='Proposta';}
+async function auCicloSet(ano,aberto){
+  if(!auPodeAdministrar()){showNotif('Sem permissão.','error');return;}
+  try{
+    if(aberto){
+      await auCfgSet('AU_CicloAberto_'+ano,'1');AU_CFG.kv['AU_CicloAberto_'+ano]='1';
+      showNotif(`Marcação de ${ano} aberta: os pedidos de férias entram como propostas e só são aprovados quando o ciclo fechar.`,'success');
+    }else{
+      const props=AU_PEDIDOS.filter(p=>p.tipo==='Férias'&&p.marcacao==='Proposta'&&p.inicio.startsWith(String(ano)));
+      if(!confirm(`Fechar a marcação de ${ano}? ${props.length} proposta(s) passam a finais e podem ser aprovadas.`))return;
+      const tipo=await auGetListType(AU_LIST);
+      let falhas=0;
+      await gfComLimiteConcorrencia(props,async p=>{
+        try{await spWrite(`${SP}/_api/web/lists/getbytitle('${AU_LIST}')/items(${p.id})`,{__metadata:{type:tipo},EstadoMarcacao:'Final'},'MERGE');}catch(e){falhas++;}
+      },4);
+      await auCfgSet('AU_CicloAberto_'+ano,'0');AU_CFG.kv['AU_CicloAberto_'+ano]='0';
+      showNotif(falhas?`Ciclo fechado com ${falhas} falha(s).`:`Marcação de ${ano} fechada: ${props.length} proposta(s) passaram a finais.`,falhas?'error':'success');
+      await auLoadAll();
+    }
+    auRenderCiclo();auUpdateBadges();
+  }catch(e){showNotif('Erro: '+e.message,'error');}
+}
+function auRenderCiclo(){
+  const w=document.getElementById('au-ciclo-card');if(!w)return;
+  if(!auPodeAdministrar()){w.style.display='none';return;}
+  w.style.display='';
+  const ano=parseInt(document.getElementById('au-ff-adm-ano')?.value)||new Date().getFullYear();
+  const ab=auCicloAberto(ano);
+  const props=AU_PEDIDOS.filter(p=>p.tipo==='Férias'&&p.marcacao==='Proposta'&&p.inicio.startsWith(String(ano))).length;
+  document.getElementById('au-ciclo-body').innerHTML=`
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Estado da marcação de <b>${ano}</b>: <b style="color:${ab?'var(--fj-orange)':'var(--green-mid)'}">${ab?'aberta (propostas)':'fechada'}</b> · ${props} proposta(s) por consolidar.</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${ab?`<button class="btn btn-sm btn-primary" onclick="auCicloSet(${ano},false)">Fechar marcação e passar a finais</button>`:`<button class="btn btn-sm" onclick="auCicloSet(${ano},true)">Abrir marcação do ano</button>`}
+      <button class="btn btn-sm" onclick="auMapaExportarPDFAnual(${ano})">Exportar mapa anual (PDF)</button>
+    </div>`;
+}
+async function auMapaExportarPDFAnual(ano){
+  if(!auPodeAdministrar()){showNotif('Sem permissão.','error');return;}
+  try{await gfCarregarScript(GF_CDN_JSPDF);}catch(e){showNotif('Não foi possível carregar o módulo de PDF.','error');return;}
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4',orientation:'landscape'});
+  const pessoas=auMapaPessoas();const W=297,H=210,M=10,wN=58,wM=15.5,wT=(W-2*M-wN-12*wM)/3,hL=5.6;
+  const cab=()=>{
+    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(0,48,135);doc.text(`Mapa anual de férias ${ano}`,M,M+5);
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(90,98,120);
+    doc.text(`Fundação da Juventude · dias úteis por mês (férias / compensação) · marcação ${auCicloAberto(ano)?'em curso (propostas)':'final'} · emitido a ${auDMY(auHoje())}`,M,M+10);
+    const y=M+14;doc.setFillColor(0,48,135);doc.rect(M,y,W-2*M,7,'F');doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(7);
+    doc.text('Colaborador',M+1.5,y+4.7);AU_MESES.forEach((n,i)=>doc.text(n.slice(0,3),M+wN+i*wM+wM/2,y+4.7,{align:'center'}));
+    ['Férias','Compens.','Disp.'].forEach((t,i)=>doc.text(t,M+wN+12*wM+i*wT+wT/2,y+4.7,{align:'center'}));
+    return y+7;
+  };
+  let y=cab(),area=null;
+  for(const u of pessoas){
+    const ar=auAreaDeEmail(u.email)||'—';
+    if(y+hL+(ar!==area?hL:0)>H-M-6){doc.addPage();y=cab();area=null;}
+    if(ar!==area){area=ar;doc.setFillColor(232,236,244);doc.rect(M,y,W-2*M,hL,'F');doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(40);doc.text(ar,M+1.5,y+hL-1.6);y+=hL;}
+    const r=auContaAno(u.email,ano),s=auGetSaldo(u.email,ano);
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(30);doc.text((u.titulo||u.email).slice(0,34),M+1.5,y+hL-1.6);
+    AU_MESES.forEach((_,i)=>{
+      const x=M+wN+i*wM;const f=r.ferias[i],c=r.comp[i],p=r.pend[i];
+      if(f||c||p){doc.setFillColor(f?220:230,f?232:245,f?252:238);doc.rect(x,y,wM,hL,'F');}
+      doc.setDrawColor(220);doc.setLineWidth(.1);doc.rect(x,y,wM,hL);
+      const t=[f?String(f):'',c?'+'+c:'',p?'('+p+')':''].filter(Boolean).join(' ');
+      if(t)doc.text(t,x+wM/2,y+hL-1.6,{align:'center'});
+    });
+    const tf=r.ferias.reduce((a,b)=>a+b,0),tc=r.comp.reduce((a,b)=>a+b,0);
+    [String(tf)+'/'+s.direito,String(tc),String(s.disponivel)].forEach((t,i)=>{const x=M+wN+12*wM+i*wT;doc.rect(x,y,wT,hL);doc.text(t,x+wT/2,y+hL-1.6,{align:'center'});});
+    doc.rect(M,y,wN,hL);y+=hL;
+  }
+  doc.setFontSize(6.5);doc.setTextColor(120);doc.text('Valores entre parênteses: dias por aprovar. +n: dias de compensação.',M,H-M);
+  doc.save(`Mapa_Anual_Ferias_${ano}.pdf`);showNotif('PDF anual exportado.','success');
+}
+// ───── Análise de tempo ─────
+let _auAn={de:null,ate:null,area:'',colab:'',proj:'',soValidados:false,dados:null};
+function auAnaliseEscopo(){
+  if(auPodeAdministrar()||_financeRole==='pe'||userCargo()==='Presidente Executivo')return fjUtilizadores.filter(u=>u.email);
+  if(userCargo()==='Diretor'){const eq=(currentUserFJ?.equipa||[]).filter(e=>e&&e!=='CAdm');return fjUtilizadores.filter(u=>u.email&&(u.email===auMyEmail()||(u.equipa||[]).some(e=>eq.includes(e))));}
+  return fjUtilizadores.filter(u=>u.email===auMyEmail());
+}
+async function auAnaliseInit(){
+  const w=document.getElementById('au-analise-wrap');if(!w)return;
+  w.innerHTML='<div class="empty">A carregar…</div>';
+  try{
+    if(!(await auPontoListasOk())){w.innerHTML='<div class="empty">As listas do ponto ainda não existem no SharePoint (Gestão / RH → Preparar o SharePoint).</div>';return;}
+    if(!plProjetos.length){try{await loadProjetos();}catch(e){}}
+    if(!_auAn.de){_auAn.ate=auPeriodoAnterior(auPeriodoAtual());_auAn.de=_auAn.ate;}
+    await auAnaliseCarregar();
+  }catch(e){w.innerHTML=`<div class="empty">Erro: ${e.message}</div>`;}
+}
+async function auAnaliseCarregar(){
+  const de=_auAn.de,ate=_auAn.ate;
+  const keys=[];for(let p=de;p.key<=ate.key;p=auPeriodoSeguinte(p))keys.push(p.key);
+  const escopo=auAnaliseEscopo();const todos=escopo.length>1;
+  let filtro=auFiltroPeriodoPonto(de.ini,ate.fim);
+  if(!todos){const uid=await getCurrentUserId();if(uid)filtro+=` and Colaborador/Id eq ${uid}`;}
+  const f=encodeURIComponent(filtro).replace(/%24/g,'$');
+  const base=`${SP}/_api/web/lists/getbytitle`;
+  const [a,b]=await Promise.all([
+    spReadAll(`${base}('FJ_Ponto')/items?$select=Data,HorasTrabalhadas,Colaborador/EMail&$expand=Colaborador&$filter=${f}&$top=5000`),
+    spReadAll(`${base}('FJ_PontoDistribuicao')/items?$select=Data,TipoLinha,ProjetoId,Categoria,Horas,Colaborador/EMail&$expand=Colaborador&$filter=${f}&$top=5000`)
+  ]);
+  const prev=AU_FECHOS;await auFechoCarregar(keys,todos);const fechos=AU_FECHOS;AU_FECHOS=prev;
+  const emails=new Set(escopo.map(u=>u.email));
+  _auAn.dados={
+    ponto:(a.d?.results||[]).map(r=>({email:(r.Colaborador?.EMail||'').toLowerCase(),data:String(r.Data).split('T')[0],horas:r.HorasTrabalhadas||0})).filter(r=>emails.has(r.email)),
+    dist:(b.d?.results||[]).map(r=>({email:(r.Colaborador?.EMail||'').toLowerCase(),data:String(r.Data).split('T')[0],tipo:r.TipoLinha||'Projeto',projetoId:r.ProjetoId||null,cat:r.Categoria||'',horas:r.Horas||0})).filter(r=>emails.has(r.email)),
+    fechos,keys
+  };
+  if(valoresAn()&&!GF_COLABORADORES.length){try{await GF_CARREGADORES.colaboradores();}catch(e){}}
+  auRenderAnalise();
+}
+function valoresAn(){return auVerValores();}
+// custo/hora do colaborador num mês (Quadro de Pessoal): custo total do mês (sem duplicar subsídios) ÷ (dias úteis × 8 h)
+function auCustoHora(email,ano,mes0){
+  const u=fjUtilizadores.find(x=>x.email===email);
+  const c=GF_COLABORADORES.find(x=>auNorm(x.nome)===auNorm(u?.titulo));
+  if(!c)return null;
+  const idx=(mes0===5||mes0===11)?mes0-1:mes0;
+  const tot=_gfDecomporCustoColaboradorMes(c,ano,idx).total;
+  const horas=_gfDiasUteisMes(ano,mes0)*8;
+  return horas?tot/horas:null;
+}
+function auAnaliseAgregar(){
+  const D=_auAn.dados;if(!D)return null;
+  const val=new Set(D.fechos.filter(f=>f.estado==='Validado').map(f=>f.email+'|'+f.key));
+  const areaF=_auAn.area,colF=_auAn.colab,projF=_auAn.proj;
+  const ok=(email)=>(!areaF||auAreaDeEmail(email)===areaF)&&(!colF||email===colF);
+  const R={horas:0,horasVal:0,proj:{},cat:{},col:{},custoTotal:0,custoPorProj:{},semCusto:0,mesesVal:0,mesesTot:0};
+  D.ponto.filter(r=>ok(r.email)).forEach(r=>{const k=auPeriodoDeData(r.data).key;const validado=val.has(r.email+'|'+k);if(_auAn.soValidados&&!validado)return;R.horas+=r.horas;const c=R.col[r.email]=R.col[r.email]||{horas:0,proj:0,interno:0,validadas:0};c.horas+=r.horas;if(validado){R.horasVal+=r.horas;c.validadas+=r.horas;}});
+  D.dist.filter(r=>ok(r.email)&&(!projF||String(r.projetoId)===String(projF)||r.tipo==='Interno'&&false)).forEach(r=>{
+    const per=auPeriodoDeData(r.data);const validado=val.has(r.email+'|'+per.key);
+    if(_auAn.soValidados&&!validado)return;
+    const c=R.col[r.email]=R.col[r.email]||{horas:0,proj:0,interno:0,validadas:0};
+    if(r.tipo==='Projeto'){
+      const p=R.proj[r.projetoId]=R.proj[r.projetoId]||{horas:0,pessoas:new Set(),custo:0,horasVal:0};
+      p.horas+=r.horas;p.pessoas.add(r.email);c.proj+=r.horas;
+      if(validado){p.horasVal+=r.horas;
+        if(valoresAn()){const ch=auCustoHora(r.email,+per.key.slice(0,4),+per.key.slice(5,7)-1);if(ch!=null){p.custo+=r.horas*ch;R.custoTotal+=r.horas*ch;}else R.semCusto+=r.horas;}}
+    }else{R.cat[r.cat||'Outro']=(R.cat[r.cat||'Outro']||0)+r.horas;c.interno+=r.horas;}
+  });
+  const nCol=new Set(Object.keys(R.col)).size;
+  D.keys.forEach(k=>Object.keys(R.col).forEach(e=>{R.mesesTot++;if(val.has(e+'|'+k))R.mesesVal++;}));
+  return R;
+}
+function auBarra(v,max,cor){return `<div style="background:#eef0f4;border-radius:4px;height:8px;min-width:90px;flex:1"><div style="width:${max?Math.max(1,v/max*100):0}%;height:8px;border-radius:4px;background:${cor||'#2563EB'}"></div></div>`;}
+function auRenderAnalise(){
+  const w=document.getElementById('au-analise-wrap');if(!w)return;
+  const R=auAnaliseAgregar();if(!R){return;}
+  const escopo=auAnaliseEscopo();
+  const periodos=[];for(let p=auPeriodoDeKey(`${auPeriodoAtual().ano-1}-01`);p.key<=auPeriodoAtual().key;p=auPeriodoSeguinte(p))periodos.push(p);
+  const optP=(sel)=>periodos.map(p=>`<option value="${p.key}" ${p.key===sel.key?'selected':''}>${p.label}</option>`).join('');
+  const areas=[...new Set(escopo.map(u=>auAreaDeEmail(u.email)).filter(Boolean))].sort();
+  const totDist=Object.values(R.proj).reduce((a,p)=>a+p.horas,0),totInt=Object.values(R.cat).reduce((a,b)=>a+b,0);
+  const tot=totDist+totInt;
+  const projLinhas=Object.entries(R.proj).sort((a,b)=>b[1].horas-a[1].horas);
+  const maxP=projLinhas[0]?.[1].horas||0;
+  const nomeP=id=>plProjetos.find(p=>String(p.id)===String(id))?.nome||('Projeto '+id);
+  const val=valoresAn();
+  w.innerHTML=`<div class="toolbar" style="gap:8px;flex-wrap:wrap">
+      <span style="font-size:12px;color:var(--text2)">De</span><select class="flt" onchange="auAnSet('de',this.value)">${optP(_auAn.de)}</select>
+      <span style="font-size:12px;color:var(--text2)">a</span><select class="flt" onchange="auAnSet('ate',this.value)">${optP(_auAn.ate)}</select>
+      ${escopo.length>1?`<select class="flt" onchange="auAnSet('area',this.value)"><option value="">Departamento: todos</option>${areas.map(a=>`<option ${a===_auAn.area?'selected':''}>${a}</option>`).join('')}</select>
+      <select class="flt" onchange="auAnSet('colab',this.value)"><option value="">Colaborador: todos</option>${escopo.slice().sort((a,b)=>(a.titulo||'').localeCompare(b.titulo||'','pt')).map(u=>`<option value="${u.email}" ${u.email===_auAn.colab?'selected':''}>${u.titulo||u.email}</option>`).join('')}</select>`:''}
+      <label style="font-size:12px;color:var(--text2);display:flex;gap:4px;align-items:center"><input type="checkbox" ${_auAn.soValidados?'checked':''} onchange="auAnSet('soValidados',this.checked)">só meses validados</label>
+      <button class="btn btn-sm" style="margin-left:auto" onclick="auAnaliseExcel()">Exportar Excel</button></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:10px 0">
+      <div class="au-stat"><span class="au-stat-n">${auFmtH(R.horas*60)}</span><span class="au-stat-l">Horas registadas</span></div>
+      <div class="au-stat"><span class="au-stat-n" style="color:#2563EB">${tot?Math.round(totDist/tot*100):0}%</span><span class="au-stat-l">Em projetos (${auFmtH(totDist*60)})</span></div>
+      <div class="au-stat"><span class="au-stat-n" style="color:#D97706">${tot?Math.round(totInt/tot*100):0}%</span><span class="au-stat-l">Internas (${auFmtH(totInt*60)})</span></div>
+      <div class="au-stat"><span class="au-stat-n">${R.mesesVal}/${R.mesesTot}</span><span class="au-stat-l">Meses validados</span></div>
+      ${val?`<div class="au-stat"><span class="au-stat-n" style="color:var(--green-mid)">${gfFmt(R.custoTotal)}</span><span class="au-stat-l">Custo RH (horas validadas)</span></div>`:''}</div>
+    <div style="font-size:13px;font-weight:600;margin:12px 0 6px">Por projeto</div>
+    <div class="table-wrap"><table class="au-pt-tab"><thead><tr><th>Projeto</th><th style="width:240px"></th><th style="text-align:right">Horas</th><th style="text-align:right">%</th><th style="text-align:right">Pessoas</th>${val?'<th style="text-align:right">Custo RH (validado)</th>':''}</tr></thead><tbody>
+      ${projLinhas.map(([id,p])=>`<tr><td style="font-weight:500">${nomeP(id)}</td><td>${auBarra(p.horas,maxP)}</td><td style="text-align:right">${auFmtH(p.horas*60)}</td><td style="text-align:right">${tot?(p.horas/tot*100).toFixed(1):0}%</td><td style="text-align:right">${p.pessoas.size}</td>${val?`<td style="text-align:right">${p.custo?gfFmt(p.custo):'—'}</td>`:''}</tr>`).join('')||`<tr><td colspan="6" class="empty">Sem horas em projetos neste período.</td></tr>`}
+      ${Object.entries(R.cat).sort((a,b)=>b[1]-a[1]).map(([c,h])=>`<tr><td style="color:var(--text2)">Interno · ${c}</td><td>${auBarra(h,maxP,'#D97706')}</td><td style="text-align:right">${auFmtH(h*60)}</td><td style="text-align:right">${tot?(h/tot*100).toFixed(1):0}%</td><td></td>${val?'<td></td>':''}</tr>`).join('')}
+    </tbody></table></div>
+    ${escopo.length>1?`<div style="font-size:13px;font-weight:600;margin:14px 0 6px">Por colaborador</div>
+    <div class="table-wrap"><table class="au-pt-tab"><thead><tr><th>Colaborador</th><th>Departamento</th><th style="text-align:right">Horas</th><th style="text-align:right">Em projetos</th><th style="text-align:right">Internas</th><th style="text-align:right">% projetos</th><th style="text-align:right">Horas validadas</th></tr></thead><tbody>
+      ${Object.entries(R.col).sort((a,b)=>b[1].horas-a[1].horas).map(([e,c])=>`<tr><td style="font-weight:500">${auNomeDeEmail(e)}</td><td style="color:var(--text3)">${auAreaDeEmail(e)||'—'}</td><td style="text-align:right">${auFmtH(c.horas*60)}</td><td style="text-align:right">${auFmtH(c.proj*60)}</td><td style="text-align:right">${auFmtH(c.interno*60)}</td><td style="text-align:right">${(c.proj+c.interno)?Math.round(c.proj/(c.proj+c.interno)*100):0}%</td><td style="text-align:right">${auFmtH(c.validadas*60)}</td></tr>`).join('')}
+    </tbody></table></div>`:''}
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">${val?`O custo de RH usa só meses validados: horas de cada projeto × custo/hora do Quadro de Pessoal (custo mensal do colaborador ÷ dias úteis × 8 h)${R.semCusto?` · ${auFmtH(R.semCusto*60)} sem custo (colaborador fora do Quadro de Pessoal)`:''}. Confidencial: só o Presidente Executivo e o Financeiro veem estes valores.`:'Os valores de custo só são visíveis ao Presidente Executivo e ao Financeiro.'}</div>`;
+}
+async function auAnSet(k,v){
+  if(k==='de'||k==='ate'){_auAn[k]=auPeriodoDeKey(v);if(_auAn.de.key>_auAn.ate.key){if(k==='de')_auAn.ate=_auAn.de;else _auAn.de=_auAn.ate;}await auAnaliseCarregar();return;}
+  _auAn[k]=v;auRenderAnalise();
+}
+async function auAnaliseExcel(){
+  try{await gfCarregarScript(GF_CDN_XLSX);}catch(e){showNotif('Não foi possível carregar o módulo de Excel.','error');return;}
+  const R=auAnaliseAgregar();if(!R)return;const val=valoresAn();
+  const nomeP=id=>plProjetos.find(p=>String(p.id)===String(id))?.nome||('Projeto '+id);
+  const a=[['Projeto','Horas','Pessoas',...(val?['Horas validadas','Custo RH (validado)']:[])]];
+  Object.entries(R.proj).sort((x,y)=>y[1].horas-x[1].horas).forEach(([id,p])=>a.push([nomeP(id),Math.round(p.horas*100)/100,p.pessoas.size,...(val?[Math.round(p.horasVal*100)/100,Math.round(p.custo*100)/100]:[])]));
+  Object.entries(R.cat).forEach(([c,h])=>a.push(['Interno · '+c,Math.round(h*100)/100,'']));
+  const b=[['Colaborador','Departamento','Horas','Em projetos','Internas','Horas validadas']];
+  Object.entries(R.col).forEach(([e,c])=>b.push([auNomeDeEmail(e),auAreaDeEmail(e),Math.round(c.horas*100)/100,Math.round(c.proj*100)/100,Math.round(c.interno*100)/100,Math.round(c.validadas*100)/100]));
+  const wb=XLSX.utils.book_new();
+  const w1=XLSX.utils.aoa_to_sheet(a);w1['!cols']=[{wch:40},{wch:10},{wch:10},{wch:14},{wch:18}];
+  const w2=XLSX.utils.aoa_to_sheet(b);w2['!cols']=[{wch:30},{wch:14},{wch:10},{wch:12},{wch:10},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,w1,'Por projeto');XLSX.utils.book_append_sheet(wb,w2,'Por colaborador');
+  XLSX.writeFile(wb,`Analise_tempo_${_auAn.de.key}_${_auAn.ate.key}.xlsx`);showNotif('Excel exportado.','success');
+}
+// ───── Afetar RH: sugerir percentagens pelas horas validadas ─────
+async function gfAfetarSugerirHoras(){
+  try{
+    if(!(await auPontoListasOk())){showNotif('O registo de ponto ainda não está preparado no SharePoint.','error');return;}
+    const m=GF_MOV_PENDENTES.find(x=>x.id===GF_AFETAR.movimento);
+    const dm=m?.dataMovimento?String(m.dataMovimento).slice(0,10):auHoje();
+    if(!Object.keys(AU_CFG.kv).length){try{const cf=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$select=Id,Title,Valor&$filter=startswith(Title,'AU_')&$top=500`);(cf.d?.results||[]).forEach(r=>{AU_CFG.kv[r.Title]=r.Valor||'';});}catch(e){}}
+    const per=auPeriodoDeData(dm);
+    const periodos=[];for(let p=auPeriodoAnterior(auPeriodoAnterior(auPeriodoAnterior(per)));p.key<=per.key;p=auPeriodoSeguinte(p))periodos.push(p);
+    auMini('Percentagens pelas horas validadas',`<div style="margin-bottom:8px;font-size:12px;color:var(--text2)">Usa as horas por projeto de todos os colaboradores nos meses validados. Escolhe o período do ponto a que este movimento diz respeito.</div>
+      <select id="ah-per" class="flt">${periodos.map(p=>`<option value="${p.key}" ${p.key===per.key?'selected':''}>${p.label} (${auDDMM(p.ini)} a ${auDDMM(p.fim)})</option>`).join('')}</select>
+      <label style="display:block;font-size:12px;margin:8px 0"><input type="checkbox" id="ah-todos"> incluir também meses ainda não validados</label>
+      <button class="btn btn-primary" onclick="gfAfetarAplicarHoras()">Preencher percentagens</button>`);
+  }catch(e){showNotif('Erro: '+e.message,'error');}
+}
+async function gfAfetarAplicarHoras(){
+  const key=document.getElementById('ah-per').value;const incluir=document.getElementById('ah-todos').checked;
+  try{
+    const per=auPeriodoDeKey(key);
+    const f=encodeURIComponent(auFiltroPeriodoPonto(per.ini,per.fim)).replace(/%24/g,'$');
+    const d=await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_PontoDistribuicao')/items?$select=Data,TipoLinha,ProjetoId,Horas,Colaborador/EMail&$expand=Colaborador&$filter=${f}&$top=5000`);
+    await auFechoCarregar([key],true);
+    const val=new Set(AU_FECHOS.filter(x=>x.key===key&&x.estado==='Validado').map(x=>x.email));
+    const rows=(d.d?.results||[]).map(r=>({email:(r.Colaborador?.EMail||'').toLowerCase(),tipo:r.TipoLinha,projetoId:r.ProjetoId,horas:r.Horas||0})).filter(r=>incluir||val.has(r.email));
+    const porProj={};let interno=0;
+    rows.forEach(r=>{if(r.tipo==='Projeto'&&r.projetoId)porProj[r.projetoId]=(porProj[r.projetoId]||0)+r.horas;else interno+=r.horas;});
+    const tot=Object.values(porProj).reduce((a,b)=>a+b,0);
+    if(!tot){auMiniFechar();showNotif(incluir?'Sem horas em projetos neste período.':'Nenhum mês validado com horas em projetos neste período.','error');return;}
+    const ids=Object.keys(porProj).sort((a,b)=>porProj[b]-porProj[a]);
+    let acum=0;
+    const linhas=ids.map((id,i)=>{const pct=i===ids.length-1?Math.round((100-acum)*100)/100:Math.round(porProj[id]/tot*10000)/100;acum+=pct;return{projetoId:parseInt(id),rubricaId:null,solicitacaoId:null,pct};});
+    GF_AFETAR.linhas=linhas;
+    auMiniFechar();gfRenderAfetarModal();
+    showNotif(`${linhas.length} projeto(s) preenchidos pelas horas de ${per.label}${interno?` (${auFmtH(interno*60)} de horas internas ficaram de fora)`:''}. Escolhe a rúbrica de cada linha.`,'success');
+  }catch(e){showNotif('Erro: '+e.message,'error');}
+}
+
 // ── Administração / RH ──
 function auRenderAdmin(){
+  auRenderCfg(); // Fase 50
+  {const pc=document.getElementById('au-prep-card');if(pc)pc.style.display=auPodeAdministrar()?'':'none';const mc=document.getElementById('au-mig-card');if(mc)mc.style.display=auPodeAdministrar()?'':'none';auRenderCiclo();}
   const wrap=document.getElementById('au-admin-list');
   if(!wrap)return;
   const q=(document.getElementById('au-q-admin')?.value||'').toLowerCase();
@@ -16988,8 +18931,8 @@ function auRenderAdminTable(){
     <td>${p.area||'—'}</td>
     <td>${auFormatDate(p.created)}</td>
     <td><div class="actions">
-      ${p.estado==='Pendente'?`<button class="btn btn-sm btn-green" onclick="auAprovarN1(${p.id})">Aprov. N1</button>`:''}
-      ${p.estado==='Aprovado N1'?`<button class="btn btn-sm btn-green" onclick="auAprovarN2(${p.id})">Aprov. N2</button>`:''}
+      ${p.estado==='Pendente'&&auPrecisaN1(p)?`<button class="btn btn-sm btn-green" onclick="auAprovarN1(${p.id})">Aprov. 1.º nível</button>`:''}
+      ${(p.estado==='Aprovado N1'||(p.estado==='Pendente'&&!auPrecisaN1(p)))?`<button class="btn btn-sm btn-green" onclick="auAprovarN2(${p.id})">Aprov. 2.º nível</button>`:''}
       ${['Pendente','Aprovado N1'].includes(p.estado)?`<button class="btn btn-sm btn-danger" onclick="auAbrirReject(${p.id},'admin')">Recusar</button>`:''}
     </div></td>
   </tr>`).join('');
@@ -17674,7 +19617,7 @@ function stRenderConfigModules() {
     { id: 'rn', name: '🤝 Reuniões', desc: 'Acesso a atas, assuntos e condução de reuniões.' },
     { id: 'pl', name: '📊 Planeamento', desc: 'Acesso a projetos, ações e tarefas semanais.' },
     { id: 'gf', name: '💰 Financeiro', desc: 'Acesso a orçamentos, solicitações e aprovações.' },
-    { id: 'au', name: '🏖️ Ausências', desc: 'Acesso a férias, faltas e teletrabalho.' },
+    { id: 'au', name: '🏖️ Ausências e Ponto', desc: 'Férias, ausências, mapa de férias, ponto diário e folhas de ponto.' },
     { id: 'co', name: '📬 Correio', desc: 'Acesso ao registo de correspondência.' }
   ];
   
@@ -19625,6 +21568,7 @@ function gfRenderAfetarModal() {
         <a onclick="gfAfetarRHVoltar()" style="font-size:12px;color:var(--text3);cursor:pointer">← Voltar aos valores fixos</a>
       </div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Reparte por percentagem o valor que sobra depois dos fixos: <strong style="color:${restante < 0 ? '#DC2626' : '#1E293B'}">${gfFmt(restante)}</strong></div>
+      <div style="margin-bottom:12px"><a onclick="gfAfetarSugerirHoras()" style="font-size:12px;color:var(--mod-financeiro);cursor:pointer;font-weight:600">⏱ Sugerir percentagens pelas horas validadas (ponto)</a></div>
     `;
   } else {
     topo = `
