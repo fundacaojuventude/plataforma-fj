@@ -2089,13 +2089,21 @@ th.au-mp-n{background:var(--bg3)}
             <option value="Outro">📋 Outro</option>
           </select>
         </div>
+        <div class="fg" id="au-f-modo-wrap" style="display:none;grid-column:1/-1"><label>Como queres compensar? *</label>
+          <select id="au-f-modo" onchange="auTipoMudou()">
+            <option value="propor">Propor já o dia de folga</option>
+            <option value="plafond">Guardar no plafond (gozar mais tarde)</option>
+            <option value="usar">Gozar dias do plafond (compensação a gozar)</option>
+          </select>
+          <div id="au-f-plafond-info" style="font-size:12px;color:var(--text2);margin-top:5px"></div>
+        </div>
         <div class="fg" id="au-f-trab-wrap" style="display:none;grid-column:1/-1"><label>Dia em que trabalhaste (fim de semana ou fora do horário) *</label><input type="date" id="au-f-trab"><div style="font-size:11px;color:var(--text3);margin-top:3px">Indica a seguir o dia de folga que propões (datas de início e fim) e justifica nas observações. Nos dias de compensação paga-se subsídio de alimentação.</div></div>
-        <div class="fg"><label id="au-f-inicio-lbl">Data de início *</label><input type="date" id="au-f-inicio" onchange="auCalcDias()"></div>
-        <div class="fg"><label>Data de fim *</label><input type="date" id="au-f-fim" onchange="auCalcDias()"></div>
-        <div class="fg"><label>Dias úteis</label>
+        <div class="fg" id="au-f-inicio-wrap"><label id="au-f-inicio-lbl">Data de início *</label><input type="date" id="au-f-inicio" onchange="auCalcDias()"></div>
+        <div class="fg" id="au-f-fim-wrap"><label>Data de fim *</label><input type="date" id="au-f-fim" onchange="auCalcDias()"></div>
+        <div class="fg" id="au-f-dias-wrap"><label>Dias úteis</label>
           <input type="text" id="au-f-dias" readonly style="background:var(--bg3);font-weight:600" placeholder="Calculado automaticamente">
         </div>
-        <div class="fg"><label>Meio dia?</label>
+        <div class="fg"><label id="au-f-meio-lbl">Meio dia?</label>
           <select id="au-f-meio"><option value="">Não — dia(s) completo(s)</option><option value="Manhã">Sim — manhã</option><option value="Tarde">Sim — tarde</option></select>
         </div>
         <div class="fg" style="grid-column:1/-1"><label>Observações / justificação</label>
@@ -16949,8 +16957,45 @@ async function auCarregarAno(){
 function auTipoMudou(){
   const t=document.getElementById('au-f-tipo')?.value;
   const comp=t==='Compensação';
-  const w=document.getElementById('au-f-trab-wrap');if(w)w.style.display=comp?'':'none';
-  const l=document.getElementById('au-f-inicio-lbl');if(l)l.textContent=comp?'Dia de folga proposto (início) *':'Data de início *';
+  const modo=comp?(document.getElementById('au-f-modo')?.value||'propor'):'';
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.style.display=v;};
+  set('au-f-modo-wrap',comp?'':'none');
+  set('au-f-trab-wrap',comp&&modo!=='usar'?'':'none');
+  const plaf=comp&&modo==='plafond';
+  ['au-f-inicio-wrap','au-f-fim-wrap','au-f-dias-wrap'].forEach(id=>set(id,plaf?'none':''));
+  const l=document.getElementById('au-f-inicio-lbl');if(l)l.textContent=comp?(modo==='usar'?'Primeiro dia de folga *':'Dia de folga proposto (início) *'):'Data de início *';
+  const ml=document.getElementById('au-f-meio-lbl');if(ml)ml.textContent=plaf?'Foi meio dia de trabalho?':'Meio dia?';
+  const info=document.getElementById('au-f-plafond-info');
+  if(info){
+    if(comp&&typeof auPlafondComp==='function'){const pf=auPlafondComp(auMyEmail());
+      info.innerHTML=`Compensação a gozar: <b>${pf.disponivel}</b> dia(s)${pf.emAprovacao?` · ${pf.emAprovacao} em aprovação (ainda não contam)`:''}${pf.reservado?` · ${pf.reservado} já pedido(s) para gozar`:''}.`+(modo==='plafond'?' Depois de aprovado, este dia fica guardado no teu plafond para gozares mais tarde.':modo==='usar'?' Os dias pedidos são descontados deste plafond.':'');
+    }else info.textContent='';
+  }
+}
+
+// ── Plafond de compensação (dias trabalhados guardados para gozar mais tarde) ──
+// Crédito = pedido de compensação com EstadoMarcacao 'Plafond' (dia trabalhado, 1 ou 0,5 dia), aprovado pelos aprovadores.
+// Gozo = pedido de compensação com EstadoMarcacao 'DoPlafond' (datas de folga), descontado ao saldo.
+function auEhCredito(p){return p.tipo==='Compensação'&&p.marcacao==='Plafond';}
+function auValorComp(p){
+  if(p.marcacao==='Plafond')return p.meioDia?0.5:1;
+  return (p.meioDia&&p.inicio===p.fim)?0.5:(p.dias||0);
+}
+function auPeriodoTxt(p){
+  if(auEhCredito(p))return `Dia trabalhado ${auFormatDate(p.trabalhada||p.inicio)} · guardar no plafond (+${auValorComp(p)} dia${auValorComp(p)!==1?'s':''})`;
+  return `${auFormatDate(p.inicio)} → ${auFormatDate(p.fim)}${p.tipo==='Compensação'&&p.marcacao==='DoPlafond'?' · do plafond':''}`;
+}
+function auPlafondComp(email){
+  const em=(email||'').toLowerCase();
+  const meus=AU_PEDIDOS.filter(p=>p.colEmail===em&&p.tipo==='Compensação');
+  const soma=a=>a.reduce((x,p)=>x+auValorComp(p),0);
+  const cred=meus.filter(p=>p.marcacao==='Plafond');
+  const usos=meus.filter(p=>p.marcacao==='DoPlafond'&&!['Recusado','Cancelado'].includes(p.estado));
+  const aprovado=soma(cred.filter(p=>p.estado==='Aprovado'));
+  const emAprovacao=soma(cred.filter(p=>['Pendente','Aprovado N1'].includes(p.estado)));
+  const gozado=soma(usos.filter(p=>p.estado==='Aprovado'));
+  const reservado=soma(usos.filter(p=>p.estado!=='Aprovado'));
+  return{aprovado,emAprovacao,gozado,reservado,disponivel:Math.round((aprovado-gozado-reservado)*100)/100};
 }
 
 // ── Helper: área de um email via FJ_Utilizadores ──
@@ -17155,7 +17200,15 @@ function auRenderDashboard(){
         <div><span style="font-weight:600;color:var(--amber)">${saldo.pending}</span> <span style="color:var(--text2)">em aprovação</span></div>
         <div><span style="font-weight:600;color:var(--text)">${saldo.used}</span> <span style="color:var(--text2)">utilizados</span></div>
       </div>
-    </div>`;
+    </div>`+(()=>{const pf=auPlafondComp(email);if(!(pf.aprovado||pf.emAprovacao||pf.gozado||pf.reservado))return '';
+      return `<div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r-lg);padding:16px 20px;margin-top:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><div style="font-size:13px;font-weight:600">Compensação a gozar (plafond)</div>
+        <button class="btn btn-sm" onclick="auOpenForm();document.getElementById('au-f-tipo').value='Compensação';document.getElementById('au-f-modo').value='usar';auTipoMudou()">Gozar dias</button></div>
+        <div style="display:flex;gap:20px;font-size:12px;flex-wrap:wrap">
+          <div><span style="font-weight:600;color:var(--green-mid)">${pf.disponivel}</span> <span style="color:var(--text2)">disponíveis</span></div>
+          <div><span style="font-weight:600;color:var(--amber)">${pf.emAprovacao}</span> <span style="color:var(--text2)">em aprovação</span></div>
+          <div><span style="font-weight:600">${Math.round((pf.gozado+pf.reservado)*100)/100}</span> <span style="color:var(--text2)">gozados ou pedidos</span></div>
+        </div></div>`;})();
   const meus=AU_PEDIDOS.filter(p=>p.colEmail===email);
   const stats=[
     {n:meus.filter(p=>p.estado==='Pendente').length,l:'Pendentes',c:'var(--amber)'},
@@ -17188,7 +17241,7 @@ function auRenderCal(){
   const daysInMonth=new Date(y,m+1,0).getDate();
   const today=new Date().toISOString().split('T')[0];
   const email=(user?.username||'').toLowerCase();
-  const aprovados=AU_PEDIDOS.filter(p=>p.colEmail===email&&['Aprovado N1','Aprovado'].includes(p.estado));
+  const aprovados=AU_PEDIDOS.filter(p=>p.colEmail===email&&['Aprovado N1','Aprovado'].includes(p.estado)&&!auEhCredito(p));
   for(let d=1;d<=daysInMonth;d++){
     const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const dow=new Date(y,m,d).getDay();
@@ -17234,7 +17287,7 @@ function auCardHtml(p,showColaborador=false){
       <div class="au-card-info">
         <div class="au-card-title">${p.tipo}${showColaborador?` — <span style="color:var(--text2)">${p.colNome}</span>`:''}</div>
         <div class="au-card-meta">
-          <span>${auFormatDate(p.inicio)} → ${auFormatDate(p.fim)}</span>
+          <span>${auPeriodoTxt(p)}</span>
           <span style="font-weight:600">${p.dias} dia${p.dias!==1?'s':''}</span>
           ${p.tipo==='Compensação'&&p.trabalhada?`<span>trabalhou em ${auFormatDate(p.trabalhada)}</span>`:''}
           ${areaTag}
@@ -17282,7 +17335,7 @@ function auRenderN1(){
         <div class="au-card-info">
           <div class="au-card-title">${p.tipo} — <strong>${p.colNome}</strong></div>
           <div class="au-card-meta">
-            <span>${auFormatDate(p.inicio)} → ${auFormatDate(p.fim)}</span>
+            <span>${auPeriodoTxt(p)}</span>
             <span style="font-weight:600">${p.dias} dia${p.dias!==1?'s':''}</span>
             ${p.area?`<span class="badge b-info">${p.area}</span>`:''}
             ${auBadge(p.estado)}
@@ -17319,7 +17372,7 @@ function auRenderN2(){
         <div class="au-card-info">
           <div class="au-card-title">${p.tipo} — <strong>${p.colNome}</strong></div>
           <div class="au-card-meta">
-            <span>${auFormatDate(p.inicio)} → ${auFormatDate(p.fim)}</span>
+            <span>${auPeriodoTxt(p)}</span>
             <span style="font-weight:600">${p.dias} dia${p.dias!==1?'s':''}</span>
             ${p.area?`<span class="badge b-info">${p.area}</span>`:''}
             ${auBadge(p.estado)}
@@ -17458,6 +17511,7 @@ function auOpenForm(id){
     document.getElementById('au-f-obs').value='';
     document.getElementById('au-f-meio').value='';
     const tr=document.getElementById('au-f-trab');if(tr)tr.value='';
+    const md=document.getElementById('au-f-modo');if(md)md.value='propor';
   }
   auTipoMudou();
   document.getElementById('au-form-ov').classList.add('open');
@@ -17473,18 +17527,28 @@ async function auSaveForm(){
   const meio=document.getElementById('au-f-meio').value;
   const trab=document.getElementById('au-f-trab')?.value||'';
   const comp=tipo==='Compensação';
-  if(!inicio||!fim){showNotif('Preenche as datas de início e fim.','error');return;}
-  if(fim<inicio){showNotif('A data de fim não pode ser anterior ao início.','error');return;}
-  const dias=auCalcDiasUteis(inicio,fim);
-  if(dias<=0){showNotif('O período selecionado não contém dias úteis.','error');return;}
+  const modo=comp?(document.getElementById('au-f-modo')?.value||'propor'):'';
+  const plaf=comp&&modo==='plafond',usar=comp&&modo==='usar';
+  if(!plaf){
+    if(!inicio||!fim){showNotif('Preenche as datas de início e fim.','error');return;}
+    if(fim<inicio){showNotif('A data de fim não pode ser anterior ao início.','error');return;}
+  }
+  const dias=plaf?(meio?0.5:1):auCalcDiasUteis(inicio,fim);
+  if(!plaf&&dias<=0){showNotif('O período selecionado não contém dias úteis.','error');return;}
   const emailUser=auMyEmail();
-  if(comp){ // Fase 50 — compensação: dia trabalhado e justificação obrigatórios
+  if(usar){ // gozar dias do plafond: tem de haver saldo
+    const pf=auPlafondComp(emailUser);
+    const pedidos=(meio&&inicio===fim)?0.5:dias;
+    if(pedidos>pf.disponivel+1e-9){showNotif(`Plafond insuficiente: pedes ${pedidos} dia(s) e tens ${pf.disponivel} de compensação a gozar.`,'error');return;}
+  }
+  if(comp&&!usar){ // Fase 50 — compensação: dia trabalhado e justificação obrigatórios
     if(!trab){showNotif('Indica o dia em que trabalhaste.','error');return;}
     if(!obs){showNotif('Justifica o trabalho nesse dia nas observações.','error');return;}
     if(AU_PEDIDOS.some(p=>p.colEmail===emailUser&&p.tipo==='Compensação'&&p.trabalhada===trab&&!['Recusado','Cancelado'].includes(p.estado))){
       showNotif('Esse dia trabalhado já tem um pedido de compensação.','error');return;
     }
     const dw=new Date(trab+'T12:00:00').getDay();
+    if(plaf&&trab>auHoje()){showNotif('O dia trabalhado ainda não aconteceu.','error');return;}
     if(dw!==0&&dw!==6&&!AU_FERIADOS.includes(trab)&&!confirm('O dia trabalhado é um dia útil normal (não é fim de semana nem feriado). Queres mesmo pedir compensação por esse dia?'))return;
   }
   if(tipo==='Férias'){ // Fase 50 — só dentro do saldo disponível
@@ -17498,20 +17562,23 @@ async function auSaveForm(){
     // Sem 1.º nível e o próprio colaborador é o 2.º nível: ninguém pode aprovar, fica aprovado e registado.
     const fake={colEmail:emailUser};
     const autoAprov=auColabEhN2(fake)&&!auPrecisaN1(fake);
+    const ini2=plaf?trab:inicio,fim2=plaf?trab:fim;
     const body={
       __metadata:{type:await auGetListType(AU_LIST)},
-      Title:`${tipo} - ${inicio} - ${emailUser}`,
+      Title:plaf?`Plafond de compensação - ${trab} - ${emailUser}`:`${tipo} - ${inicio} - ${emailUser}`,
       TipoAusencia:tipo,
-      DataInicio:inicio+'T00:00:00Z',
-      DataFim:fim+'T23:59:59Z',
+      DataInicio:ini2+'T00:00:00Z',
+      DataFim:fim2+'T23:59:59Z',
       DiasUteis:dias,
       MeioDia:meio,
-      Observacoes:comp?`[Dia trabalhado: ${trab}] ${obs}`:obs,
+      Observacoes:comp&&!usar?`[Dia trabalhado: ${trab}] ${obs}`:obs,
       Estado:autoAprov?'Aprovado':'Pendente',
       DataSubmissao:new Date().toISOString()
     };
     if(autoAprov)body.DataAprovN2=new Date().toISOString();
-    if(comp)body.DataTrabalhada=trab+'T00:00:00Z';
+    if(comp&&!usar)body.DataTrabalhada=trab+'T00:00:00Z';
+    if(plaf)body.EstadoMarcacao='Plafond';
+    if(usar)body.EstadoMarcacao='DoPlafond';
     if(tipo==='Férias'&&auCicloAberto(inicio.slice(0,4))&&!autoAprov)body.EstadoMarcacao='Proposta';
     // Colaborador: campo Pessoa do SP (obrigatório para expandir Title/EMail)
     if(uid)body.ColaboradorId=uid;
@@ -17520,7 +17587,9 @@ async function auSaveForm(){
     try{res=await spWrite(url,body,'POST');}
     catch(e){
       // coluna DataTrabalhada ainda não criada no SharePoint: grava na mesma (o dia fica nas observações)
-      if(/DataTrabalhada|EstadoMarcacao/i.test(e.message||'')){delete body.DataTrabalhada;delete body.EstadoMarcacao;res=await spWrite(url,body,'POST');}
+      if(/DataTrabalhada|EstadoMarcacao/i.test(e.message||'')){
+        if(plaf||usar)throw new Error('o SharePoint ainda não tem as opções do plafond (Gestão / RH → Preparar o SharePoint). '+e.message);
+        delete body.DataTrabalhada;delete body.EstadoMarcacao;res=await spWrite(url,body,'POST');}
       else throw e;
     }
     const d=await res.json().catch(()=>({}));
@@ -17529,7 +17598,7 @@ async function auSaveForm(){
     if(newId&&fileInput?.files?.length){
       try{await uploadAttachment(AU_LIST,newId,fileInput.files[0]);}catch(e){console.warn('Attach error',e);showNotif('Pedido guardado, mas o anexo não foi enviado.','error');}
     }
-    showNotif(autoAprov?`Pedido de ${tipo.toLowerCase()} registado e aprovado (não há outro aprovador acima de ti).`:`Pedido de ${tipo.toLowerCase()} submetido (${dias} dia${dias!==1?'s':''}).`,'success');
+    showNotif(plaf?(autoAprov?'Dia guardado no plafond de compensação.':'Pedido submetido: depois de aprovado, o dia fica guardado no teu plafond de compensação.'):autoAprov?`Pedido de ${tipo.toLowerCase()} registado e aprovado (não há outro aprovador acima de ti).`:`Pedido de ${tipo.toLowerCase()} submetido (${dias} dia${dias!==1?'s':''}).`,'success');
     auCloseForm();
     await auLoadAll();
     auRenderDashboard();
@@ -17588,7 +17657,7 @@ function auFeriadoDe(data,email){
 function auEhNaoUtil(data,email){const w=auDow(data);return w===0||w===6||!!auFeriadoDe(data,email);}
 // Pedidos de um colaborador que cobrem um dia (ignora Recusado/Cancelado)
 function auPedidoNoDia(email,data,soAtivos=true){
-  return AU_PEDIDOS.find(p=>p.colEmail===email&&p.inicio<=data&&p.fim>=data&&(!soAtivos||!['Recusado','Cancelado'].includes(p.estado)))||null;
+  return AU_PEDIDOS.find(p=>p.colEmail===email&&!auEhCredito(p)&&p.inicio<=data&&p.fim>=data&&(!soAtivos||!['Recusado','Cancelado'].includes(p.estado)))||null;
 }
 function auEstadoFinal(p){return ['Aprovado N1','Aprovado'].includes(p.estado);}
 
@@ -17617,8 +17686,8 @@ const AU_ESQUEMA = [
     escolhas:{Estado:['Validado N1']} },
   { lista:'FJ_Ausencias', existente:true, campos:[
     {n:'DataTrabalhada',t:'Date'},
-    {n:'EstadoMarcacao',t:'Choice',c:['Proposta','Final']}],
-    escolhas:{TipoAusencia:['Compensação']} },
+    {n:'EstadoMarcacao',t:'Choice',c:['Proposta','Final','Plafond','DoPlafond']}],
+    escolhas:{TipoAusencia:['Compensação'],EstadoMarcacao:['Plafond','DoPlafond']} },
   { lista:'FJ_Feriados', existente:true, campos:[{n:'Ambito',t:'Choice',c:['Nacional','Porto','Lisboa']}] },
   { lista:'FJ_SaldoFerias', existente:true, campos:[{n:'DataLimiteTransitados',t:'Date'}] }
 ];
@@ -17762,7 +17831,7 @@ function auCelulaDia(email,data){
 // dias (úteis) por mês de um colaborador num ano, por categoria
 function auContaAno(email,ano){
   const r={ferias:Array(12).fill(0),comp:Array(12).fill(0),pend:Array(12).fill(0),outras:Array(12).fill(0)};
-  AU_PEDIDOS.filter(p=>p.colEmail===email&&!['Recusado','Cancelado'].includes(p.estado)&&p.inicio<=`${ano}-12-31`&&p.fim>=`${ano}-01-01`).forEach(p=>{
+  AU_PEDIDOS.filter(p=>p.colEmail===email&&!auEhCredito(p)&&!['Recusado','Cancelado'].includes(p.estado)&&p.inicio<=`${ano}-12-31`&&p.fim>=`${ano}-01-01`).forEach(p=>{
     for(const d of auDiasEntre(p.inicio<`${ano}-01-01`?`${ano}-01-01`:p.inicio,p.fim>`${ano}-12-31`?`${ano}-12-31`:p.fim)){
       if(auEhNaoUtil(d,email))continue;
       const m=+d.slice(5,7)-1;const v=(p.meioDia&&p.inicio===p.fim)?0.5:1;
