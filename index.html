@@ -14770,6 +14770,7 @@ function gfRenderSolicitacoes() {
         ${gfCanProcessar() ? '<button class="btn" style="background:#10B981;color:#fff;border-color:#10B981" onclick="gfOpenProcessadoModal()">+ Processado</button>' : ''}
         ${gfCanProcessar() ? '<button class="btn" style="background:#6366F1;color:#fff;border-color:#6366F1" onclick="gfOpenPagoModal()">+ Pago</button>' : ''}
         ${gfCanProcessar() ? '<button class="btn" style="background:#F97316;color:#fff;border-color:#F97316" onclick="gfOpenRecebidoModal()">+ Recebido</button>' : ''}
+        ${gfCanProcessar() ? '<button id="gf-btn-caixa" class="btn" style="background:#0E7490;color:#fff;border-color:#0E7490" onclick="gfOpenCaixaModal()" title="Regista uma despesa paga em dinheiro/caixa: cria uma linha em Pendentes já paga, para repartir pelos projetos">+ Despesa de caixa</button>' : ''}
       </div>
     </div>
 
@@ -21029,6 +21030,108 @@ function gfOpenPagoModal() {
   document.getElementById('gf-pago-modal').style.display = 'flex';
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// DESPESA DE CAIXA (Fase 62) — despesa já paga em dinheiro/caixa. Cria um movimento em
+// FJ_MovimentosBancarios (a lista dos Pendentes), com o PDF/fatura em anexo, para a equipa das
+// finanças a repartir depois pelos projetos/rúbricas ("Repartir"), como qualquer movimento do banco.
+// ══════════════════════════════════════════════════════════════
+let _caixaSelectedFiles = [];
+let _caixaGuardar = false;
+function gfEhMovCaixa(m) { return /^CAIXA\|/.test((m && m.chaveUnica) || ''); }
+
+function gfOpenCaixaModal() {
+  if (!gfCanProcessar()) { showNotif('Sem permissão para registar despesas de caixa.', 'error'); return; }
+  _caixaSelectedFiles = [];
+  gfRenderCaixaFileList();
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
+  set('gf-caixa-titulo', ''); set('gf-caixa-valor', ''); set('gf-caixa-obs', '');
+  set('gf-caixa-data', new Date().toISOString().slice(0, 10));
+  document.getElementById('gf-caixa-modal').style.display = 'flex';
+}
+function gfCloseCaixaModal() {
+  document.getElementById('gf-caixa-modal').style.display = 'none';
+  _caixaSelectedFiles = [];
+}
+function gfCaixaAddFiles(input) {
+  for (const f of input.files) if (!_caixaSelectedFiles.find(x => x.name === f.name && x.size === f.size)) _caixaSelectedFiles.push(f);
+  input.value = '';
+  gfRenderCaixaFileList();
+}
+function gfCaixaRemoveFile(i) { _caixaSelectedFiles.splice(i, 1); gfRenderCaixaFileList(); }
+function gfRenderCaixaFileList() {
+  const wrap = document.getElementById('gf-caixa-file-list');
+  if (!wrap) return;
+  if (!_caixaSelectedFiles.length) { wrap.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">Nenhum ficheiro selecionado</div>'; return; }
+  wrap.innerHTML = _caixaSelectedFiles.map((f, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg);border:0.5px solid var(--border);border-radius:6px;margin-bottom:4px">
+      <span>📄</span><span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${String(f.name).replace(/</g, '&lt;')}</span>
+      <span style="font-size:11px;color:var(--text3)">${Math.max(1, Math.round(f.size / 1024))} KB</span>
+      <button onclick="gfCaixaRemoveFile(${i})" style="background:none;border:none;cursor:pointer;color:#A32D2D;font-size:16px;line-height:1">×</button>
+    </div>`).join('');
+}
+
+async function gfSubmitCaixa() {
+  if (_caixaGuardar) return;
+  const titulo = (document.getElementById('gf-caixa-titulo')?.value || '').trim();
+  const data = document.getElementById('gf-caixa-data')?.value || '';
+  const valor = Math.round((parseFloat(document.getElementById('gf-caixa-valor')?.value) || 0) * 100) / 100;
+  const obs = (document.getElementById('gf-caixa-obs')?.value || '').trim();
+  if (!titulo) { showNotif('Indica o título da despesa', 'error'); return; }
+  if (!data) { showNotif('Indica a data do pagamento', 'error'); return; }
+  if (!(valor > 0)) { showNotif('Indica um valor maior que zero', 'error'); return; }
+  if (!_caixaSelectedFiles.length) { showNotif('Anexa o PDF da fatura ou do recibo', 'error'); return; }
+  const btn = document.getElementById('gf-caixa-submit-btn');
+  _caixaGuardar = true; btn.disabled = true; btn.textContent = 'A guardar...';
+  let novoId = null;
+  try {
+    const quem = (user && (user.name || user.username)) || '';
+    const chave = 'CAIXA|' + Date.now() + '|' + Math.random().toString(36).slice(2, 8);
+    const dataIso = data + 'T12:00:00Z';
+    const obsTxt = ('Despesa de caixa' + (obs ? ' · ' + obs : '') + (quem ? ' · registada por ' + quem : '')).slice(0, 500);
+    const body = {
+      __metadata: { type: 'SP.Data.FJ_x005f_MovimentosBancariosListItem' },
+      Title: titulo, Descricao: titulo, Observacao: obsTxt,
+      DataMovimento: dataIso, DataValor: dataIso,
+      RecPag: 'Caixa', Importancia: -valor, CentroCusto: 'Caixa',
+      ChaveUnica: chave, Estado: 'Pendente'
+    };
+    const r = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosBancarios')/items`, body, 'POST');
+    const j = await r.json();
+    novoId = j?.d?.Id;
+    if (!novoId) throw new Error('O SharePoint não devolveu o id da linha criada');
+    try {
+      for (const f of _caixaSelectedFiles) await uploadAttachment('FJ_MovimentosBancarios', novoId, new File([f], 'CX_' + f.name, { type: f.type }));
+    } catch (eUp) {
+      // sem anexo a linha não serve: remove-a para não ficar uma despesa sem comprovativo
+      try { await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosBancarios')/items(${novoId})`, null, 'DELETE'); } catch (e2) { }
+      throw new Error('Não foi possível anexar o ficheiro (' + eUp.message + '). A despesa não foi criada.');
+    }
+    GF_MOV_PENDENTES.push({
+      id: novoId, dataMovimento: dataIso, dataValor: dataIso, descricao: titulo, observacao: obsTxt, recPag: 'Caixa',
+      importancia: -valor, saldoContabilistico: 0, centroCusto: 'Caixa', chaveUnica: chave, estado: 'Pendente', dataAfetacao: null
+    });
+    gfCloseCaixaModal();
+    showNotif('Despesa de caixa criada em Pendentes, já paga e com o anexo ✓', 'success');
+    GF.tab.sol = 'pendentes';
+    gfRender();
+  } catch (e) {
+    showNotif('Erro: ' + e.message, 'error');
+  } finally {
+    _caixaGuardar = false; btn.disabled = false; btn.textContent = 'Criar linha em Pendentes';
+  }
+}
+
+// ligação ao anexo (PDF) de uma despesa de caixa, lida só quando se clica
+async function gfCaixaVerAnexo(movId) {
+  try {
+    const d = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosBancarios')/items(${movId})/AttachmentFiles`);
+    const fs = d.d?.results || [];
+    if (!fs.length) { showNotif('Esta despesa não tem anexos.', 'error'); return; }
+    fs.forEach(a => window.open(location.origin + a.ServerRelativeUrl, '_blank'));
+  } catch (e) { showNotif('Erro ao abrir o anexo: ' + e.message, 'error'); }
+}
+
 function gfClosePagoModal() {
   document.getElementById('gf-pago-modal').style.display = 'none';
   _pagoSelectedFiles = [];
@@ -22484,7 +22587,7 @@ function gfPendRowHtml(m) {
         <input type="checkbox" id="gf-pend-chk-${m.id}" ${o.checked ? 'checked' : ''} ${!o.rubricaId ? 'disabled' : ''} onchange="gfPendCheckChange(${m.id})">
       </td>
       <td style="padding:8px;text-align:center;white-space:nowrap">${gfDate(m.dataMovimento)}</td>
-      <td style="padding:8px;min-width:260px;white-space:normal;word-break:break-word">${gfMovNome(m)}</td>
+      <td style="padding:8px;min-width:260px;white-space:normal;word-break:break-word">${gfEhMovCaixa(m) ? `<span style="display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;background:#CFFAFE;color:#0E7490;margin-right:6px">💵 CAIXA · já paga</span>` : ''}${gfMovNome(m)}${gfEhMovCaixa(m) ? ` <a onclick="gfCaixaVerAnexo(${m.id})" title="Abrir o PDF anexado" style="cursor:pointer;color:var(--mod-financeiro);font-size:12px;text-decoration:underline;white-space:nowrap">📎 anexo</a>` : ''}</td>
       <td style="padding:8px;text-align:center">
         <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:${tipo === 'Receita' ? '#FFF7ED' : '#EFF6FF'};color:${tipo === 'Receita' ? '#F97316' : '#2563EB'}">${tipo}</span>
       </td>
@@ -23432,6 +23535,52 @@ init();
     <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
       <button class="btn" onclick="gfClosePagoModal()">Cancelar</button>
       <button id="gf-pago-submit-btn" class="btn" style="background:#6366F1;color:#fff;border-color:#6366F1" onclick="gfSubmitPago()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL + DESPESA DE CAIXA ════════════════════════════════ -->
+<div id="gf-caixa-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);margin:1rem">
+    <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:16px;font-weight:600">💵 Despesa de caixa</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">Despesa já paga por caixa. Cria uma linha em Pendentes para a repartir depois pelos projetos.</div>
+      </div>
+      <button onclick="gfCloseCaixaModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">×</button>
+    </div>
+    <div style="padding:20px 24px">
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Título *</label>
+        <input type="text" id="gf-caixa-titulo" maxlength="200" placeholder="Ex.: Material de escritório, deslocação, refeição" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;color:var(--text)">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">📅 Data do pagamento *</label>
+          <input type="date" id="gf-caixa-data" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;color:var(--text)">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Valor (€) *</label>
+          <input type="number" id="gf-caixa-valor" min="0" step="0.01" placeholder="0,00" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;color:var(--text);text-align:right">
+        </div>
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Observações (opcional)</label>
+        <input type="text" id="gf-caixa-obs" maxlength="250" placeholder="Fornecedor, motivo, projeto provável..." style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;color:var(--text)">
+      </div>
+      <div style="margin-bottom:4px">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Anexo (fatura / recibo em PDF) *</label>
+        <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px dashed var(--border2);border-radius:8px;cursor:pointer;font-size:13px;color:var(--text2)">
+          <span style="font-size:18px">📎</span>
+          <span>Clica para adicionar o PDF</span>
+          <input type="file" id="gf-caixa-file" multiple accept=".pdf,application/pdf,image/*" style="display:none" onchange="gfCaixaAddFiles(this)">
+        </label>
+        <div id="gf-caixa-file-list" style="margin-top:8px"><div style="color:var(--text3);font-size:12px;padding:8px 0">Nenhum ficheiro selecionado</div></div>
+      </div>
+    </div>
+    <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px">
+      <button class="btn" onclick="gfCloseCaixaModal()">Cancelar</button>
+      <button id="gf-caixa-submit-btn" class="btn" style="background:#0E7490;color:#fff;border-color:#0E7490" onclick="gfSubmitCaixa()">Criar linha em Pendentes</button>
     </div>
   </div>
 </div>
