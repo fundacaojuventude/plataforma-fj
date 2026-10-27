@@ -106,7 +106,6 @@ select.flt{padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(
 table{width:100%;border-collapse:collapse;table-layout:fixed}
 thead{background:var(--bg3)}
 th{padding:9px 11px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;border-bottom:0.5px solid var(--border);white-space:nowrap;overflow:hidden}
-td.acoes-cell{overflow:visible!important;text-overflow:clip!important;white-space:nowrap!important}
 td{padding:9px 11px;border-bottom:0.5px solid var(--border);vertical-align:middle;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--bg3)}
@@ -1852,7 +1851,7 @@ th.au-mp-n{background:var(--bg3)}
         <div class="stats" id="stats-sem" style="margin-bottom:1rem"></div>
         <div class="table-wrap">
           <table>
-            <colgroup><col style="width:36px"><col style="width:24%"><col style="width:12%"><col style="width:10%"><col style="width:8%"><col style="width:9%"><col style="width:12%"><col style="width:20%"></colgroup>
+            <colgroup><col style="width:36px"><col style="width:26%"><col style="width:13%"><col style="width:11%"><col style="width:9%"><col style="width:10%"><col style="width:17%"><col style="width:11%"></colgroup>
             <thead><tr><th></th><th>Tarefa</th><th>Responsável</th><th>Data limite</th><th>Prioridade</th><th>Estado</th><th>Notas</th><th>Ações</th></tr></thead>
             <tbody id="tbody-sem"></tbody>
           </table>
@@ -7076,7 +7075,7 @@ function renderHier(){
                 <td style="font-size:11px;padding:6px 4px">${t.dataInicio?`${fd(t.dataInicio)} → `:''}${fd(t.dataLimite)}</td>
                 <td style="padding:6px 4px">${estB(t.prioridade)}</td>
                 <td style="padding:6px 4px">${estB(t.estado)}</td>
-                <td class="acoes-cell" style="padding:6px 4px"><button class="btn btn-sm" onclick="openTarView('${t.id}')" title="Ver tarefa" style="font-size:13px;padding:3px 8px">👁</button>${(isDir||plTarefaEhMinha(t))?`<button class="btn btn-sm" onclick="openTarFormEdit('${t.id}')" title="Editar tarefa" style="margin-left:3px;font-size:13px;padding:3px 8px">✎</button><button class="btn btn-sm btn-danger" onclick="delPlTarefa('${t.id}')" style="margin-left:3px;font-size:13px;padding:3px 8px">✕</button>`:''}</td>
+                <td style="padding:6px 4px"><button class="btn btn-sm" onclick="openTarView('${t.id}')" title="Ver tarefa" style="font-size:13px;padding:3px 8px">👁</button>${(isDir||plTarefaEhMinha(t))?`<button class="btn btn-sm" onclick="openTarFormEdit('${t.id}')" title="Editar tarefa" style="margin-left:3px;font-size:13px;padding:3px 8px">✎</button><button class="btn btn-sm btn-danger" onclick="delPlTarefa('${t.id}')" style="margin-left:3px;font-size:13px;padding:3px 8px">✕</button>`:''}</td>
               </tr>`).join('')}
             </table>`:'<div style="font-size:12px;color:var(--tx3);margin-bottom:8px">Sem plTarefas nesta ação.</div>'}
             ${(isDir&&kps.length)?`<div style="margin-top:4px;background:#F5F3FF;border-left:4px solid #7C3AED;border-radius:0 6px 6px 0;padding:10px 14px">
@@ -7266,7 +7265,7 @@ function toggleHierAcao(acaoId){
           <td style="font-size:11px;padding:6px 4px">${t.dataInicio?`${fd(t.dataInicio)} → `:''}${fd(t.dataLimite)}</td>
           <td style="padding:6px 4px">${estB(t.prioridade)}</td>
           <td style="padding:6px 4px">${estB(t.estado)}</td>
-          <td class="acoes-cell" style="padding:6px 4px"><button class="btn btn-sm" onclick="openTarView('${t.id}')" title="Ver tarefa" style="font-size:13px;padding:3px 8px">👁</button>${(plCanSeeAll()||plTarefaEhMinha(t))?`<button class="btn btn-sm" onclick="openTarFormEdit('${t.id}')" title="Editar tarefa" style="margin-left:3px;font-size:13px;padding:3px 8px">✎</button><button class="btn btn-sm btn-danger" onclick="delPlTarefa('${t.id}')" style="margin-left:3px;font-size:13px;padding:3px 8px">✕</button>`:''}</td>
+          <td style="padding:6px 4px"><button class="btn btn-sm" onclick="openTarView('${t.id}')" title="Ver tarefa" style="font-size:13px;padding:3px 8px">👁</button>${(plCanSeeAll()||plTarefaEhMinha(t))?`<button class="btn btn-sm" onclick="openTarFormEdit('${t.id}')" title="Editar tarefa" style="margin-left:3px;font-size:13px;padding:3px 8px">✎</button><button class="btn btn-sm btn-danger" onclick="delPlTarefa('${t.id}')" style="margin-left:3px;font-size:13px;padding:3px 8px">✕</button>`:''}</td>
         </tr>`).join('')}
       </table>`:'<div style="font-size:12px;color:var(--tx3);margin-bottom:8px">Sem plTarefas nesta ação.</div>'}
       ${(plCanSeeAll()&&kps.length)?`<div style="margin-top:4px;background:#F5F3FF;border-left:4px solid #7C3AED;border-radius:0 6px 6px 0;padding:10px 14px">
@@ -8059,7 +8058,7 @@ function _semTarefaRow(t,hoje,isDir){
     <td style="padding:7px 4px">${estB(t.prioridade)}</td>
     <td style="padding:7px 4px">${estB(t.estado)}</td>
     <td style="padding:7px 4px">${notasHtml}</td>
-    <td class="acoes-cell" style="padding:7px 4px"><button class="btn btn-sm" onclick="openTarView('${t.id}')" title="Ver tarefa">👁 Ver</button>${canEdit?`<button class="btn btn-sm" onclick="openTarFormEdit('${t.id}')" style="margin-left:3px">Editar</button><button class="btn btn-sm btn-danger" onclick="delPlTarefa('${t.id}')" style="margin-left:3px">✕</button>`:''}</td>
+    <td style="padding:7px 4px"><button class="btn btn-sm" onclick="openTarView('${t.id}')" title="Ver tarefa">👁 Ver</button>${canEdit?`<button class="btn btn-sm" onclick="openTarFormEdit('${t.id}')" style="margin-left:3px">Editar</button><button class="btn btn-sm btn-danger" onclick="delPlTarefa('${t.id}')" style="margin-left:3px">✕</button>`:''}</td>
   </tr>`;
 }
 
@@ -9593,7 +9592,7 @@ const GF_CARREGADORES = {
     // Calendário de Parcelas de Tesouraria (Fase 2)
     try {
       const dtp = await spReadSelecionado(
-        `${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items?$select=Id,Title,RubricaIdId,RubricaId/Id,RubricaId/Title,SolicitacaoIdId,SolicitacaoId/Id,SolicitacaoId/Title,TipoParcelaTipo,ValorPrevisto,DataPrevista,ValorConfirmado,DataConfirmada,ValorEfetivo,DataEfetiva,EstadoParcela,OrigemParcela,FormaPagamento,ParcelaPai,NumAdiamentos,JustificacaoDesvio,NotasParcela&$expand=RubricaId,SolicitacaoId&$top=3000`,
+        `${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items?$select=Id,Title,RubricaIdId,RubricaId/Id,RubricaId/Title,SolicitacaoIdId,SolicitacaoId/Id,SolicitacaoId/Title,TipoParcelaTipo,ValorPrevisto,DataPrevista,ValorConfirmado,DataConfirmada,ValorEfetivo,DataEfetiva,EstadoParcela,OrigemParcela,FormaPagamento,ParcelaPai,NumAdiamentos,JustificacaoDesvio,NotasParcela,SemPrevisao&$expand=RubricaId,SolicitacaoId&$top=3000`,
         `${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items?$select=*,RubricaId/Id,RubricaId/Title,SolicitacaoId/Id,SolicitacaoId/Title&$expand=RubricaId,SolicitacaoId&$top=3000`,
         spReadAll);
       GF_TESOURARIA_PARCELAS = (dtp.d?.results || []).map(r => ({
@@ -9616,7 +9615,8 @@ const GF_CARREGADORES = {
         parcelaPai: r.ParcelaPai || null,
         numAdiamentos: r.NumAdiamentos || 0,
         justificacaoDesvio: r.JustificacaoDesvio || '',
-        notas: r.NotasParcela || ''
+        notas: r.NotasParcela || '',
+        semPrevisao: r.SemPrevisao === true // Fase 64 — marcada "sem previsão": não conta nas Previsões
       }));
     } catch (e) {
       console.warn('Lista FJ_Tesouraria_Parcelas indisponível:', e.message);
@@ -9915,7 +9915,10 @@ function gfPrevisaoSolicitacao(sol) {
   const previstas = gfParcelasDaSolicitacao(sol.id).filter(p => !GF_PARCELAS_REALIZADAS.includes(p.estado));
   const soma = Math.round(previstas.reduce((a, p) => a + (p.valorPrevisto || 0), 0) * 100) / 100;
   const dif = Math.round((porPagar - soma) * 100) / 100; // >0 faltam planear; <0 excesso
-  return { valor, pago, porPagar, nPrevistas: previstas.length, soma, dif, previstas, semPrevisao: previstas.length === 0 };
+  const semData = previstas.filter(p => p.semPrevisao || !p.dataPrevista); // Fase 64
+  return { valor, pago, porPagar, nPrevistas: previstas.length, soma, dif, previstas, semPrevisao: previstas.length === 0,
+           nSemData: semData.length, valorSemData: Math.round(semData.reduce((a, p) => a + (p.valorPrevisto || 0), 0) * 100) / 100,
+           todasSemData: previstas.length > 0 && semData.length === previstas.length };
 }
 
 // Estados de solicitação que já contam como "aprovada" / "processada" (por ordem do fluxo)
@@ -10322,8 +10325,12 @@ function gfRenderTesourariaDivida(tipo = 'Despesa') {
   const totalSemPrevisao = semPrevisao.reduce((a, s) => a + prev.get(s.id).porPagar, 0);
   const semPrazo = dividas.filter(s => !s.dataLimitePagamento).length;
   const hoje = new Date(); hoje.setHours(0,0,0,0);
+  // Fase 64 — parcelas marcadas "sem previsão" (ou sem data) também contam como sem previsão
+  const comParcSem = dividas.filter(s => prev.get(s.id).nSemData > 0);
+  const nParcSem = comParcSem.reduce((a, s) => a + prev.get(s.id).nSemData, 0);
+  const totalParcSem = comParcSem.reduce((a, s) => a + prev.get(s.id).valorSemData, 0);
   const vencidas = dividas.filter(s => {
-    if (!s.dataLimitePagamento) return false;
+    if (!s.dataLimitePagamento || prev.get(s.id).todasSemData) return false;
     return new Date(s.dataLimitePagamento) < hoje;
   }).length;
 
@@ -10339,10 +10346,13 @@ function gfRenderTesourariaDivida(tipo = 'Despesa') {
 
   const rowHtml = s => {
     const prazo = s.dataLimitePagamento;
-    const prazoDate = prazo ? new Date(prazo) : null;
+    const semDataTodas = prev.get(s.id).todasSemData; // Fase 64 — todas as parcelas por pagar estão sem previsão
+    const prazoDate = prazo && !semDataTodas ? new Date(prazo) : null;
     const vencida = prazoDate && prazoDate < hoje;
     const proxima = prazoDate && !vencida && (prazoDate - hoje) < 7 * 24 * 60 * 60 * 1000;
-    const prazoBadge = !prazo
+    const prazoBadge = semDataTodas
+      ? `<span title="Todas as parcelas por ${REC ? 'receber' : 'pagar'} estão sem previsão: o prazo não conta" style="background:#FAEEDA;color:#633806;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500">⏸ Sem previsão</span>`
+      : !prazo
       ? `<span style="background:#F1EFE8;color:#5F5E5A;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500">Sem prazo</span>`
       : vencida
       ? `<span style="background:#FCEBEB;color:#A32D2D;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500">⚠️ Vencida</span>`
@@ -10352,6 +10362,8 @@ function gfRenderTesourariaDivida(tipo = 'Despesa') {
     const pv = prev.get(s.id);
     const planoBadge = pv.semPrevisao
       ? `<span title="Ainda não há parcelas nem previsão ${REC ? 'de recebimento' : 'de pagamento'}" style="background:#FAEEDA;color:#633806;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap">Sem previsão ${REC ? 'de recebimento' : 'de pagamento'}</span>`
+      : pv.nSemData > 0
+      ? `<span title="${pv.nSemData} parcela(s) (${gfFmt(pv.valorSemData)}) sem previsão: não contam nas Previsões" style="background:#FAEEDA;color:#633806;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap">⏸ ${pv.nSemData} parcela(s) sem previsão</span>`
       : (Math.abs(pv.dif) > 0.005 && !s.recorrente)
       ? `<span title="As parcelas por pagar somam ${gfFmt(pv.soma)} e faltam pagar ${gfFmt(pv.porPagar)}" style="background:#FCEBEB;color:#A32D2D;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap">Parcelas ${pv.dif > 0 ? 'abaixo' : 'acima'} em ${gfFmt(Math.abs(pv.dif))}</span>`
       : `<span style="background:#EAF3DE;color:#27500A;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap">${pv.nPrevistas} parcela(s) ✓</span>`;
@@ -10427,10 +10439,10 @@ function gfRenderTesourariaDivida(tipo = 'Despesa') {
         <div style="font-size:22px;font-weight:700;color:#1E40AF">${gfFmt(total)}</div>
         <div style="font-size:12px;color:var(--text3);margin-top:4px">${dividas.length} solicitação(ões)${totalPago > 0.005 ? ' · ' + (REC ? 'já recebido' : 'já pago') + ' ' + gfFmt(totalPago) : ''}</div>
       </div>
-      <div class="card" style="padding:16px;${semPrevisao.length ? 'border-color:#F2C27A;background:#FFFBF2' : ''}">
+      <div class="card" style="padding:16px;${(semPrevisao.length || nParcSem) ? 'border-color:#F2C27A;background:#FFFBF2' : ''}">
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Sem previsão de ${REC ? 'recebimento' : 'pagamento'}</div>
-        <div style="font-size:22px;font-weight:700;color:${semPrevisao.length ? '#633806' : 'var(--text)'}">${gfFmt(totalSemPrevisao)}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:4px">${semPrevisao.length} solicitação(ões) sem parcelas</div>
+        <div style="font-size:22px;font-weight:700;color:${(semPrevisao.length || nParcSem) ? '#633806' : 'var(--text)'}">${gfFmt(totalSemPrevisao + totalParcSem)}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">${semPrevisao.length} solicitação(ões) sem parcelas${nParcSem ? ` · ${nParcSem} parcela(s) marcada(s) sem previsão` : ''}</div>
       </div>
       <div class="card" style="padding:16px;${vencidas > 0 ? 'border-color:#FCA5A5;background:#FFF8F8' : ''}">
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">${REC ? 'Recebimentos vencidos' : 'Prazos vencidos'}</div>
@@ -11447,7 +11459,7 @@ function _gfOpCardSemPlanoHtml(s, receita) {
           <a onclick="gfOpenSolicitacaoViewModal(${s.id})" title="Ver solicitação" style="font-size:11px;cursor:pointer;color:var(--text3)">👁️</a>
         </span>
       </div>
-      <div style="font-size:9px;color:var(--text3);margin-top:3px">Sem plano de pagamento (conta na data limite)</div>
+      <div style="font-size:9px;color:var(--text3);margin-top:3px">${s.dataLimitePagamento ? 'Sem plano de pagamento (conta na data limite)' : 'Sem plano nem data limite (não conta nas Previsões)'}</div>
     </div>`;
 }
 function _gfOpExtrasHtml(extras) {
@@ -11556,7 +11568,7 @@ function _gfOpCardHtml(p) {
           style="border:1px solid var(--border);border-radius:4px;padding:2px 3px;font-size:9px;background:#fff;flex:1;min-width:0">
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
-        <span style="font-size:9px;color:var(--text3)">${p.estado}</span>
+        <span style="font-size:9px;color:var(--text3)">${p.estado}${p.estado === 'Prevista' ? ` · <label title="Ainda sem previsão de ${isReceb ? 'recebimento' : 'pagamento'}: não conta nas Previsões" style="cursor:pointer"><input type="checkbox" ${p.semPrevisao ? 'checked' : ''} onchange="gfSetParcelaSemPrevisao(${p.id},this.checked)" style="vertical-align:middle;margin:0 2px 0 0">sem previsão</label>` : ''}</span>
         <div style="display:flex;gap:6px;align-items:center">
           ${adiada ? `<span title="${(p.justificacaoDesvio || '').replace(/"/g, '&quot;')}" style="font-size:10px;cursor:help">⏰${p.numAdiamentos}</span>` : ''}
           ${p.solicitacaoId ? `<a onclick="gfOpenSolicitacaoViewModal(${p.solicitacaoId})" title="Ver solicitação" style="font-size:11px;cursor:pointer;color:var(--text3);text-decoration:none">👁️</a>` : ''}
@@ -11638,6 +11650,25 @@ function gfRenderTesourariaOperacional() {
     `;
   }).join('');
 
+  // Fase 64 — coluna "Sem previsão": parcelas marcadas/sem data + solicitações sem plano nem data limite.
+  const colunaSemPrev = (() => {
+    const verD = _gfOpFiltroTipo !== 'Recebimento', verR = _gfOpFiltroTipo !== 'Pagamento';
+    const parcs = GF_TESOURARIA_PARCELAS.filter(p => gfParcelaSemPrev(p) && (p.tipo === 'Recebimento' ? verR : verD) && _gfOpPassaFiltrosItem(p, p.rubricaId, null));
+    const solsD = !verD ? [] : fontesPrev.semPrevisaoDesp.filter(x => x._origemSem === 'solicitacao' && _gfOpPassaFiltrosItem(x, x.rubricaId, null));
+    const solsR = !verR ? [] : fontesPrev.semPrevisaoRec.filter(x => x._origemSem === 'solicitacao' && _gfOpPassaFiltrosItem(x, x.rubricaId, null));
+    const tot = parcs.reduce((a, p) => a + (p.tipo === 'Recebimento' ? 1 : -1) * (p.valorPrevisto || 0), 0) + solsR.reduce((a, x) => a + x.valor, 0) - solsD.reduce((a, x) => a + x.valor, 0);
+    const n = parcs.length + solsD.length + solsR.length;
+    return `
+      <div id="gf-op-sem-previsao" class="gf-op-coluna" ondragover="gfOpDragOver(event)" ondrop="gfOpDropSemPrevisao(event)"
+           style="min-width:190px;max-width:190px;background:#FFFBF2;border:1px dashed #D1A24B;border-radius:10px;padding:10px;display:flex;flex-direction:column">
+        <div style="font-size:12px;font-weight:700;margin-bottom:2px;color:#633806">⏸ Sem previsão</div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:8px">${n} item(ns) · não contam nas Previsões</div>
+        <div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #E8D5A8;font-size:11px;font-weight:600;color:${tot < 0 ? '#A32D2D' : '#059669'}">${tot >= 0 ? '+' : ''}${gfFmt(tot)}</div>
+        <div style="flex:1;min-height:40px">${n ? _gfOpCardsHtml(parcs) + solsD.map(x => _gfOpCardSemPlanoHtml(x, false)).join('') + solsR.map(x => _gfOpCardSemPlanoHtml(x, true)).join('') : '<div style="font-size:10px;color:var(--text3);text-align:center;padding:12px 0">Arrasta para aqui o que ainda não tem data</div>'}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px">Arrasta para uma semana para lhe dar data.</div>
+      </div>`;
+  })();
+
   // Fase 22 — filtros de Projeto/Rúbricas e alternância 10 Semanas / Anual.
   const projetosOrdenados = [...GF_PROJETOS].sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt'));
   const rubricasDisponiveis = GF_RUBRICAS_MASTER
@@ -11689,7 +11720,7 @@ function gfRenderTesourariaOperacional() {
       </div>
     </div>
     <div style="overflow-x:auto;padding-bottom:8px">
-      <div style="display:flex;gap:10px">${colunaAtraso}${colunas}</div>
+      <div style="display:flex;gap:10px">${colunaAtraso}${colunas}${colunaSemPrev}</div>
     </div>
   `;
 }
@@ -11721,10 +11752,11 @@ function gfOpDrop(ev, semanaIdx) {
 // NumAdiamentos e pede (opcionalmente) um motivo, registado em JustificacaoDesvio.
 async function gfOpMoverParcela(parcelaId, semanaIdx) {
   const p = GF_TESOURARIA_PARCELAS.find(x => x.id === parcelaId);
-  if (!p || !p.dataPrevista) return;
+  if (!p) return;
   const semanas = _gfOpGerarSemanas();
   const alvo = semanas[semanaIdx];
   if (!alvo) return;
+  if (!p.dataPrevista) { await _gfOpAplicarNovaData(p, new Date(alvo.ini)); return; } // Fase 64 — sem previsão → ganha data nesta semana/mês
 
   const dataAtual = new Date(p.dataPrevista);
   if (dataAtual >= alvo.ini && dataAtual <= alvo.fim) return; // já está neste período
@@ -11742,6 +11774,15 @@ async function gfOpMoverParcela(parcelaId, semanaIdx) {
   await _gfOpAplicarNovaData(p, novaData);
 }
 
+function gfOpDropSemPrevisao(ev) {
+  ev.preventDefault();
+  const id = _gfOpDragParcelaId || parseInt(ev.dataTransfer.getData('text/plain'));
+  _gfOpDragParcelaId = null;
+  const p = GF_TESOURARIA_PARCELAS.find(x => x.id === id);
+  if (!p || p.semPrevisao) return;
+  gfSetParcelaSemPrevisao(id, true);
+}
+
 function gfOpEditarData(parcelaId, novaDataStr) {
   if (!novaDataStr) return;
   const p = GF_TESOURARIA_PARCELAS.find(x => x.id === parcelaId);
@@ -11754,6 +11795,7 @@ async function _gfOpAplicarNovaData(p, novaData) {
   const isAdiamento = dataAntiga && novaData > dataAntiga;
   try {
     const body = { __metadata: { type: await _gfGetTesourariaParcelasType() }, DataPrevista: novaData.toISOString() };
+    if (p.semPrevisao) body.SemPrevisao = false; // Fase 64
     if (isAdiamento) {
       const justificacao = (prompt(`A adiar "${p.titulo}" de ${gfDate(p.dataPrevista)} para ${gfDate(novaData.toISOString())}. Motivo (opcional):`) || '').trim();
       body.NumAdiamentos = (p.numAdiamentos || 0) + 1;
@@ -12154,6 +12196,15 @@ function gfPrevisoesPrintHtml() {
       + `</section>`;
   }).join('');
 
+  let secSemPrev = '';
+  const spD = (U.semPrev && U.semPrev.desp) || [], spR = (U.semPrev && U.semPrev.rec) || [];
+  if (spD.length || spR.length) {
+    const tD = spD.reduce((a, x) => a + (x.valor || 0), 0), tR = spR.reduce((a, x) => a + (x.valor || 0), 0);
+    secSemPrev = `<section class="per sp"><div class="per-h" style="border-left-color:#B7791F;background:#FFF7E6"><div class="per-t" style="color:#7B4B06">Sem previsão (não incluído nos saldos)</div><div class="per-n"><span style="color:#047857">Receitas <b>${tR ? '+' + fmt(tR) : '0,00 €'}</b></span><span style="color:#A32D2D">Despesas <b>${tD ? '-' + fmt(tD) : '0,00 €'}</b></span></div></div>`
+      + (spR.length ? `<div class="bl" style="color:#047857">Receitas sem previsão</div>${grupos(spR, true, new Date(), false)}` : '')
+      + (spD.length ? `<div class="bl" style="color:#A32D2D">Despesas sem previsão</div>${grupos(spD, false, new Date(), false)}` : '')
+      + `</section>`;
+  }
   const avisos = [];
   if (U.semPrazoDesp + U.semPrazoRec > 0) avisos.push(`${U.semPrazoDesp} saída(s) e ${U.semPrazoRec} entrada(s) sem Data Limite de Pagamento não estão incluídas nesta previsão.`);
   avisos.push('Não inclui ocorrências já marcadas como pagas/recebidas. O primeiro período inclui também os valores vencidos.');
@@ -12202,7 +12253,7 @@ td.dt{width:38px;color:#7a8296}
 <h2>Resumo por período</h2>
 <table class="res"><thead><tr><th>Período</th><th>Saldo início</th><th>Entradas</th><th>Saídas</th><th>Saldo fim</th></tr></thead><tbody>${resumo}</tbody></table>
 <h2 style="margin-top:18px">Detalhe</h2>
-${secoes}
+${secoes}${secSemPrev}
 <div class="nota">${avisos.map(a => `<p>${esc(a)}</p>`).join('')}</div>
 </body></html>`;
 }
@@ -12255,7 +12306,7 @@ function _gfFontesPrevisao() {
   // dataLimitePagamento} das dívidas/receitas acima, para reaproveitar toda a lógica de
   // períodos/vencidos sem a duplicar.
   const parcelasPontuais = GF_TESOURARIA_PARCELAS
-    .filter(p => p.estado === 'Prevista' && p.dataPrevista)
+    .filter(p => p.estado === 'Prevista' && p.dataPrevista && !p.semPrevisao)
     .map(p => ({
       titulo: p.titulo || p.solicitacaoNome || p.rubricaNome || 'Parcela',
       fornecedor: p.solicitacaoNome || p.rubricaNome || '—',
@@ -12315,7 +12366,21 @@ function _gfFontesPrevisao() {
   const entradasMensaisAll = entradasMensaisTodas.filter(m => !_foiMarcada(m));
   const pagamentosMensaisPagos = pagamentosMensaisTodos.filter(_foiMarcada);
   const entradasMensaisPagas = entradasMensaisTodas.filter(_foiMarcada);
+  // Fase 64 — "Sem previsão": parcelas marcadas (ou sem data) e solicitações sem plano nem data limite.
+  // Nunca entram nos períodos, no saldo previsto nem em qualquer data máxima.
+  const _projDaRubrica = id => (GF_RUBRICAS_MASTER.find(r => r.id === id)?.projetoNome) || '—';
+  const semPrevParc = GF_TESOURARIA_PARCELAS.filter(gfParcelaSemPrev).map(p => ({
+    id: p.id, titulo: p.titulo || p.solicitacaoNome || p.rubricaNome || 'Parcela', fornecedor: p.solicitacaoNome || p.rubricaNome || '—',
+    valor: p.valorPrevisto || 0, tipoSolicitacao: p.tipo === 'Recebimento' ? 'Receita' : 'Despesa', solicitacaoId: p.solicitacaoId || null,
+    rubricaId: p.rubricaId || null, projetoNome: _projDaRubrica(p.rubricaId), _parcelaId: p.id, _origemSem: 'parcela'
+  }));
+  const semPrevSol = dividasBase.concat(receitasBase).filter(x => !x.dataLimitePagamento).map(x => ({
+    id: x.id, titulo: x.titulo, fornecedor: x.fornecedor || '', valor: x.valor || 0, tipoSolicitacao: x.tipoSolicitacao, solicitacaoId: x.id,
+    rubricaId: x.rubricaId || null, projetoNome: x.projetoNome || _projDaRubrica(x.rubricaId), _origemSem: 'solicitacao'
+  }));
+  const semPrevisaoTodos = semPrevParc.concat(semPrevSol);
   return { dividas, receitas, pagamentosMensais, entradasMensaisAll, pagamentosMensaisPagos, entradasMensaisPagas,
+           semPrevisaoDesp: semPrevisaoTodos.filter(x => x.tipoSolicitacao !== 'Receita'), semPrevisaoRec: semPrevisaoTodos.filter(x => x.tipoSolicitacao === 'Receita'),
            semPlanoDesp: dividasBaseResto, semPlanoRec: receitasBaseResto,
            mensaisFora: pagamentosMensais.filter(m => !m._daParcela), entradasMensaisFora: entradasMensaisAll.filter(m => !m._daParcela) };
 }
@@ -12323,7 +12388,7 @@ function _gfFontesPrevisao() {
 function _gfBuildPrevisoes(saldoAtual) {
   _gfSaldoAtualCache = saldoAtual;
 
-  const { dividas, receitas, pagamentosMensais, entradasMensaisAll, pagamentosMensaisPagos, entradasMensaisPagas } = _gfFontesPrevisao();
+  const { dividas, receitas, pagamentosMensais, entradasMensaisAll, pagamentosMensaisPagos, entradasMensaisPagas, semPrevisaoDesp, semPrevisaoRec } = _gfFontesPrevisao();
 
   const hoje = new Date(); hoje.setHours(0,0,0,0);
 
@@ -12415,7 +12480,7 @@ function _gfBuildPrevisoes(saldoAtual) {
     const vencidos = i === 0 ? saidas.filter(s => new Date(s.dataLimitePagamento) < p.ini) : [];
     return { ...p, saidas, entradas, mensais, entradasMensais, mensaisPagas, entradasMensaisPagasPeriodo, totalSaidas, totalEntradas, totalMensais, totalEntradasMensais, saldoIni, saldoFim: saldoCorrente, vencidos };
   });
-  _gfPrevUltimo = { periodosCalc, saldoAtual, periodo, semPrazoDesp: dividas.filter(s => !s.dataLimitePagamento).length, semPrazoRec: receitas.filter(s => !s.dataLimitePagamento).length }; // Fase 61 — para imprimir
+  _gfPrevUltimo = { periodosCalc, saldoAtual, periodo, semPrev: { desp: semPrevisaoDesp, rec: semPrevisaoRec }, semPrazoDesp: dividas.filter(s => !s.dataLimitePagamento).length, semPrazoRec: receitas.filter(s => !s.dataLimitePagamento).length }; // Fase 61 — para imprimir
 
   // ── Cards resumo ────────────────────────────────────────────
   const cardsHtml = periodosCalc.slice(0, 4).map((p, i) => {
@@ -12653,6 +12718,8 @@ function _gfBuildPrevisoes(saldoAtual) {
     ${periodo === 'realizado' ? _gfBuildPrevistoRealizado() : `
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px">${cardsHtml}</div>
 
+    ${_gfSemPrevisaoBlocoHtml(semPrevisaoDesp, semPrevisaoRec)}
+
     <div style="margin-bottom:8px;font-size:13px;font-weight:600;color:var(--text2)">
       Detalhe por período
       <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:6px">(clique para expandir)</span>
@@ -12660,6 +12727,42 @@ function _gfBuildPrevisoes(saldoAtual) {
     ${linhas}
     `}
   `;
+}
+
+
+// Fase 64 — bloco "Sem previsão": despesas e receitas sem data prevista, fora das semanas/meses e do saldo.
+function _gfSemPrevisaoBlocoHtml(desp, rec) {
+  if (!desp.length && !rec.length) return '';
+  const e = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const soma = a => a.reduce((x, i) => x + (i.valor || 0), 0);
+  const linha = (it, receita) => {
+    const cor = receita ? '#059669' : '#A32D2D';
+    const origem = it._origemSem === 'solicitacao' ? ' <span style="font-size:9px;color:var(--text3)">(sem data limite)</span>' : '';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;padding:2px 0 2px 12px;color:var(--text2)">
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${e(it.titulo)}${it.fornecedor && it.fornecedor !== it.titulo ? ' — ' + e(it.fornecedor) : ''}${origem}</span>
+      <span style="display:flex;align-items:center;gap:6px;flex-shrink:0"><span style="font-weight:600;color:${cor}">${receita ? '+' : '-'}${gfFmt(it.valor || 0)}</span>
+      ${it.solicitacaoId ? `<a onclick="gfOpenPlanoPagamentoModal(${it.solicitacaoId})" title="Dar uma data / editar parcelas" style="cursor:pointer;font-size:12px">📅</a><a onclick="gfOpenSolicitacaoViewModal(${it.solicitacaoId})" title="Ver solicitação" style="cursor:pointer;font-size:12px">👁️</a>` : ''}</span>
+    </div>`;
+  };
+  const coluna = (itens, receita) => {
+    const cor = receita ? '#059669' : '#A32D2D';
+    let grupos;
+    if (gfVistaDespesa()) grupos = gfAgruparDespesas(itens, receita ? 'R' : 'D').map(g => ({ nome: g.nome, itens: g.itens, total: g.total }));
+    else {
+      const m = new Map();
+      itens.forEach(it => { const n = it.projetoNome || '(sem projeto)'; if (!m.has(n)) m.set(n, []); m.get(n).push(it); });
+      grupos = [...m.entries()].map(([nome, its]) => ({ nome, itens: its, total: soma(its) })).sort((a, b) => b.total - a.total);
+    }
+    return `<div style="flex:1;min-width:280px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;text-transform:uppercase;color:${cor};margin-bottom:4px"><span>${receita ? '▲ Receitas' : '▼ Despesas'} (${itens.length})</span><span>${receita ? '+' : '-'}${gfFmt(soma(itens))}</span></div>
+      ${itens.length ? grupos.map(g => `<details data-gfsemprev style="margin-top:5px"><summary style="cursor:pointer;display:flex;justify-content:space-between;gap:8px;font-size:10px;font-weight:700;color:var(--text3);padding:3px 0;border-bottom:0.5px solid var(--border);list-style:none"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${gfVistaDespesa() ? '🧾' : '📁'} ${e(g.nome)} <span style="font-weight:400">(${g.itens.length})</span></span><span style="color:${cor}">${gfFmt(g.total)}</span></summary>${g.itens.map(it => linha(it, receita)).join('')}</details>`).join('') : '<div style="font-size:11px;color:var(--text3)">Nada sem previsão.</div>'}
+    </div>`;
+  };
+  return `<div id="gf-sem-previsao" style="margin-bottom:18px;border:1px dashed #D1A24B;background:#FFFBF2;border-radius:10px;padding:12px 16px">
+    <div style="font-size:13px;font-weight:700;color:#633806;margin-bottom:2px">⏸ Sem previsão</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Ainda não se sabe quando serão pagas ou recebidas. Não contam nas semanas/meses nem no saldo previsto. Dá-lhes uma data no 📅 ou arrasta-as no Operacional.</div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap">${coluna(desp, false)}${coluna(rec, true)}</div>
+  </div>`;
 }
 
 // Encontra o Diretor de Área de um departamento dinamicamente:
@@ -13755,7 +13858,7 @@ function gfRefreshRubricaForm() {
 function gfRefreshCurrentForm() {
   // Se o modal de Plano de Pagamento (Fase 9) estiver aberto, é ele que se refresca —
   // não a página de fundo (evita reiniciar o loading assíncrono das Previsões, etc.).
-  if (_gfPlanoPagModalSolId) { gfRenderPlanoPagamentoModalBody(); return; }
+  if (_gfPlanoPagModalSolId) { _gfPlanoPagSujo = true; gfRenderPlanoPagamentoModalBody(); return; }
   const app = gfEl('gf-app');
   if (!app) return;
   if (GF.screen === 'orcamento-rubrica-form') app.innerHTML = gfRenderRubricaForm();
@@ -14036,12 +14139,29 @@ async function gfAdicionarParcelaManual(rubricaId) {
 async function gfSaveParcelaCampo(parcelaId, campo, valor) {
   try {
     const body = { __metadata: { type: await _gfGetTesourariaParcelasType() } };
-    body[campo] = campo === 'DataPrevista' ? new Date(valor).toISOString() : (parseFloat(valor) || 0);
+    body[campo] = campo === 'DataPrevista' ? (valor ? new Date(valor).toISOString() : null) : (parseFloat(valor) || 0);
+    // Fase 64 — dar uma data a uma parcela "sem previsão" tira-a desse estado
+    if (campo === 'DataPrevista' && valor && GF_TESOURARIA_PARCELAS.find(x => x.id === parcelaId)?.semPrevisao) body.SemPrevisao = false;
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${parcelaId})`, body, 'MERGE');
     await gfRecarregar(['parcelas']); // Fase 37 — só o que esta ação altera
     gfRefreshCurrentForm();
   } catch (e) {
     showNotif('Erro ao guardar: ' + e.message, 'error');
+  }
+}
+
+// Fase 64 — parcela "sem previsão": ainda não se sabe quando será paga/recebida. Fica sem data e deixa de
+// contar nas semanas/meses, no saldo previsto e em qualquer data máxima; aparece nos blocos "Sem previsão".
+function gfParcelaSemPrev(p) { return p.estado === 'Prevista' && (p.semPrevisao || !p.dataPrevista); }
+async function gfSetParcelaSemPrevisao(parcelaId, marcado) {
+  try {
+    const body = { __metadata: { type: await _gfGetTesourariaParcelasType() }, SemPrevisao: !!marcado };
+    if (marcado) body.DataPrevista = null;
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${parcelaId})`, body, 'MERGE');
+    await gfRecarregar(['parcelas']);
+    gfRefreshCurrentForm();
+  } catch (e) {
+    showNotif(/SemPrevisao/i.test(e.message || '') ? 'Falta a coluna "SemPrevisao" (Sim/Não) na lista FJ_Tesouraria_Parcelas do SharePoint.' : 'Erro ao guardar: ' + e.message, 'error');
   }
 }
 
@@ -14086,10 +14206,12 @@ function gfOpenPlanoPagamentoModal(solId) {
   if (modal) modal.style.display = 'flex';
 }
 
+let _gfPlanoPagSujo = false; // Fase 64 — houve alterações: ao fechar, a página de fundo é atualizada
 function gfClosePlanoPagamentoModal() {
   _gfPlanoPagModalSolId = null;
   const modal = gfEl('gf-plano-pag-modal');
   if (modal) modal.style.display = 'none';
+  if (_gfPlanoPagSujo) { _gfPlanoPagSujo = false; try { gfRefreshCurrentForm(); } catch (e) { } }
 }
 
 function gfRenderPlanoPagamentoModalBody() {
@@ -14225,7 +14347,7 @@ function gfRenderPlanoPagamento(sol) {
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
           <thead>
             <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text3)">
-              <th style="padding:6px 4px">Título</th><th style="padding:6px 4px">Data prevista</th><th style="padding:6px 4px;text-align:right">Valor previsto (€)</th><th style="padding:6px 4px">Estado</th><th></th>
+              <th style="padding:6px 4px">Título</th><th style="padding:6px 4px">Data prevista</th><th style="padding:6px 4px;text-align:right">Valor previsto (€)</th><th style="padding:6px 4px;text-align:center" title="Ainda não se sabe quando será paga/recebida: não conta nas Previsões">Sem previsão</th><th style="padding:6px 4px">Estado</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -14237,12 +14359,14 @@ function gfRenderPlanoPagamento(sol) {
                 <td style="padding:6px 4px">${p.titulo}</td>
                 <td style="padding:6px 4px">${bloqueada
                   ? `<span style="font-size:12px">${p.dataPrevista ? gfDate(p.dataPrevista) : '—'}</span>`
+                  : p.semPrevisao ? `<span style="font-size:11px;color:#92400E;background:#FEF3C7;border-radius:10px;padding:2px 8px">⏸ sem previsão</span>`
                   : `<input type="date" value="${p.dataPrevista ? p.dataPrevista.split('T')[0] : ''}" onchange="gfSaveParcelaCampo(${p.id},'DataPrevista',this.value)" style="border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:12px">`
                 }</td>
                 <td style="padding:6px 4px;text-align:right">${bloqueada
                   ? `<span style="font-size:12px">${(p.valorConfirmado || p.valorPrevisto).toFixed(2)}€</span>`
                   : `<input type="number" step="0.01" value="${p.valorPrevisto}" onchange="gfSaveParcelaCampo(${p.id},'ValorPrevisto',this.value)" style="width:90px;border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:12px;text-align:right">`
                 }</td>
+                <td style="padding:6px 4px;text-align:center">${bloqueada ? '—' : `<input type="checkbox" ${p.semPrevisao ? 'checked' : ''} onchange="gfSetParcelaSemPrevisao(${p.id},this.checked)" title="Sem previsão: não conta nas semanas/meses nem no saldo previsto">`}</td>
                 <td style="padding:6px 4px">${realizada ? '🔒 ' : ''}${p.estado}</td>
                 <td style="padding:6px 4px;text-align:right">${bloqueada ? '' : `<a onclick="gfEliminarParcela(${p.id})" style="color:#EF4444;cursor:pointer">✕</a>`}</td>
               </tr>
@@ -14771,7 +14895,8 @@ function gfRenderSolicitacoes() {
         ${gfCanProcessar() ? '<button class="btn" style="background:#10B981;color:#fff;border-color:#10B981" onclick="gfOpenProcessadoModal()">+ Processado</button>' : ''}
         ${gfCanProcessar() ? '<button class="btn" style="background:#6366F1;color:#fff;border-color:#6366F1" onclick="gfOpenPagoModal()">+ Pago</button>' : ''}
         ${gfCanProcessar() ? '<button class="btn" style="background:#F97316;color:#fff;border-color:#F97316" onclick="gfOpenRecebidoModal()">+ Recebido</button>' : ''}
-        ${gfCanProcessar() ? '<button id="gf-btn-caixa" class="btn" style="background:#0E7490;color:#fff;border-color:#0E7490" onclick="gfOpenCaixaModal()" title="Regista uma despesa paga em dinheiro/caixa: cria uma linha em Pendentes já paga, para repartir pelos projetos">+ Despesa de caixa</button>' : ''}
+        ${gfCanProcessar() ? '<button id="gf-btn-caixa" class="btn" style="background:#0E7490;color:#fff;border-color:#0E7490" onclick="gfOpenCaixaModal(\'Despesa\')" title="Regista uma despesa paga em dinheiro/caixa: cria uma linha em Pendentes já paga, para repartir pelos projetos">+ Despesa de caixa</button>' : ''}
+        ${gfCanProcessar() ? '<button id="gf-btn-caixa-rec" class="btn" style="background:#047857;color:#fff;border-color:#047857" onclick="gfOpenCaixaModal(\'Receita\')" title="Regista um valor recebido em dinheiro/caixa (ex.: venda de mobiliário, 2.ª via de certificado): cria uma linha de receita em Pendentes, já recebida">+ Receita de caixa</button>' : ''}
       </div>
     </div>
 
@@ -21039,10 +21164,26 @@ function gfOpenPagoModal() {
 // ══════════════════════════════════════════════════════════════
 let _caixaSelectedFiles = [];
 let _caixaGuardar = false;
+let _caixaTipo = 'Despesa';
 function gfEhMovCaixa(m) { return /^CAIXA\|/.test((m && m.chaveUnica) || ''); }
+function gfCaixaSetTipo(t) {
+  _caixaTipo = t === 'Receita' ? 'Receita' : 'Despesa';
+  const rec = _caixaTipo === 'Receita';
+  const set = (id, h) => { const e = document.getElementById(id); if (e) e.innerHTML = h; };
+  set('gf-caixa-titulo-modal', rec ? '💵 Receita de caixa' : '💵 Despesa de caixa');
+  set('gf-caixa-sub-modal', rec ? 'Valor recebido em dinheiro (ex.: venda de mobiliário, 2.ª via de certificado). Cria uma linha de receita em Pendentes para a repartir depois pelos projetos.' : 'Despesa já paga por caixa. Cria uma linha em Pendentes para a repartir depois pelos projetos.');
+  set('gf-caixa-lbl-data', rec ? '📅 Data do recebimento *' : '📅 Data do pagamento *');
+  set('gf-caixa-lbl-anexo', rec ? 'Anexo (recibo / comprovativo, opcional)' : 'Anexo (fatura / recibo em PDF) *');
+  const d = document.getElementById('gf-caixa-tp-desp'), r = document.getElementById('gf-caixa-tp-rec');
+  if (d) { d.style.background = rec ? '#fff' : '#0E7490'; d.style.color = rec ? '#0E7490' : '#fff'; }
+  if (r) { r.style.background = rec ? '#047857' : '#fff'; r.style.color = rec ? '#fff' : '#047857'; }
+  const b = document.getElementById('gf-caixa-submit-btn');
+  if (b) { b.style.background = rec ? '#047857' : '#0E7490'; b.style.borderColor = rec ? '#047857' : '#0E7490'; }
+}
 
-function gfOpenCaixaModal() {
-  if (!gfCanProcessar()) { showNotif('Sem permissão para registar despesas de caixa.', 'error'); return; }
+function gfOpenCaixaModal(tipo) {
+  if (!gfCanProcessar()) { showNotif('Sem permissão para registar movimentos de caixa.', 'error'); return; }
+  gfCaixaSetTipo(tipo || 'Despesa');
   _caixaSelectedFiles = [];
   gfRenderCaixaFileList();
   const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
@@ -21081,7 +21222,8 @@ async function gfSubmitCaixa() {
   if (!titulo) { showNotif('Indica o título da despesa', 'error'); return; }
   if (!data) { showNotif('Indica a data do pagamento', 'error'); return; }
   if (!(valor > 0)) { showNotif('Indica um valor maior que zero', 'error'); return; }
-  if (!_caixaSelectedFiles.length) { showNotif('Anexa o PDF da fatura ou do recibo', 'error'); return; }
+  const rec = _caixaTipo === 'Receita';
+  if (!rec && !_caixaSelectedFiles.length) { showNotif('Anexa o PDF da fatura ou do recibo', 'error'); return; }
   const btn = document.getElementById('gf-caixa-submit-btn');
   _caixaGuardar = true; btn.disabled = true; btn.textContent = 'A guardar...';
   let novoId = null;
@@ -21089,12 +21231,12 @@ async function gfSubmitCaixa() {
     const quem = (user && (user.name || user.username)) || '';
     const chave = 'CAIXA|' + Date.now() + '|' + Math.random().toString(36).slice(2, 8);
     const dataIso = data + 'T12:00:00Z';
-    const obsTxt = ('Despesa de caixa' + (obs ? ' · ' + obs : '') + (quem ? ' · registada por ' + quem : '')).slice(0, 500);
+    const obsTxt = ((rec ? 'Receita de caixa' : 'Despesa de caixa') + (obs ? ' · ' + obs : '') + (quem ? ' · registada por ' + quem : '')).slice(0, 500);
     const body = {
       __metadata: { type: 'SP.Data.FJ_x005f_MovimentosBancariosListItem' },
       Title: titulo, Descricao: titulo, Observacao: obsTxt,
       DataMovimento: dataIso, DataValor: dataIso,
-      RecPag: 'Caixa', Importancia: -valor, CentroCusto: 'Caixa',
+      RecPag: _caixaSelectedFiles.length ? 'Caixa' : 'Caixa-SemAnexo', Importancia: rec ? valor : -valor, CentroCusto: 'Caixa',
       ChaveUnica: chave, Estado: 'Pendente'
     };
     const r = await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosBancarios')/items`, body, 'POST');
@@ -21109,11 +21251,11 @@ async function gfSubmitCaixa() {
       throw new Error('Não foi possível anexar o ficheiro (' + eUp.message + '). A despesa não foi criada.');
     }
     GF_MOV_PENDENTES.push({
-      id: novoId, dataMovimento: dataIso, dataValor: dataIso, descricao: titulo, observacao: obsTxt, recPag: 'Caixa',
-      importancia: -valor, saldoContabilistico: 0, centroCusto: 'Caixa', chaveUnica: chave, estado: 'Pendente', dataAfetacao: null
+      id: novoId, dataMovimento: dataIso, dataValor: dataIso, descricao: titulo, observacao: obsTxt, recPag: body.RecPag,
+      importancia: rec ? valor : -valor, saldoContabilistico: 0, centroCusto: 'Caixa', chaveUnica: chave, estado: 'Pendente', dataAfetacao: null
     });
     gfCloseCaixaModal();
-    showNotif('Despesa de caixa criada em Pendentes, já paga e com o anexo ✓', 'success');
+    showNotif(rec ? 'Receita de caixa criada em Pendentes, já recebida ✓' : 'Despesa de caixa criada em Pendentes, já paga e com o anexo ✓', 'success');
     GF.tab.sol = 'pendentes';
     gfRender();
   } catch (e) {
@@ -21880,7 +22022,7 @@ async function gfOpenAfetarModal(movId) {
   // um ano fora da janela GF.year-1..GF.year+1 que o gfLoadAll traz por defeito).
   const anoMov = m.dataMovimento ? new Date(m.dataMovimento).getFullYear() : GF.year;
   await gfGarantirAnoRubricasCarregado(anoMov);
-  GF_AFETAR = { movimento: movId, repartida: false, linhas: [{ projetoId: null, rubricaId: null, solicitacaoId: null, pct: 100 }], modo: 'normal', rhFase: 1, rhLinhas: [] };
+  GF_AFETAR = { movimento: movId, repartida: false, unidade: 'pct', linhas: [{ projetoId: null, rubricaId: null, solicitacaoId: null, pct: 100 }], modo: 'normal', rhFase: 1, rhLinhas: [] };
   document.getElementById('gf-afetar-modal').style.display = 'flex';
   gfRenderAfetarModal();
 }
@@ -22036,6 +22178,7 @@ function gfCloseAfetarModal() {
 function gfAfetarToggleRepartida(checked) {
   GF_AFETAR.repartida = checked;
   if (!checked) {
+    GF_AFETAR.unidade = 'pct';
     // Volta a uma única linha, sempre 100%
     GF_AFETAR.linhas = [GF_AFETAR.linhas[0] || { projetoId: null, rubricaId: null, solicitacaoId: null, pct: 100 }];
     GF_AFETAR.linhas[0].pct = 100;
@@ -22067,6 +22210,7 @@ function gfAfetarAplicarModelo(modeloId) {
   });
 
   GF_AFETAR.repartida = linhas.length > 1;
+  GF_AFETAR.unidade = 'pct';
   GF_AFETAR.linhas = linhas;
   if (naoResolvidas > 0) showNotif(`Modelo aplicado — ${naoResolvidas} linha${naoResolvidas === 1 ? '' : 's'} precisa${naoResolvidas === 1 ? '' : 'm'} de rúbrica selecionada manualmente`, 'error');
   else showNotif('Modelo de repartição aplicado ✓', 'success');
@@ -22112,6 +22256,49 @@ function gfAfetarSolChange(idx) {
 }
 function gfAfetarParcChange(idx) {
   GF_AFETAR.linhas[idx].parcelaId = parseInt(gfVal(`gf-afetar-parc-${idx}`)) || null;
+  gfRenderAfetarModal();
+}
+
+
+// Fase 63 — Repartir por percentagem OU por valor em euros. Internamente cada linha mantém sempre a
+// percentagem (pct) equivalente; em modo "€" o que se escreve é o valor (valor), e a % deriva dele.
+function gfAfetarTotalMov() {
+  const m = GF_MOV_PENDENTES.find(x => x.id === GF_AFETAR.movimento);
+  return Math.abs(m?.importancia || 0);
+}
+function gfAfetarSomaValores() { return Math.round(GF_AFETAR.linhas.reduce((a, l) => a + (l.valor || 0), 0) * 100) / 100; }
+function gfAfetarSetUnidade(u) {
+  const total = gfAfetarTotalMov();
+  if (u === GF_AFETAR.unidade) return;
+  if (u === 'eur') {
+    GF_AFETAR.linhas.forEach(l => { l.valor = Math.round(total * (l.pct || 0) / 100 * 100) / 100; });
+    // acerta os cêntimos na última linha quando as percentagens somavam 100%
+    const somaPct = GF_AFETAR.linhas.reduce((a, l) => a + (l.pct || 0), 0);
+    const dif = Math.round((total - gfAfetarSomaValores()) * 100) / 100;
+    if (Math.abs(somaPct - 100) < 0.01 && dif !== 0 && Math.abs(dif) <= 0.05 && GF_AFETAR.linhas.length) {
+      const ult = GF_AFETAR.linhas[GF_AFETAR.linhas.length - 1];
+      ult.valor = Math.round((ult.valor + dif) * 100) / 100;
+    }
+  } else {
+    GF_AFETAR.linhas.forEach(l => { l.pct = total ? Math.round((l.valor || 0) / total * 1000000) / 10000 : 0; });
+  }
+  GF_AFETAR.unidade = u;
+  gfRenderAfetarModal();
+}
+function gfAfetarValorChange(idx) {
+  const total = gfAfetarTotalMov();
+  const l = GF_AFETAR.linhas[idx];
+  l.valor = Math.max(0, Math.round((parseFloat(gfVal(`gf-afetar-val-${idx}`)) || 0) * 100) / 100);
+  l.pct = total ? Math.round(l.valor / total * 1000000) / 10000 : 0;
+  gfRenderAfetarModal();
+}
+// preenche a linha com o que ainda falta distribuir
+function gfAfetarPreencherResto(idx) {
+  const total = gfAfetarTotalMov();
+  const outras = GF_AFETAR.linhas.reduce((a, l, i) => a + (i === idx ? 0 : (l.valor || 0)), 0);
+  const l = GF_AFETAR.linhas[idx];
+  l.valor = Math.max(0, Math.round((total - outras) * 100) / 100);
+  l.pct = total ? Math.round(l.valor / total * 1000000) / 10000 : 0;
   gfRenderAfetarModal();
 }
 
@@ -22169,11 +22356,12 @@ function gfAfetarLinhaRow(o, idx, movTipo, movAno) {
   const mov = GF_MOV_PENDENTES.find(x => x.id === GF_AFETAR.movimento);
   const totalMov = Math.abs(mov?.importancia || 0);
   const base = GF_AFETAR.modo === 'rh' ? totalMov - (GF_AFETAR.rhLinhas || []).reduce((a, l) => a + (l.valor || 0), 0) : totalMov;
-  const valorLinha = Math.round(base * (o.pct || 0) / 100 * 100) / 100;
+  const eur = GF_AFETAR.unidade === 'eur' && GF_AFETAR.modo !== 'rh';
+  const valorLinha = eur ? Math.round((o.valor || 0) * 100) / 100 : Math.round(base * (o.pct || 0) / 100 * 100) / 100;
   const sel = 'width:100%;padding:8px;border:1px solid var(--border);border-radius:4px;font-size:13px';
   const lab = 'display:block;font-size:11px;color:var(--text3);margin-bottom:4px';
   return `
-    <div style="display:grid;grid-template-columns:${repartida ? '1fr 90px 40px' : '1fr'};gap:10px;margin-bottom:10px;padding:14px;background:#F8FAFC;border-radius:8px;border:1px solid var(--border)">
+    <div style="display:grid;grid-template-columns:${repartida ? '1fr 120px 40px' : '1fr'};gap:10px;margin-bottom:10px;padding:14px;background:#F8FAFC;border-radius:8px;border:1px solid var(--border)">
       ${o._aviso ? `<div style="grid-column:1/-1;font-size:11px;color:#991B1B;background:#FEE2E2;border-radius:4px;padding:6px 8px">⚠ ${o._aviso}</div>` : ''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div>
@@ -22205,8 +22393,15 @@ function gfAfetarLinhaRow(o, idx, movTipo, movAno) {
       </div>
       ${repartida ? `
         <div>
+          ${eur ? `
+          <label style="${lab}">Valor (€)</label>
+          <input type="number" id="gf-afetar-val-${idx}" value="${o.valor || ''}" min="0" step="0.01" onchange="gfAfetarValorChange(${idx})" style="${sel};text-align:right">
+          <div style="font-size:10px;color:var(--text3);margin-top:3px;display:flex;justify-content:space-between"><span>= ${String(Math.round((o.pct || 0) * 100) / 100).replace('.', ',')} %</span><a onclick="gfAfetarPreencherResto(${idx})" style="cursor:pointer;color:var(--mod-financeiro);text-decoration:underline" title="Preenche com o que falta distribuir">resto</a></div>
+          ` : `
           <label style="${lab}">%</label>
           <input type="number" id="gf-afetar-pct-${idx}" value="${o.pct || ''}" min="0" max="100" step="0.01" onchange="gfAfetarPctChange(${idx})" style="${sel}">
+          <div style="font-size:10px;color:var(--text3);margin-top:3px">= ${gfFmt(Math.round(totalMov * (o.pct || 0) / 100 * 100) / 100)}</div>
+          `}
         </div>
         <div style="display:flex;align-items:flex-end">
           ${GF_AFETAR.linhas.length > 1 ? `<button onclick="gfAfetarRemoveLinha(${idx})" style="width:36px;height:36px;border:none;background:#FEE2E2;color:#991B1B;border-radius:4px;cursor:pointer;font-size:18px;font-weight:bold" title="Remover">×</button>` : ''}
@@ -22261,7 +22456,10 @@ function gfRenderAfetarModal() {
 
   // ── Passo 2 do "Afetar RH", ou afetação normal — ambos usam GF_AFETAR.linhas + % ──
   const totalPct = GF_AFETAR.linhas.reduce((a, l) => a + (l.pct || 0), 0);
-  const pctOk = Math.abs(totalPct - 100) < 0.01;
+  const eurMode = GF_AFETAR.modo !== 'rh' && GF_AFETAR.repartida && GF_AFETAR.unidade === 'eur';
+  const somaEur = gfAfetarSomaValores();
+  const faltaEur = Math.round((valorAbs - somaEur) * 100) / 100;
+  const pctOk = eurMode ? Math.abs(faltaEur) < 0.005 : Math.abs(totalPct - 100) < 0.01;
   const linhasValidas = GF_AFETAR.linhas.length > 0 && GF_AFETAR.linhas.every(l => l.rubricaId);
 
   let topo;
@@ -22282,6 +22480,11 @@ function gfRenderAfetarModal() {
         <input type="checkbox" id="gf-afetar-repartida" ${GF_AFETAR.repartida ? 'checked' : ''} onchange="gfAfetarToggleRepartida(this.checked)">
         Repartir este valor por várias rúbricas (podem ser de projetos diferentes)
       </label>
+      ${GF_AFETAR.repartida ? `<div style="display:flex;align-items:center;gap:8px;margin:-4px 0 14px;font-size:12px;color:var(--text3)">
+        <span>Repartir por:</span>
+        <button id="gf-afetar-un-pct" onclick="gfAfetarSetUnidade('pct')" style="padding:5px 14px;border:1px solid var(--mod-financeiro);border-radius:14px;font-size:12px;cursor:pointer;font-family:inherit;background:${GF_AFETAR.unidade !== 'eur' ? 'var(--mod-financeiro)' : '#fff'};color:${GF_AFETAR.unidade !== 'eur' ? '#fff' : 'var(--mod-financeiro)'}">Percentagem (%)</button>
+        <button id="gf-afetar-un-eur" onclick="gfAfetarSetUnidade('eur')" style="padding:5px 14px;border:1px solid var(--mod-financeiro);border-radius:14px;font-size:12px;cursor:pointer;font-family:inherit;background:${GF_AFETAR.unidade === 'eur' ? 'var(--mod-financeiro)' : '#fff'};color:${GF_AFETAR.unidade === 'eur' ? '#fff' : 'var(--mod-financeiro)'}">Valor (€)</button>
+      </div>` : ''}
       <div style="margin-bottom:16px">
         <a onclick="gfAfetarIniciarRH()" style="font-size:12px;color:var(--mod-financeiro);cursor:pointer;font-weight:600">🧑‍💼 Afetar RH (valores fixos + percentagem em dois passos)</a>
       </div>
@@ -22303,7 +22506,9 @@ function gfRenderAfetarModal() {
     </div>
     ${(GF_AFETAR.repartida || GF_AFETAR.modo === 'rh') ? `
       <button class="btn btn-sm" onclick="gfAfetarAddLinha()" style="margin-bottom:12px">+ Adicionar rúbrica</button>
-      <div style="font-size:13px;font-weight:600;color:${pctOk ? '#10B981' : '#EF4444'};margin-bottom:8px">Total: ${totalPct.toFixed(2)}% ${pctOk ? '✓' : '— tem de somar 100%'}</div>
+      ${eurMode
+        ? `<div id="gf-afetar-total" style="font-size:13px;font-weight:600;color:${pctOk ? '#10B981' : '#EF4444'};margin-bottom:8px">Repartido: ${gfFmt(somaEur)} de ${gfFmt(valorAbs)} ${pctOk ? '✓ totalmente repartido' : (faltaEur > 0 ? '— faltam ' + gfFmt(faltaEur) : '— excede em ' + gfFmt(-faltaEur))}</div>`
+        : `<div id="gf-afetar-total" style="font-size:13px;font-weight:600;color:${pctOk ? '#10B981' : '#EF4444'};margin-bottom:8px">Total: ${totalPct.toFixed(2)}% ${pctOk ? '✓' : '— tem de somar 100%'}</div>`}
     ` : ''}
   `;
 
@@ -22337,10 +22542,14 @@ async function gfSubmitAfetar() {
       ...GF_AFETAR.linhas.map(l => ({ projetoId: l.projetoId, rubricaId: l.rubricaId, solicitacaoId: l.solicitacaoId, parcelaId: l.parcelaId || null, valor: Math.round(restante * (l.pct || 0) / 100 * 100) / 100 }))
     ];
   } else {
+    const eurSub = GF_AFETAR.repartida && GF_AFETAR.unidade === 'eur';
     const totalPct = GF_AFETAR.linhas.reduce((a, l) => a + (l.pct || 0), 0);
-    if (Math.abs(totalPct - 100) > 0.01) { showNotif('As percentagens têm de somar 100%', 'error'); return; }
+    if (eurSub) {
+      if (Math.abs(gfAfetarSomaValores() - valorAbs) > 0.005) { showNotif('Os valores têm de somar ' + gfFmt(valorAbs), 'error'); return; }
+    } else if (Math.abs(totalPct - 100) > 0.01) { showNotif('As percentagens têm de somar 100%', 'error'); return; }
     if (GF_AFETAR.linhas.some(l => !l.rubricaId)) { showNotif('Seleciona uma rúbrica em todas as linhas', 'error'); return; }
-    linhasFinais = GF_AFETAR.linhas.map(l => ({ projetoId: l.projetoId, rubricaId: l.rubricaId, solicitacaoId: l.solicitacaoId, parcelaId: l.parcelaId || null, valor: Math.round(valorAbs * (l.pct || 0) / 100 * 100) / 100 }));
+    if (eurSub) linhasFinais = GF_AFETAR.linhas.map(l => ({ projetoId: l.projetoId, rubricaId: l.rubricaId, solicitacaoId: l.solicitacaoId, parcelaId: l.parcelaId || null, valor: Math.round((l.valor || 0) * 100) / 100 }));
+    else linhasFinais = GF_AFETAR.linhas.map(l => ({ projetoId: l.projetoId, rubricaId: l.rubricaId, solicitacaoId: l.solicitacaoId, parcelaId: l.parcelaId || null, valor: Math.round(valorAbs * (l.pct || 0) / 100 * 100) / 100 }));
   }
 
   const btn = document.getElementById('gf-afetar-submit-btn');
@@ -22588,7 +22797,7 @@ function gfPendRowHtml(m) {
         <input type="checkbox" id="gf-pend-chk-${m.id}" ${o.checked ? 'checked' : ''} ${!o.rubricaId ? 'disabled' : ''} onchange="gfPendCheckChange(${m.id})">
       </td>
       <td style="padding:8px;text-align:center;white-space:nowrap">${gfDate(m.dataMovimento)}</td>
-      <td style="padding:8px;min-width:260px;white-space:normal;word-break:break-word">${gfEhMovCaixa(m) ? `<span style="display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;background:#CFFAFE;color:#0E7490;margin-right:6px">💵 CAIXA · já paga</span>` : ''}${gfMovNome(m)}${gfEhMovCaixa(m) ? ` <a onclick="gfCaixaVerAnexo(${m.id})" title="Abrir o PDF anexado" style="cursor:pointer;color:var(--mod-financeiro);font-size:12px;text-decoration:underline;white-space:nowrap">📎 anexo</a>` : ''}</td>
+      <td style="padding:8px;min-width:260px;white-space:normal;word-break:break-word">${gfEhMovCaixa(m) ? `<span style="display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;background:${(m.importancia || 0) < 0 ? '#CFFAFE' : '#D1FAE5'};color:${(m.importancia || 0) < 0 ? '#0E7490' : '#047857'};margin-right:6px">💵 CAIXA · ${(m.importancia || 0) < 0 ? 'despesa já paga' : 'receita já recebida'}</span>` : ''}${gfMovNome(m)}${gfEhMovCaixa(m) && m.recPag !== 'Caixa-SemAnexo' ? ` <a onclick="gfCaixaVerAnexo(${m.id})" title="Abrir o PDF anexado" style="cursor:pointer;color:var(--mod-financeiro);font-size:12px;text-decoration:underline;white-space:nowrap">📎 anexo</a>` : ''}</td>
       <td style="padding:8px;text-align:center">
         <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:${tipo === 'Receita' ? '#FFF7ED' : '#EFF6FF'};color:${tipo === 'Receita' ? '#F97316' : '#2563EB'}">${tipo}</span>
       </td>
@@ -23545,19 +23754,23 @@ init();
   <div style="background:#fff;border-radius:14px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25);margin:1rem">
     <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <div>
-        <div style="font-size:16px;font-weight:600">💵 Despesa de caixa</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px">Despesa já paga por caixa. Cria uma linha em Pendentes para a repartir depois pelos projetos.</div>
+        <div id="gf-caixa-titulo-modal" style="font-size:16px;font-weight:600">💵 Despesa de caixa</div>
+        <div id="gf-caixa-sub-modal" style="font-size:12px;color:var(--text3);margin-top:2px">Despesa já paga por caixa. Cria uma linha em Pendentes para a repartir depois pelos projetos.</div>
       </div>
       <button onclick="gfCloseCaixaModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3);line-height:1">×</button>
     </div>
     <div style="padding:20px 24px">
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button type="button" id="gf-caixa-tp-desp" onclick="gfCaixaSetTipo('Despesa')" style="flex:1;padding:9px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid #0E7490">Despesa (saída de caixa)</button>
+        <button type="button" id="gf-caixa-tp-rec" onclick="gfCaixaSetTipo('Receita')" style="flex:1;padding:9px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid #047857">Receita (entrada em caixa)</button>
+      </div>
       <div style="margin-bottom:16px">
         <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Título *</label>
-        <input type="text" id="gf-caixa-titulo" maxlength="200" placeholder="Ex.: Material de escritório, deslocação, refeição" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;color:var(--text)">
+        <input type="text" id="gf-caixa-titulo" maxlength="200" placeholder="Ex.: Material de escritório, deslocação (despesa) · venda de mobiliário, 2.ª via de certificado (receita)" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;color:var(--text)">
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
         <div>
-          <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">📅 Data do pagamento *</label>
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px"><span id="gf-caixa-lbl-data">📅 Data do pagamento *</span></label>
           <input type="date" id="gf-caixa-data" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;color:var(--text)">
         </div>
         <div>
@@ -23570,7 +23783,7 @@ init();
         <input type="text" id="gf-caixa-obs" maxlength="250" placeholder="Fornecedor, motivo, projeto provável..." style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;color:var(--text)">
       </div>
       <div style="margin-bottom:4px">
-        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Anexo (fatura / recibo em PDF) *</label>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px"><span id="gf-caixa-lbl-anexo">Anexo (fatura / recibo em PDF) *</span></label>
         <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px dashed var(--border2);border-radius:8px;cursor:pointer;font-size:13px;color:var(--text2)">
           <span style="font-size:18px">📎</span>
           <span>Clica para adicionar o PDF</span>
