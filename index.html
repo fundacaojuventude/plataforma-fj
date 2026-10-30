@@ -3371,6 +3371,10 @@ async function loadFJUtilizadores(){
     
     const userEmail=(user?.username||user?.preferredUsername||'').toLowerCase();
     currentUserFJ=fjUtilizadores.find(u=>u.email===userEmail);
+    // Fase 66 — a Assessoria da Direção comporta-se como a equipa de Gestão (visibilidade total fora do Financeiro sensível)
+    if(currentUserFJ && /assess/i.test(currentUserFJ.cargo||'') && !(currentUserFJ.equipa||[]).includes('E. Gestão')){
+      currentUserFJ={...currentUserFJ, equipa:[...(currentUserFJ.equipa||[]), 'E. Gestão']};
+    }
     
     if(currentUserFJ){
       console.log('Utilizador atual:', currentUserFJ);
@@ -3459,6 +3463,16 @@ function determinarFinanceRole(u){
 function userEquipas(){ return currentUserFJ?.equipa || []; }
 function userCargo(){   return currentUserFJ?.cargo  || ''; }
 function userHasEquipa(equipa){ return userEquipas().includes(equipa); }
+// Fase 66 — perfil "Assessoria da Direção" (cargo em FJ_Utilizadores com "assess" no nome): vê toda a plataforma,
+// como a equipa de Gestão, mas só em leitura no Financeiro (não aprova, não reverte, não edita orçamento) e sem ver
+// o detalhe das rúbricas confidenciais (ordenados). Não tem acesso à Tesouraria, às Definições nem ao Quadro de Pessoal.
+function isAssessoria(){ return /assess/i.test(currentUserFJ?.cargo || ''); }
+// solicitações de rúbricas confidenciais ficam escondidas à Assessoria
+function gfSolEscondidaAssessoria(sol){
+  if(!isAssessoria()||!sol) return false;
+  const r = GF_RUBRICAS.find(x => x.id === sol.rubricaId) || GF_RUBRICAS_MASTER.find(x => x.id === sol.rubricaId);
+  return !!(r && gfRubricaEhSensivel(r));
+}
 
 // Verifica se o utilizador pertence à equipa Financeiro (independentemente do cargo)
 function isFinanceiroEquipa(){
@@ -3522,6 +3536,7 @@ function userCanView(departamento){
   const cargo = userCargo();
   if(cargo === 'Presidente Executivo') return true;
   if(cargo === 'Diretor') return true;
+  if(isAssessoria()) return true;
   if(userHasEquipa('CAdm')) return true;
   if(!departamento) return true;
   return userHasEquipa(departamento);
@@ -3630,6 +3645,7 @@ function canSeeReuniao(tipoReuniao){
   };
   const equipa = REUNIAO_EQUIPA_MAP[tipoReuniao];
   if(!equipa) return true;
+  if(isAssessoria()) return true; // Fase 66 — vê as reuniões da Administração, da Gestão e de todas as equipas
   return userHasEquipa(equipa);
 }
 
@@ -3693,7 +3709,7 @@ function showApp(){
       if(adminNav) adminNav.style.display='flex';
       loadOrgUsers();
     }
-    if(isPE || isDir || isAdmin()){
+    if(isPE || isDir || isAdmin() || isAssessoria()){
       const deTab = document.getElementById('tab-de');
       if(deTab) deTab.style.display = 'block';
       const paTab = document.getElementById('tab-pa');
@@ -13328,7 +13344,7 @@ function gfRenderRubricas() {
             ${GF.bloqueado ? '🔒 Edições Bloqueadas' : '🔓 Edições Permitidas'}
           </button>
         ` : GF.bloqueado ? `<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#FEE2E2;color:#991B1B;border-radius:var(--r);font-size:12px;font-weight:500">🔒 Edições bloqueadas pela DF</span>` : ''}
-        ${!GF.bloqueado || _financeRole === 'df' ? `
+        ${(!GF.bloqueado || _financeRole === 'df') && !isAssessoria() ? `
           <button class="btn btn-primary" style="background:var(--mod-financeiro);border-color:var(--mod-financeiro)" onclick="GF.rubrica=null;gfNav('orcamento-rubrica-form')">+ Nova rúbrica</button>
         ` : ''}
       </div>
@@ -13702,8 +13718,8 @@ function gfRenderRubricas() {
               <!-- Resultado e ações -->
               <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:#fff;border-radius:6px">
                 <div style="display:flex;gap:8px">
-                  ${!GF.bloqueado || _financeRole === 'df' ? `<button class="btn btn-sm" style="border-color:var(--mod-financeiro);color:var(--mod-financeiro)" onclick="event.stopPropagation();GF.rubrica=${r.id};gfNav('orcamento-rubrica-form')">Editar</button>` : ''}
-                  ${canClose && (!GF.bloqueado || _financeRole === 'df') ? `<button class="btn btn-sm" onclick="event.stopPropagation();gfSolicitarFecho(${r.id})">Solicitar encerramento</button>` : ''}
+                  ${(!GF.bloqueado || _financeRole === 'df') && !isAssessoria() ? `<button class="btn btn-sm" style="border-color:var(--mod-financeiro);color:var(--mod-financeiro)" onclick="event.stopPropagation();GF.rubrica=${r.id};gfNav('orcamento-rubrica-form')">Editar</button>` : ''}
+                  ${canClose && (!GF.bloqueado || _financeRole === 'df') && !isAssessoria() ? `<button class="btn btn-sm" onclick="event.stopPropagation();gfSolicitarFecho(${r.id})">Solicitar encerramento</button>` : ''}
                 </div>
               </div>
             </div>
@@ -14614,6 +14630,7 @@ function gfRenderRubricaForm() {
 }
 
 async function gfSaveRubrica(id) {
+  if (isAssessoria()) { showNotif('Perfil só de leitura no Financeiro.', 'error'); return; } // Fase 66
   // Verificar bloqueio da DF
   if (GF.bloqueado && _financeRole !== 'df') {
     showNotif('🔒 Edições bloqueadas pela Diretora Financeira', 'error');
@@ -14817,6 +14834,7 @@ function gfRenderSolicitacoes() {
   // FILTRAR solicitações de projetos que o utilizador pode ver
   // canViewFinanceProject já trata todos os roles (PE, Diretores, Membros)
   lista = lista.filter(s => canViewFinanceProject(s.projetoId));
+  lista = lista.filter(s => !gfSolEscondidaAssessoria(s)); // Fase 66 — Assessoria não vê rúbricas confidenciais
 
   // Membro fora do Financeiro: só as suas, mesmo dentro de "Realizadas"
   if (restrito) lista = lista.filter(s => s.autorEmail === myEmail);
@@ -15016,11 +15034,11 @@ function gfRenderSolicitacaoForm() {
             <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Tipo de Solicitação <span style="color:#EF4444">*</span></label>
             <div style="display:flex;gap:16px">
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-                <input type="radio" name="gf-sol-tipo" value="Despesa" ${!sol || sol.tipoSolicitacao === 'Despesa' ? 'checked' : ''} style="width:18px;height:18px;accent-color:#2563EB">
+                <input type="radio" name="gf-sol-tipo" value="Despesa" onchange="gfSolAtualizarDocs()" ${!sol || sol.tipoSolicitacao === 'Despesa' ? 'checked' : ''} style="width:18px;height:18px;accent-color:#2563EB">
                 <span style="color:#2563EB;font-weight:500">Despesa</span>
               </label>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-                <input type="radio" name="gf-sol-tipo" value="Receita" ${sol?.tipoSolicitacao === 'Receita' ? 'checked' : ''} style="width:18px;height:18px;accent-color:#F97316">
+                <input type="radio" name="gf-sol-tipo" value="Receita" onchange="gfSolAtualizarDocs()" ${sol?.tipoSolicitacao === 'Receita' ? 'checked' : ''} style="width:18px;height:18px;accent-color:#F97316">
                 <span style="color:#F97316;font-weight:500">Receita</span>
               </label>
             </div>
@@ -15080,7 +15098,7 @@ function gfRenderSolicitacaoForm() {
           
           <div style="margin-bottom:16px">
             <label style="display:block;font-size:13px;font-weight:500;margin-bottom:4px">
-              📋 Orçamentos recebidos ${_financeRole === 'pe' ? '<span style="font-size:11px;font-weight:400;color:var(--text3)">(dispensável para o Presidente Executivo)</span>' : '<span style="color:#EF4444">*</span>'}
+              📋 Orçamentos recebidos <span style="font-size:11px;font-weight:400;color:var(--text3)">(opcional)</span>
               <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:6px">Todos os orçamentos/propostas pedidos — máximo 3 ficheiros</span>
             </label>
             <input type="file" id="gf-sol-file-orc" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" onchange="gfSolLimitOrcFiles(this)"
@@ -15090,7 +15108,7 @@ function gfRenderSolicitacaoForm() {
 
           <div>
             <label style="display:block;font-size:13px;font-weight:500;margin-bottom:4px">
-              ✅ Proposta de adjudicação ${_financeRole === 'pe' ? '<span style="font-size:11px;font-weight:400;color:var(--text3)">(dispensável para o Presidente Executivo)</span>' : '<span style="color:#EF4444">*</span>'}
+              ✅ Proposta de adjudicação <span id="gf-sol-adj-marca">${gfSolMarcaAdj(sol?.tipoSolicitacao || 'Despesa')}</span>
               <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:6px">O orçamento escolhido / proposta de adjudicação</span>
             </label>
             <input type="file" id="gf-sol-file-adj" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png"
@@ -15198,6 +15216,19 @@ function gfSolRubricaInfo(rubId) {
   }
 }
 
+// Fase 65 — documentos: nas receitas nada é obrigatório; nas despesas só a proposta de adjudicação
+// (o PE continua dispensado). Os orçamentos recebidos são sempre opcionais.
+function gfSolMarcaAdj(tipo) {
+  if (tipo === 'Receita') return '<span style="font-size:11px;font-weight:400;color:var(--text3)">(opcional em receitas)</span>';
+  if (_financeRole === 'pe') return '<span style="font-size:11px;font-weight:400;color:var(--text3)">(dispensável para o Presidente Executivo)</span>';
+  return '<span style="color:#EF4444">*</span>';
+}
+function gfSolAtualizarDocs() {
+  const tipo = document.querySelector('input[name="gf-sol-tipo"]:checked')?.value || 'Despesa';
+  const el = document.getElementById('gf-sol-adj-marca');
+  if (el) el.innerHTML = gfSolMarcaAdj(tipo);
+}
+
 // Limita a seleção de "Orçamentos recebidos" a 3 ficheiros
 function gfSolLimitOrcFiles(input) {
   const list = document.getElementById('gf-sol-orc-list');
@@ -15264,19 +15295,13 @@ async function gfSaveSolicitacao(id, estado) {
     return;
   }
 
-  // Fase 26 — o Presidente Executivo fica dispensado de anexar Orçamentos recebidos/
-  // Proposta de adjudicação para poder submeter; os outros perfis continuam obrigados.
-  if (estado === 'Submetido' && _financeRole !== 'pe') {
-    let hasOrc = filesOrc.length > 0;
+  // Fase 65 — só as despesas exigem anexo, e apenas a proposta de adjudicação (os orçamentos recebidos
+  // são opcionais; as receitas não exigem documentos). O Presidente Executivo continua dispensado (Fase 26).
+  if (estado === 'Submetido' && _financeRole !== 'pe' && tipoSolicitacao === 'Despesa') {
     let hasAdj = filesAdj.length > 0;
-    if (id && (!hasOrc || !hasAdj)) {
+    if (id && !hasAdj) {
       const existing = await gfSolCheckExistingAttach(id);
-      hasOrc = hasOrc || existing.hasOrc;
       hasAdj = hasAdj || existing.hasAdj;
-    }
-    if (!hasOrc) {
-      showNotif('Anexe pelo menos um orçamento recebido antes de submeter', 'error');
-      return;
     }
     if (!hasAdj) {
       showNotif('Anexe a proposta de adjudicação antes de submeter', 'error');
@@ -15530,6 +15555,7 @@ function gfRenderSolicitacaoView(solIdParam, opts) {
   opts = opts || {};
   const sol = GF_SOLICITACOES.find(s => s.id === (solIdParam != null ? solIdParam : GF.solicitacao));
   if (!sol) return '<p style="padding:40px;text-align:center">Solicitação não encontrada</p>';
+  if (gfSolEscondidaAssessoria(sol)) return '<p style="padding:40px;text-align:center;color:var(--text3)">🔒 Solicitação de uma rúbrica confidencial. Acesso restrito.</p>';
   
   const solProj = GF_PROJETOS.find(p => p.id === sol.projetoId);
   const projDep = solProj?.dep || solProj?.departamento || '';
@@ -17034,10 +17060,11 @@ function auSetupSidebar(){
   const isN2=auSouN2()||_auRole==='pe';
   const admin=auPodeAdministrar();
   const show=(id,v)=>{const e=document.getElementById(id);if(e)e.style.display=v;};
-  show('au-lbl-dir',(isN1||isN2)?'block':'none');
+  const assess=isAssessoria();
+  show('au-lbl-dir',(isN1||isN2||assess)?'block':'none');
   show('au-nav-aprov-n1',isN1?'flex':'none');
   show('au-nav-aprov-n2',isN2?'flex':'none');
-  show('au-nav-equipa',(isN1||isN2||admin)?'flex':'none');
+  show('au-nav-equipa',(isN1||isN2||admin||assess)?'flex':'none');
   auAplicarVisAnalise();
   show('au-lbl-admin',admin?'block':'none');
   show('au-nav-admin',admin?'flex':'none');
@@ -18061,7 +18088,7 @@ function auCorTipo(tipo){return AU_COR[tipo]||AU_COR.outra;}
 // o que o utilizador atual pode ver do tipo de ausência de outra pessoa
 function auPodeVerTipo(p){
   if(p.colEmail===auMyEmail())return true;
-  if(auPodeAdministrar())return true;
+  if(auPodeAdministrar()||isAssessoria())return true;
   if(p.tipo==='Férias'||p.tipo==='Compensação')return true;
   return AU_CFG.n1[p.colEmail]===auMyEmail();
 }
@@ -19087,7 +19114,7 @@ let _auArq={ano:new Date().getFullYear(),pessoa:'',estado:''};
 function auArquivoPessoas(){
   const me=auMyEmail();
   let us=fjUtilizadores.filter(u=>u.email);
-  if(!auPodeAdministrar())us=us.filter(u=>u.email===me||AU_CFG.n1[u.email]===me);
+  if(!auPodeAdministrar()&&!isAssessoria())us=us.filter(u=>u.email===me||AU_CFG.n1[u.email]===me);
   return us.sort((a,b)=>(a.titulo||'').localeCompare(b.titulo||'','pt'));
 }
 async function auArquivoInit(){
@@ -19170,7 +19197,7 @@ let _auEq={per:null,todos:false};
 function auPodeValidar(email){return auPodeAdministrar()||AU_CFG.n1[email]===auMyEmail();}
 function auEquipaPessoas(){
   const me=auMyEmail();
-  return fjUtilizadores.filter(u=>u.email&&(auPodeAdministrar()||AU_CFG.n1[u.email]===me)).sort((a,b)=>(a.titulo||'').localeCompare(b.titulo||'','pt'));
+  return fjUtilizadores.filter(u=>u.email&&(auPodeAdministrar()||isAssessoria()||AU_CFG.n1[u.email]===me)).sort((a,b)=>(a.titulo||'').localeCompare(b.titulo||'','pt'));
 }
 async function auEquipaInit(){
   const wrap=document.getElementById('au-equipa-wrap');if(!wrap)return;
@@ -19435,14 +19462,14 @@ let _auAn={de:null,ate:null,area:'',colab:'',proj:'',soValidados:false,dados:nul
 // Análise de tempo: só Presidente Executivo, CAdm, Diretores e a equipa de Gestão (coordenadores)
 function auPodeVerAnalise(){
   const c=userCargo(),eq=currentUserFJ?.equipa||[];
-  return auPodeAdministrar()||_financeRole==='pe'||c==='Presidente Executivo'||c==='Diretor'||eq.includes('CAdm')||eq.includes('E. Gestão');
+  return auPodeAdministrar()||_financeRole==='pe'||c==='Presidente Executivo'||c==='Diretor'||eq.includes('CAdm')||eq.includes('E. Gestão')||isAssessoria();
 }
 function auAplicarVisAnalise(){
   const v=auPodeVerAnalise()?'flex':'none';
   ['au-nav-analise','pl-nav-analise-link'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display=v;});
 }
 function auAnaliseEscopo(){
-  if(auPodeAdministrar()||_financeRole==='pe'||userCargo()==='Presidente Executivo')return fjUtilizadores.filter(u=>u.email);
+  if(auPodeAdministrar()||_financeRole==='pe'||userCargo()==='Presidente Executivo'||isAssessoria())return fjUtilizadores.filter(u=>u.email);
   if(userCargo()==='Diretor'||(currentUserFJ?.equipa||[]).includes('E. Gestão')){const eq=(currentUserFJ?.equipa||[]).filter(e=>e&&e!=='CAdm');return fjUtilizadores.filter(u=>u.email&&(u.email===auMyEmail()||(u.equipa||[]).some(e=>eq.includes(e))));}
   return fjUtilizadores.filter(u=>u.email===auMyEmail());
 }
@@ -20700,7 +20727,7 @@ function deBadgeDecisao() {
 function deVisibleItems() {
   const isPE    = userCargo() === 'Presidente Executivo';
   const myEmail = (user?.username || '').toLowerCase();
-  if (isPE) return DE_ITEMS;
+  if (isPE || isAssessoria()) return DE_ITEMS;
   return DE_ITEMS.filter(d => d.autorEmail === myEmail);
 }
 
