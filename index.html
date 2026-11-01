@@ -322,6 +322,11 @@ tr:hover td{background:var(--bg3)}
 .module-tab{padding:5px 13px;border-radius:6px;cursor:pointer;font-size:13px;color:rgba(255,255,255,.65);font-weight:500;border:none;background:none;font-family:inherit;transition:all .15s}
 .module-tab:hover{background:rgba(255,255,255,.1);color:#fff}
 .module-tab.active{background:rgba(255,255,255,.18);color:#fff;font-weight:600}
+/* Fase 67 - contador de pendências no separador (vermelho = bloqueia outra pessoa, cinzento = lembrete pessoal) */
+.module-tab{position:relative}
+.tab-cnt{position:absolute;top:-3px;right:-3px;min-width:16px;height:16px;padding:0 4px;box-sizing:border-box;border-radius:9px;font-size:10px;font-weight:700;line-height:16px;text-align:center;color:#fff;background:#6B7280;box-shadow:0 0 0 1.5px var(--fj-blue);display:none;pointer-events:none;font-family:inherit}
+.tab-cnt.urg{background:#D32F2F}
+.nav-cnt{margin-left:auto;background:var(--fj-orange);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;display:none}
 #sidebar-gf .nav-item:hover{background:rgba(255,255,255,.1)}
 #sidebar-gf .nav-item.active{background:var(--fj-orange)}
 
@@ -371,6 +376,56 @@ tr:hover td{background:var(--bg3)}
 .vt-btn{padding:6px 14px;border:none;background:none;border-radius:7px;cursor:pointer;font-size:12px;font-family:inherit;color:var(--text2);transition:all .12s;white-space:nowrap}
 .vt-btn:hover{background:var(--bg2);color:var(--text)}
 .vt-btn.active{background:var(--mod-planeamento);color:#fff;font-weight:600;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+
+/* Fase 68: Kanban do Plano Semanal */
+.kb-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.kb-semana{font-size:13px;font-weight:700;color:var(--mod-planeamento)}
+.kb-lbl{font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px}
+.kb-chip-proj{font-size:12px;background:var(--mod-planeamento-bg);color:var(--mod-planeamento);border:1px solid var(--mod-planeamento-mid);border-radius:999px;padding:3px 6px 3px 10px}
+.kb-chip-proj button{border:none;background:none;cursor:pointer;color:inherit;font-size:12px}
+.kb-resumo{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.kb-res{display:flex;align-items:baseline;gap:6px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:6px 12px;cursor:pointer;font-family:inherit}
+.kb-res.on{border-color:var(--mod-planeamento);background:var(--mod-planeamento-bg)}
+.kb-res-n{font-size:18px;font-weight:700}
+.kb-res-l{font-size:11px;color:var(--text2)}
+.kb-faixa{margin:14px 0 6px;font-size:12px;font-weight:700;color:#fff;background:var(--mod-planeamento);border-radius:8px;padding:6px 12px}
+.kb-faixa span{font-weight:400;opacity:.75;margin-left:6px}
+.kb-scroll{overflow-x:auto;padding-bottom:6px}
+.kb-board{display:grid;grid-template-columns:repeat(6,minmax(172px,1fr));gap:10px;align-items:start;min-width:1060px}
+.kb-col{background:var(--mod-planeamento-bg);border:1px solid var(--border);border-radius:10px;min-height:120px}
+.kb-col-h{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;font-size:12px;font-weight:700;color:var(--mod-planeamento);border-bottom:1px solid var(--border)}
+.kb-col-h.over{color:#B91C1C}
+.kb-cnt{font-weight:600;background:var(--bg2);border-radius:999px;padding:1px 8px;font-size:11px}
+.kb-col-h.over .kb-cnt{background:#FEE2E2;color:#B91C1C}
+.kb-col-b{padding:8px;display:flex;flex-direction:column;gap:8px}
+.kb-vazio{text-align:center;color:var(--text3);font-size:12px;padding:10px 0}
+.kb-card{background:var(--bg2);border:1px solid var(--border);border-left:4px solid var(--mod-planeamento-mid);border-radius:8px;padding:8px 9px;cursor:pointer;font-size:12px}
+.kb-card[draggable="true"]{cursor:grab}
+.kb-card.ro{opacity:.85}
+.kb-card.sa{border-left-color:#D97706;background:#FFFBEB}
+.kb-card.sv{border-left-color:#B91C1C;background:#FEF2F2}
+.kb-card-t{font-weight:600;font-size:13px;margin-bottom:4px;word-break:break-word}
+.kb-card-m{color:var(--text2);font-size:11px;margin-bottom:3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.kb-card-p{font-size:11px;color:var(--mod-planeamento-mid);margin-bottom:3px}
+.kb-motivo{font-size:11px;background:#FEF3C7;color:#92400E;border-radius:6px;padding:3px 6px;margin:3px 0}
+.kb-card-f{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px}
+.kb-tag{font-size:10px;font-weight:600;border-radius:999px;padding:1px 7px;background:#EEF1F6;color:var(--text2)}
+.kb-tag.a{background:#FEF3C7;color:#92400E}
+.kb-tag.r{background:#FEE2E2;color:#B91C1C}
+.kb-menu{display:none;font-size:12px;padding:4px;border:1px solid var(--border2);border-radius:6px;background:var(--bg2);color:var(--text);margin-left:auto}
+.kb-rev-t{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px}
+.kb-rev-t th,.kb-rev-t td{border-bottom:1px solid var(--border);padding:5px 6px;text-align:left;vertical-align:top}
+.kb-rev-t th{color:var(--text2);font-size:11px;text-transform:uppercase}
+.kb-rev-v{font-size:12px;color:var(--text3);margin:0 0 10px}
+#kb-rev-body h4{margin:14px 0 6px;color:var(--mod-planeamento);font-size:13px}
+#kb-rev-body h4 span{font-weight:400;color:var(--text3)}
+@media(max-width:767px){
+  .kb-scroll{scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+  .kb-board{display:flex;gap:10px;min-width:0}
+  .kb-col{flex:0 0 84vw;scroll-snap-align:start}
+  .kb-menu{display:block}
+  .kb-card[draggable="true"]{cursor:pointer}
+}
 
 /* TABS */
 .tabs{display:flex;border-bottom:0.5px solid var(--bd);margin-bottom:1rem}
@@ -687,13 +742,13 @@ th.au-mp-n{background:var(--bg3)}
       <img src="data:image/png;base64,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" alt="Fundação da Juventude" style="height:32px;width:auto;display:block">
     </div>
     <div style="display:flex;gap:2px;margin-left:16px">
-      <button class="module-tab active" id="tab-rn" onclick="switchModule('rn')">🤝 Reuniões</button>
-      <button class="module-tab" id="tab-pl" onclick="switchModule('pl')">📊 Planeamento</button>
-      <button class="module-tab" id="tab-gf" onclick="switchModule('gf')">💰 Financeiro</button>
-      <button class="module-tab" id="tab-au" onclick="switchModule('au')">🏖️ Ausências e Ponto</button>
-      <button class="module-tab" id="tab-co" onclick="switchModule('co')">📬 Correio</button>
-      <button class="module-tab" id="tab-de" onclick="switchModule('de')" style="display:none">📋 Despacho</button>
-      <button class="module-tab" id="tab-pa" onclick="switchModule('pa')" style="display:none">🏛️ Parcerias</button>
+      <button class="module-tab active" id="tab-rn" onclick="navTabClick('rn')">🤝 Reuniões<span class="tab-cnt" id="tab-cnt-rn" aria-hidden="true"></span></button>
+      <button class="module-tab" id="tab-pl" onclick="navTabClick('pl')">📊 Planeamento<span class="tab-cnt" id="tab-cnt-pl" aria-hidden="true"></span></button>
+      <button class="module-tab" id="tab-gf" onclick="navTabClick('gf')">💰 Financeiro<span class="tab-cnt" id="tab-cnt-gf" aria-hidden="true"></span></button>
+      <button class="module-tab" id="tab-au" onclick="navTabClick('au')">🏖️ Ausências e Ponto<span class="tab-cnt" id="tab-cnt-au" aria-hidden="true"></span></button>
+      <button class="module-tab" id="tab-co" onclick="navTabClick('co')">📬 Correio<span class="tab-cnt" id="tab-cnt-co" aria-hidden="true"></span></button>
+      <button class="module-tab" id="tab-de" onclick="navTabClick('de')" style="display:none">📋 Despacho<span class="tab-cnt" id="tab-cnt-de" aria-hidden="true"></span></button>
+      <button class="module-tab" id="tab-pa" onclick="navTabClick('pa')" style="display:none">🏛️ Parcerias<span class="tab-cnt" id="tab-cnt-pa" aria-hidden="true"></span></button>
       <button class="module-tab" id="tab-st" onclick="switchModule('st')" style="display:none">⚙️ Definições</button>
     </div>   <div class="topbar-right">
       <div style="text-align:right">
@@ -724,6 +779,7 @@ th.au-mp-n{background:var(--bg3)}
       <div class="nav-item active" id="nav-assuntos" onclick="showPage('assuntos')">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="9" x2="9" y2="9"/></svg>
         Assuntos
+      <span id="rn-badge-assuntos" class="nav-cnt"></span>
       </div>
       <div class="nav-item" id="nav-reuniao" onclick="showPage('reuniao')">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5,3 14,8 5,13"/></svg>
@@ -736,6 +792,7 @@ th.au-mp-n{background:var(--bg3)}
       <div class="nav-item" id="nav-tarefas" onclick="showPage('tarefas')">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="4,8 7,11 12,5"/><rect x="2" y="2" width="12" height="12" rx="2"/></svg>
         Tarefas
+      <span id="rn-badge-tarefas" class="nav-cnt"></span>
       </div>
       <div class="sidebar-label" id="admin-section-label" style="display:none">Administração</div>
       <div class="nav-item" id="nav-admin" onclick="showPage('admin')" style="display:none">
@@ -748,6 +805,7 @@ th.au-mp-n{background:var(--bg3)}
       <div class="nav-item active" id="pl-nav-semanal" onclick="plShowPage('semanal')">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg>
         Plano Semanal
+      <span id="pl-badge-atrasadas" class="nav-cnt"></span>
       </div>
       <div class="nav-item" id="pl-nav-hierarquia" onclick="plShowPage('hierarquia')">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="4" rx="1"/><rect x="9" y="1" width="6" height="4" rx="1"/><rect x="5" y="11" width="6" height="4" rx="1"/><line x1="4" y1="5" x2="4" y2="13"/><line x1="12" y1="5" x2="8" y2="13"/><line x1="4" y1="9" x2="8" y2="11"/></svg>
@@ -821,14 +879,17 @@ th.au-mp-n{background:var(--bg3)}
       <div class="nav-item" id="gf-nav-sol-processado" onclick="gfOpenProcessadoModal()" style="color:rgba(255,255,255,.75);padding-left:1.25rem;display:none">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><polyline points="5,8 7,10 11,6"/></svg>
         + Processado
+      <span id="gf-badge-proc" class="nav-cnt"></span>
       </div>
       <div class="nav-item" id="gf-nav-sol-pendentes" onclick="GF.tab.sol='pendentes';gfNav('solicitacoes')" style="color:rgba(255,255,255,.75);padding-left:1.25rem;display:none">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M2 6h12"/></svg>
         🏦 Pendentes
+      <span id="gf-badge-mov" class="nav-cnt"></span>
       </div>
       <div class="nav-item" id="gf-nav-sol-lista" onclick="gfNav('solicitacoes')" style="color:rgba(255,255,255,.75);padding-left:1.25rem">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="10" x2="9" y2="10"/></svg>
         Solicitações
+      <span id="gf-badge-pendinfo" class="nav-cnt"></span>
       </div>
 
       <!-- Alterações -->
@@ -851,6 +912,7 @@ th.au-mp-n{background:var(--bg3)}
       <div class="nav-item" id="gf-nav-aprovacoes" onclick="gfNav('aprovacoes')" style="color:rgba(255,255,255,.75)">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3,8 6,11 13,4"/></svg>
         Aprovações
+      <span id="gf-badge-aprov" class="nav-cnt"></span>
       </div>
 
       <!-- Tesouraria -->
@@ -898,7 +960,8 @@ th.au-mp-n{background:var(--bg3)}
   <div class="nav-item" id="au-nav-ponto" onclick="auNav('ponto')" style="color:rgba(255,255,255,.75)">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.5"/><path d="M8 4v4.5l3 1.5"/></svg>
     O meu ponto
-  </div>
+  <span id="au-badge-ponto" class="nav-cnt"></span>
+      </div>
   <div class="nav-item" id="au-nav-arquivo" onclick="auNav('arquivo')" style="color:rgba(255,255,255,.75)">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 4a1.5 1.5 0 011.5-1.5h3l1.5 1.5H13A1.5 1.5 0 0114.5 5.5V12A1.5 1.5 0 0113 13.5H3A1.5 1.5 0 011.5 12V4z"/></svg>
     Arquivo de folhas
@@ -924,7 +987,8 @@ th.au-mp-n{background:var(--bg3)}
   <div class="nav-item" id="au-nav-equipa" onclick="auNav('equipa')" style="color:rgba(255,255,255,.75);display:none">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5.5" cy="5" r="2.5"/><circle cx="11" cy="6" r="2"/><path d="M1 14c0-2.5 2-4 4.5-4S10 11.5 10 14M10 10.2c2.5-.4 5 .8 5 3.8"/></svg>
     Ponto da equipa
-  </div>
+  <span id="au-badge-ponto-val" class="nav-cnt"></span>
+      </div>
   <div class="nav-item" id="au-nav-aprov-n2" onclick="auNav('aprov-n2')" style="color:rgba(255,255,255,.75);display:none">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3,8 6,11 13,4"/><polyline points="7,8 10,11 16,4" opacity=".5"/></svg>
     Aprovações — 2.º nível
@@ -973,7 +1037,8 @@ th.au-mp-n{background:var(--bg3)}
   <div class="nav-item active" id="pa-nav-parceiros" onclick="paNav('parceiros')" style="color:rgba(255,255,255,.75)">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="9" x2="9" y2="9"/></svg>
     Parceiros
-  </div>
+  <span id="pa-badge-expirar" class="nav-cnt"></span>
+      </div>
 </div>
 <div class="sidebar" id="sidebar-st" style="display:none">
   <div class="sidebar-label">Definições</div>
@@ -1722,6 +1787,33 @@ th.au-mp-n{background:var(--bg3)}
       </div>
 
       <!-- MODAL DE TAREFA (fixo, acessível de qualquer página do módulo PL) -->
+
+      <!-- Fase 68: modal do motivo de espera -->
+      <div id="kb-motivo-ov" class="overlay" style="z-index:950">
+        <div class="panel" style="max-width:440px;width:100%;border-radius:14px">
+          <div style="font-size:15px;font-weight:700;color:var(--mod-planeamento);margin-bottom:4px">Passar para Em espera</div>
+          <div id="kb-motivo-tarefa" style="font-size:12px;color:var(--text2);margin-bottom:10px"></div>
+          <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Motivo da espera (obrigatório)</label>
+          <textarea id="kb-motivo-txt" style="width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);min-height:80px;resize:vertical" placeholder="Ex.: à espera de resposta do parceiro"></textarea>
+          <div id="kb-motivo-err" style="display:none;color:#B91C1C;font-size:12px;margin-top:4px">Indica o motivo para passar a tarefa para Em espera.</div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+            <button class="btn" onclick="kbFecharMotivo()">Cancelar</button>
+            <button class="btn btn-primary" style="background:var(--mod-planeamento);border-color:var(--mod-planeamento)" onclick="kbConfirmarMotivo()">Confirmar</button>
+          </div>
+        </div>
+      </div>
+      <!-- Fase 68: painel de revisão (Diretores e PE) -->
+      <div id="kb-rev-ov" class="overlay" style="z-index:950">
+        <div class="panel" style="max-width:1100px;width:100%;max-height:88vh;overflow:auto;border-radius:14px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <div style="font-size:16px;font-weight:700;color:var(--mod-planeamento);flex:1">Revisão do Kanban</div>
+            <button class="btn btn-sm" onclick="kbExportarRevisao()">⬇️ Exportar Excel</button>
+            <button class="btn btn-sm" onclick="kbFecharRevisao()">Fechar</button>
+          </div>
+          <div style="font-size:11px;color:var(--text3)">Âmbito: todas as tarefas visíveis (os filtros do quadro não se aplicam).</div>
+          <div id="kb-rev-body"></div>
+        </div>
+      </div>
       <div id="frm-pl-tar-ov" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:500;background:rgba(0,0,0,.4);overflow-y:auto">
         <div style="max-width:680px;margin:48px auto;padding:0 1rem 2rem">
           <div class="panel" style="box-shadow:0 12px 40px rgba(0,0,0,.22);border-radius:16px;padding:0;overflow:hidden">
@@ -1786,8 +1878,14 @@ th.au-mp-n{background:var(--bg3)}
                 </div>
                 <div>
                   <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Estado</label>
-                  <select id="ftar-estado" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:var(--bg2);color:var(--text)"><option value="todo">Por fazer</option><option value="Em curso">Em curso</option><option value="Concluída">Concluída</option></select>
+                  <select id="ftar-estado" onchange="plTarEstadoChg()" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:var(--bg2);color:var(--text)"><option value="Por fazer">Por fazer</option><option value="Em curso">Em curso</option><option value="Em espera">Em espera</option><option value="Em validação">Em validação</option><option value="Concluída">Concluída</option><option value="Cancelada">Cancelada</option></select>
                 </div>
+              </div>
+
+              <!-- Fase 68: motivo da espera -->
+              <div id="ftar-motivo-wrap" style="display:none;margin-bottom:16px">
+                <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Motivo da espera (obrigatório)</label>
+                <textarea id="ftar-motivo" placeholder="Porque está a tarefa em espera?" style="width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);min-height:60px;resize:vertical"></textarea>
               </div>
 
               <!-- Notas -->
@@ -1826,10 +1924,16 @@ th.au-mp-n{background:var(--bg3)}
       <div id="pl-page-semanal" class="page active">
         <div class="page-title">Plano Semanal</div>
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
-          <div class="week-nav" style="flex:1">
+          <div class="week-nav" id="sem-week-nav" style="flex:1">
             <button class="btn btn-sm" onclick="chgWeek(-1)">← Anterior</button>
             <span class="week-nav-title" id="week-label">—</span>
             <button class="btn btn-sm" onclick="chgWeek(1)">Seguinte →</button>
+          </div>
+          <span id="sem-fill" style="flex:1;display:none"></span>
+          <!-- Fase 68: alternador Lista | Kanban -->
+          <div class="view-toggle" id="sem-vista-wrap">
+            <button class="vt-btn active" id="sem-btn-lista" onclick="kbSetVista('lista')">Lista</button>
+            <button class="vt-btn" id="sem-btn-kanban" onclick="kbSetVista('kanban')">Kanban</button>
           </div>
           <!-- toggle "Minhas tarefas" — apenas visível para Diretores+ -->
           <div id="sem-my-toggle-wrap" style="display:none">
@@ -1849,7 +1953,8 @@ th.au-mp-n{background:var(--bg3)}
           <button class="btn btn-primary" onclick="openTarForm()">+ Nova tarefa</button>
         </div>
         <div class="stats" id="stats-sem" style="margin-bottom:1rem"></div>
-        <div class="table-wrap">
+        <div id="kb-wrap" style="display:none"></div>
+        <div class="table-wrap" id="sem-table-wrap">
           <table>
             <colgroup><col style="width:36px"><col style="width:26%"><col style="width:13%"><col style="width:11%"><col style="width:9%"><col style="width:10%"><col style="width:17%"><col style="width:11%"></colgroup>
             <thead><tr><th></th><th>Tarefa</th><th>Responsável</th><th>Data limite</th><th>Prioridade</th><th>Estado</th><th>Notas</th><th>Ações</th></tr></thead>
@@ -3202,6 +3307,484 @@ function switchModule(mod){
 }
 let _plLoaded=false,_gfLoaded=false,_auLoaded=false,_coLoaded=false,_stLoaded=false,_deLoaded=false;
 
+// ══════════════════════════════════════════════════════════════
+// Fase 67 (contadores de pendências nos separadores da barra de cima e nos menus laterais)
+// Cada área tem UMA função navCount<Area>() que devolve {total, urgente, detalhe:[{label,n,destino,badge,urg}]}.
+// Os contadores laterais (au-badge-n1, de-badge-decisao, co-badge-tarefas, ...) e o círculo do separador
+// leem todos desse resultado, por isso a soma lateral bate sempre com o separador.
+// Dados: memória do módulo (se já carregou e é mais recente) ou leitura leve em paralelo
+// (navCountsRefresh: $select mínimo, $filter no servidor). Uma lista que falha esconde só o contador dessa
+// área e fica registada na consola; uma lista que não existe (404) conta como vazia.
+// Vermelho = há itens que bloqueiam outra pessoa (aprovar, decidir, validar); cinzento = só lembretes pessoais.
+// ══════════════════════════════════════════════════════════════
+const NAV_AREAS = ['rn', 'pl', 'gf', 'au', 'co', 'de', 'pa'];
+const NAV_NOMES = { rn: 'Reuniões', pl: 'Planeamento', gf: 'Financeiro', au: 'Ausências e Ponto', co: 'Correio', de: 'Despacho', pa: 'Parcerias' };
+const NAV_TTL = 5 * 60 * 1000;
+// ids dos contadores laterais de cada área (a soma dos laterais tem de bater com o separador)
+const NAV_BADGES = {
+  gf: ['gf-badge-aprov', 'gf-badge-pendinfo', 'gf-badge-proc', 'gf-badge-mov'],
+  au: ['au-badge-n1', 'au-badge-n2', 'au-badge-ponto-val', 'au-badge-ponto'],
+  de: ['de-badge-decisao'],
+  co: ['co-badge-tarefas'],
+  rn: ['rn-badge-assuntos', 'rn-badge-tarefas'],
+  pl: ['pl-badge-atrasadas'],
+  pa: ['pa-badge-expirar']
+};
+let NAV_COUNTS = {};   // área -> {total,urgente,detalhe} | null (escondido)
+let NAV_MEM = {};      // dataset -> instante em que o módulo carregou ou atualizou os dados em memória
+let NAV_LEVE = {};     // dataset -> {t, dados, erro}
+let NAV_LENDO = {};    // dataset -> Promise em curso (evita pedidos repetidos)
+let NAV_DESTINO = {};  // área -> função a executar quando o módulo estiver pronto
+let NAV_PRONTO = { rn: true };   // área -> o módulo já fez o primeiro carregamento
+let _navUltimo = 0, _navIniciado = false, _navTimer = null, _navPend = { areas: new Set(), ds: new Set() };
+
+function navMe() { return (user?.username || user?.preferredUsername || '').toLowerCase(); }
+function navTabVisivel(a) { const t = document.getElementById('tab-' + a); return !!t && t.style.display !== 'none'; }
+function navPl(n, sing, plur) { return n === 1 ? sing : plur; }
+function navUrl(lista, select, filtro, extra) {
+  return `${SP}/_api/web/lists/getbytitle('${lista}')/items?$select=${select}${extra || ''}${filtro ? '&$filter=' + encodeURIComponent(filtro) : ''}`;
+}
+function navYmd(v) { return v ? String(v).split('T')[0] : ''; }
+// {total, urgente, detalhe} a partir de linhas {n, sing, plur, urg, badge, destino}
+function navMonta(linhas) {
+  const detalhe = linhas.map(l => ({ label: navPl(l.n, l.sing, l.plur), n: l.n, urg: !!l.urg, badge: l.badge || '', destino: l.destino || null }));
+  return {
+    total: detalhe.reduce((a, d) => a + d.n, 0),
+    urgente: detalhe.reduce((a, d) => a + (d.urg ? d.n : 0), 0),
+    detalhe
+  };
+}
+
+// ── Fontes de dados: memória do módulo (mem) ou leitura leve (ler) ──
+const NAV_DS = {};   // preenchido mais abaixo, por área
+
+function navDados(ds) {
+  const def = NAV_DS[ds], l = NAV_LEVE[ds], m = NAV_MEM[ds];
+  if (def && def.mem && m && (!l || m >= l.t)) { try { return def.mem(); } catch (e) { } }
+  return (l && !l.erro) ? l.dados : null;
+}
+function navErro(ds) {
+  const l = NAV_LEVE[ds], m = NAV_MEM[ds];
+  return !!(l && l.erro && !(m && m >= l.t));
+}
+function navMemoria(ds) { NAV_MEM[ds] = Date.now(); }
+async function navLerDS(ds, forcar) {
+  const def = NAV_DS[ds];
+  if (!def || !def.ler) return;
+  if (!forcar) {
+    const agora = Date.now(), m = NAV_MEM[ds], l = NAV_LEVE[ds];
+    if (def.mem && m && agora - m < NAV_TTL && (!l || m >= l.t)) return;   // módulo carregado há pouco: usa a memória
+    if (l && !l.erro && agora - l.t < 20000) return;                        // lido há poucos segundos
+  }
+  if (NAV_LENDO[ds]) return NAV_LENDO[ds];
+  NAV_LENDO[ds] = (async () => {
+    try {
+      const dados = await def.ler();
+      NAV_LEVE[ds] = { t: Date.now(), dados, erro: false };
+    } catch (e) {
+      console.warn('[navCounts] falha a ler', ds, e && e.message ? e.message : e);
+      NAV_LEVE[ds] = { t: Date.now(), dados: null, erro: true };
+    } finally { delete NAV_LENDO[ds]; }
+  })();
+  return NAV_LENDO[ds];
+}
+// lista inexistente (404) conta como vazia; qualquer outro erro sobe
+async function navSem404(fn, vazio) {
+  try { return await fn(); }
+  catch (e) { if (/\b404\b/.test(String(e && e.message))) return vazio; throw e; }
+}
+
+// Datasets de que cada área precisa para este utilizador (depende do perfil, para não ler o que não conta)
+function navDsDe(a) {
+  switch (a) {
+    case 'gf': { const l = ['gf.sols']; if (gfCanApprove()) l.push('gf.alts'); if (isFinanceiroEquipa()) l.push('gf.movs'); return l; }
+    case 'au': return ['au.core', 'au.ponto'];
+    case 'de': return userCargo() === 'Presidente Executivo' ? ['de.it'] : [];
+    default: return (typeof navDsExtra === 'function') ? navDsExtra(a) : [];
+  }
+}
+function navContar(a) {
+  if (!navTabVisivel(a)) return null;
+  if (navDsDe(a).some(navErro)) return null;
+  const f = { gf: navCountGF, au: navCountAU, de: navCountDE }[a] || ((typeof navCountExtra === 'function') ? (() => navCountExtra(a)) : null);
+  return f ? f() : null;
+}
+
+// ── Refrescar leituras e repintar ──
+async function navCountsRefresh(areas, opts) {
+  if (!user) return;
+  const forcar = !!(opts && opts.forcar), so = opts && opts.ds ? new Set(opts.ds) : null;
+  const lista = (areas ? [].concat(areas) : NAV_AREAS).filter(navTabVisivel);
+  let ds = [...new Set(lista.flatMap(a => { try { return navDsDe(a); } catch (e) { return []; } }))];
+  if (so) ds = ds.filter(d => so.has(d));
+  await Promise.all(ds.filter(d => !(NAV_DS[d] && NAV_DS[d].dep)).map(d => navLerDS(d, forcar)));
+  await Promise.all(ds.filter(d => NAV_DS[d] && NAV_DS[d].dep).map(d => navLerDS(d, forcar)));
+  _navUltimo = Date.now();
+  navCountsAplicar();
+}
+// Pede um refresco forçado, juntando pedidos próximos (ex.: várias gravações seguidas)
+function navAgendar(areas, ds) {
+  [].concat(areas).forEach(a => _navPend.areas.add(a));
+  [].concat(ds || []).forEach(d => _navPend.ds.add(d));
+  clearTimeout(_navTimer);
+  _navTimer = setTimeout(() => {
+    const A = [..._navPend.areas], D = [..._navPend.ds];
+    _navPend = { areas: new Set(), ds: new Set() };
+    navCountsRefresh(A, { forcar: true, ds: D.length ? D : null });
+  }, 500);
+}
+// Recalcula tudo a partir do que já está em memória (não faz pedidos)
+function navCountsAplicar() {
+  if (!user) return;
+  NAV_AREAS.forEach(a => {
+    let c = null;
+    try { c = navContar(a); } catch (e) { console.warn('[navCounts]', a, e); c = null; }
+    NAV_COUNTS[a] = c;
+    navPintarTab(a, c);
+    navPintarBadges(a, c);
+  });
+}
+function navPintarTab(a, c) {
+  const t = document.getElementById('tab-' + a), s = document.getElementById('tab-cnt-' + a);
+  if (!t || !s) return;
+  const n = c ? c.total : 0;
+  if (!c || n <= 0) {
+    s.style.display = 'none'; s.textContent = '';
+    t.removeAttribute('title'); t.removeAttribute('aria-label');
+    return;
+  }
+  s.textContent = n > 99 ? '99+' : String(n);
+  s.className = 'tab-cnt' + (c.urgente > 0 ? ' urg' : '');
+  s.style.display = 'block';
+  t.title = c.detalhe.filter(d => d.n > 0).map(d => `${d.n} ${d.label}`).join(' · ');
+  t.setAttribute('aria-label', `${NAV_NOMES[a]}, ${n} ${n === 1 ? 'pendente' : 'pendentes'}`);
+}
+function navPintarBadges(a, c) {
+  const soma = {};
+  if (c) c.detalhe.forEach(d => { if (d.badge) soma[d.badge] = (soma[d.badge] || 0) + d.n; });
+  (NAV_BADGES[a] || []).forEach(id => {
+    const e = document.getElementById(id);
+    if (!e) return;
+    const n = soma[id] || 0;
+    e.textContent = n > 99 ? '99+' : String(n);
+    e.style.display = n > 0 ? 'inline' : 'none';
+  });
+}
+
+// ── Clique no separador: abre diretamente a página da lista principal ──
+function navTabClick(a) {
+  const c = NAV_COUNTS[a];
+  const d = c && c.detalhe.find(x => x.n > 0 && typeof x.destino === 'function');
+  if (d) navIrPara(a, d.destino); else switchModule(a);
+}
+function navIrPara(a, destino) {
+  NAV_DESTINO[a] = destino;
+  switchModule(a);
+  if (NAV_PRONTO[a]) navAplicarDestino(a);   // senão o módulo aplica-o quando acabar de carregar (navModuloPronto)
+}
+function navAplicarDestino(a) {
+  const f = NAV_DESTINO[a];
+  NAV_DESTINO[a] = null;
+  if (typeof f === 'function') { try { f(); } catch (e) { console.warn('[navCounts] destino', a, e); } }
+}
+function navModuloPronto(a) { NAV_PRONTO[a] = true; navAplicarDestino(a); }
+// Ações de ponto que mudam o que conta (submeter, validar, devolver, gravar/apagar dia): nova leitura leve do ponto
+['auFechoSubmeter', 'auEquipaValidar', 'auEquipaDevolver', 'auPontoGuardar', 'auPontoLimparDia'].forEach(n => navEnvolver(n, 'au', ['au.ponto']));
+
+// Depois de uma ação que muda estados (aprovar, validar, submeter...): refresco forçado das áreas indicadas
+function navEnvolver(nome, areas, ds) {
+  const orig = window[nome];
+  if (typeof orig !== 'function') return;
+  window[nome] = function () {
+    const r = orig.apply(this, arguments);
+    Promise.resolve(r).then(() => navAgendar(areas, ds), () => { });
+    return r;
+  };
+}
+
+// Arranque: depois de a interface estar visível e de currentUserFJ existir; repete de 5 em 5 minutos com a página visível
+function navIniciar() {
+  if (_navIniciado) return;
+  _navIniciado = true;
+  setTimeout(() => navCountsRefresh(), 1200);
+  setInterval(() => { if (document.visibilityState === 'visible') navCountsRefresh(); }, NAV_TTL);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && Date.now() - _navUltimo > NAV_TTL) navCountsRefresh();
+  });
+}
+
+// ═════ Financeiro ═════
+async function navLerGfSols() {
+  if (!sharedProjetos.length) await loadSharedProjetos();
+  const est = ['Pendente Informação'];
+  if (gfCanApprove()) est.push('Submetido', 'Aprovado Dir.');
+  if (gfCanProcessar()) est.push('Aprovado DF');
+  const filtro = [...new Set(est)].map(e => `Estado eq '${e}'`).join(' or ');
+  const novo = navUrl('FJ_Solicitacoes', 'Id,Estado,TipoSolicitacao,ProjetoIdId,Autor/EMail', filtro, '&$expand=Autor&$top=2000');
+  const antigo = navUrl('FJ_Solicitacoes', 'Id,Estado,TipoSolicitacao,ProjetoId/Id,ProjetoIdId,Autor/EMail', filtro, '&$expand=ProjetoId,Autor&$top=2000');
+  const d = await spReadSelecionado(novo, antigo, spReadAll);
+  return (d.d?.results || []).map(r => ({
+    id: r.Id, estado: r.Estado || '', tipoSolicitacao: r.TipoSolicitacao || 'Despesa',
+    projetoId: r.ProjetoId?.Id || r.ProjetoIdId || null, autorEmail: (r.Autor?.EMail || '').toLowerCase()
+  }));
+}
+async function navLerGfAlts() {
+  if (!sharedProjetos.length) await loadSharedProjetos();
+  const filtro = "Estado eq 'Pendente' or Estado eq 'Aprovado Dir.'";
+  const novo = navUrl('FJ_AlteracoesOrcamentais', 'Id,Title,Estado,DestProjetoIdId', filtro, '&$top=1000');
+  const antigo = navUrl('FJ_AlteracoesOrcamentais', 'Id,Title,Estado,DestProjetoId/Id,DestProjetoIdId', filtro, '&$expand=DestProjetoId&$top=1000');
+  const d = await spReadSelecionado(novo, antigo, spReadAll);
+  return (d.d?.results || []).map(r => ({ id: r.Id, titulo: r.Title || '', estado: r.Estado || 'Pendente', destProjetoId: r.DestProjetoId?.Id || r.DestProjetoIdId || null }));
+}
+async function navLerGfMovs() {
+  const d = await spReadAll(navUrl('FJ_MovimentosBancarios', 'Id,Estado', "Estado ne 'Afeto'", '&$top=5000'));
+  return (d.d?.results || []).map(r => ({ id: r.Id, estado: r.Estado || 'Pendente' }));
+}
+NAV_DS['gf.sols'] = { mem: () => GF_SOLICITACOES, ler: navLerGfSols };
+NAV_DS['gf.alts'] = { mem: () => GF_ALTERACOES, ler: navLerGfAlts };
+NAV_DS['gf.movs'] = { mem: () => GF_MOV_PENDENTES, ler: navLerGfMovs };
+// Depois de um carregamento do Financeiro (completo ou parcial): marca a memória como mais recente
+function navMemoriaGF(nomes) {
+  const todas = nomes.length >= GF_LISTAS_TODAS.length;
+  if (todas || nomes.includes('solicitacoes')) navMemoria('gf.sols');
+  if (todas || nomes.includes('alteracoes')) navMemoria('gf.alts');
+  if (todas || nomes.includes('movBancarios')) navMemoria('gf.movs');
+  navCountsAplicar();
+}
+// Mesmas regras de gfRenderAprovacoes: conta o que o utilizador pode aprovar agora (os botões que a página lhe mostraria)
+function navCountGF() {
+  const sols = navDados('gf.sols') || [], alts = navDados('gf.alts') || [], movs = navDados('gf.movs') || [];
+  const me = navMe(), role = _financeRole;
+  const deps = new Map((GF_PROJETOS.length ? GF_PROJETOS : sharedProjetos).map(p => [p.id, p.dep || p.departamento || '']));
+  let nSol = 0, nAlt = 0, nInfo = 0, nProc = 0;
+  const podeProc = gfCanProcessar();
+  sols.forEach(s => {
+    if (s.estado === 'Pendente Informação') { if (s.autorEmail === me) nInfo++; return; }
+    if (s.estado === 'Aprovado DF') { if (podeProc) nProc++; return; }
+    if (s.estado !== 'Submetido' && s.estado !== 'Aprovado Dir.') return;
+    const dep = deps.get(s.projetoId) || '';
+    const aprovDir = s.estado === 'Aprovado Dir.' || !!s.aprovDirNome;
+    const podeDir = (role === 'area_director' || role === 'pca' || role === 'pe') && !aprovDir && gfIsMyDepartamento(dep);
+    const podeDF = (role === 'df' || role === 'pe') && (dep === 'Financeiro' ? true : aprovDir);
+    if (podeDir || podeDF) nSol++;
+  });
+  alts.forEach(a => {
+    if (a.estado !== 'Pendente' && a.estado !== 'Aprovado Dir.') return;
+    if (a.titulo && a.titulo.includes('Banco Global')) return;   // auto-aprovado, sem botões na página
+    const dep = deps.get(a.destProjetoId) || '';
+    const aprovDir = a.estado === 'Aprovado Dir.' || !!a.aprovDirNome;
+    const podeDir = (role === 'area_director' || role === 'pca' || role === 'pe') && !aprovDir && gfIsMyDepartamento(dep);
+    const podeDF = role === 'df' && (dep === 'Financeiro' ? true : aprovDir);
+    if (podeDir || podeDF) nAlt++;
+  });
+  const nMov = isFinanceiroEquipa() ? movs.filter(m => m.estado !== 'Afeto').length : 0;
+  const irAprov = () => gfNav('aprovacoes');
+  return navMonta([
+    { n: nSol, sing: 'solicitação por aprovar', plur: 'solicitações por aprovar', urg: true, badge: 'gf-badge-aprov', destino: irAprov },
+    { n: nAlt, sing: 'alteração orçamental por aprovar', plur: 'alterações orçamentais por aprovar', urg: true, badge: 'gf-badge-aprov', destino: irAprov },
+    { n: nInfo, sing: 'solicitação a aguardar a tua informação', plur: 'solicitações a aguardar a tua informação', urg: true, badge: 'gf-badge-pendinfo', destino: () => { GF.tab.sol = 'minhas'; gfNav('solicitacoes'); } },
+    { n: nProc, sing: 'solicitação por processar ou receber', plur: 'solicitações por processar ou receber', urg: true, badge: 'gf-badge-proc', destino: () => { GF.tab.sol = 'lista'; gfNav('solicitacoes'); } },
+    { n: nMov, sing: 'movimento bancário por afetar', plur: 'movimentos bancários por afetar', urg: false, badge: 'gf-badge-mov', destino: () => { GF.tab.sol = 'pendentes'; gfNav('solicitacoes'); } }
+  ]);
+}
+
+// ═════ Ausências e Ponto ═════
+// As regras de AU (auFilaN1/N2, auPodeAgirN1/N2, auDiasEmFalta) leem variáveis globais do módulo. Para contar sem
+// carregar o módulo, estas são trocadas por instantes (bloco síncrono, sem await) pelos dados da leitura leve
+// e repostas no fim. Assim as regras são exatamente as do módulo, sem duplicar nenhuma.
+function navComEstadoAU(d, fn) {
+  const b = { cfg: AU_CFG, ped: AU_PEDIDOS, fer: AU_FERIADOS_DET, ferN: AU_FERIADOS, fechos: AU_FECHOS, ponto: PONTO };
+  AU_CFG = d.cfg; AU_PEDIDOS = d.ped; AU_FERIADOS_DET = d.fer;
+  AU_FERIADOS = (d.fer || []).filter(x => !x.ambito || x.ambito === 'Nacional').map(x => x.data);
+  AU_FECHOS = d.fechos || []; PONTO = d.ponto || [];
+  try { return fn(); }
+  finally { AU_CFG = b.cfg; AU_PEDIDOS = b.ped; AU_FERIADOS_DET = b.fer; AU_FERIADOS = b.ferN; AU_FECHOS = b.fechos; PONTO = b.ponto; }
+}
+async function navLerAuCore() {
+  // configuração das aprovações (igual a auLoadAll)
+  const cf = await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$select=Id,Title,Valor&$filter=startswith(Title,'AU_')&$top=500`);
+  const cfg = { n1: {}, respRH: '', ids: {}, kv: {} };
+  (cf.d?.results || []).forEach(r => {
+    cfg.ids[r.Title] = r.Id; cfg.kv[r.Title] = r.Valor || '';
+    const v = (r.Valor || '').trim().toLowerCase();
+    if (r.Title === 'AU_ResponsavelRH') cfg.respRH = v;
+    else if (r.Title.startsWith('AU_AprovadorN1_') && v) cfg.n1[r.Title.slice(15).toLowerCase()] = v;
+  });
+  const per = navComEstadoAU({ cfg, ped: [], fer: [] }, () => auPeriodoAtual());
+  const uid = await getCurrentUserId();
+  let filtro = "Estado eq 'Pendente' or Estado eq 'Aprovado N1'";
+  if (uid) filtro = `(${filtro}) or (Colaborador/Id eq ${uid} and DataFim ge datetime'${per.ini}T00:00:00Z')`;
+  const novo = navUrl('FJ_Ausencias', 'Id,Estado,TipoAusencia,EstadoMarcacao,DataInicio,DataFim,MeioDia,Colaborador/EMail', filtro, '&$expand=Colaborador&$top=2000');
+  const antigo = navUrl('FJ_Ausencias', '*,Colaborador/EMail', filtro, '&$expand=Colaborador&$top=2000');
+  const [pd, fd] = await Promise.all([
+    spReadSelecionado(novo, antigo, spReadAll),
+    (async () => {
+      try { return await spRead(`${SP}/_api/web/lists/getbytitle('${AU_FERIADOS_LIST}')/items?$select=Data,Title,Ambito&$top=500`); }
+      catch (e) { return spRead(`${SP}/_api/web/lists/getbytitle('${AU_FERIADOS_LIST}')/items?$select=Data,Title&$top=500`); }
+    })()
+  ]);
+  const ped = (pd.d?.results || []).map(r => ({
+    id: r.Id, tipo: r.TipoAusencia || 'Outro', inicio: navYmd(r.DataInicio), fim: navYmd(r.DataFim), meioDia: r.MeioDia || '',
+    estado: r.Estado || 'Pendente', marcacao: r.EstadoMarcacao || '', colEmail: (r.Colaborador?.EMail || '').toLowerCase()
+  }));
+  const fer = (fd.d?.results || []).map(r => ({ data: navYmd(r.Data), ambito: r.Ambito || '', nome: r.Title || '' })).filter(x => x.data);
+  return { cfg, ped, fer };
+}
+async function navLerAuPonto() {
+  const core = navDados('au.core');
+  if (!core) throw new Error('configuração de Ausências indisponível');
+  const out = { fechos: [], ponto: [], semListas: false, pontoLido: false };
+  try {
+    const f = "Estado eq 'Submetido' or Estado eq 'Validado N1'";
+    const d = await spReadSelecionado(
+      navUrl('FJ_PontoFechoMensal', 'Id,Estado,AnoMes,Colaborador/EMail', f, '&$expand=Colaborador&$top=1000'),
+      navUrl('FJ_PontoFechoMensal', '*,Colaborador/EMail', f, '&$expand=Colaborador&$top=1000'), spReadAll);
+    out.fechos = (d.d?.results || []).map(r => ({ id: r.Id, email: (r.Colaborador?.EMail || '').toLowerCase(), key: r.AnoMes || '', estado: r.Estado || 'Aberto' }));
+  } catch (e) { if (/\b404\b/.test(String(e && e.message))) out.semListas = true; else throw e; }
+  if (!out.semListas) {
+    const uid = await getCurrentUserId();
+    if (uid) {
+      try {
+        const per = navComEstadoAU({ cfg: core.cfg, ped: [], fer: [] }, () => auPeriodoAtual());
+        const f = auFiltroPeriodoPonto(per.ini, per.fim) + ` and Colaborador/Id eq ${uid}`;
+        const d = await spReadSelecionado(
+          navUrl('FJ_Ponto', 'Id,Data,AnoMes,HoraEntrada,HoraSaidaAlmoco,HoraEntradaAlmoco,HoraSaida,PausaMinutos,TipoDia,Colaborador/EMail,Colaborador/Title', f, '&$expand=Colaborador&$top=1000'),
+          navUrl('FJ_Ponto', '*,Colaborador/EMail,Colaborador/Title', f, '&$expand=Colaborador&$top=1000'), spReadAll);
+        out.ponto = (d.d?.results || []).map(auMapPonto);
+        out.pontoLido = true;
+      } catch (e) { if (/\b404\b/.test(String(e && e.message))) out.semListas = true; else throw e; }
+    }
+  }
+  return out;
+}
+NAV_DS['au.core'] = { mem: () => ({ cfg: AU_CFG, ped: AU_PEDIDOS, fer: AU_FERIADOS_DET }), ler: navLerAuCore };
+NAV_DS['au.ponto'] = { ler: navLerAuPonto, dep: true };
+function navCountAU() {
+  const core = navDados('au.core');
+  if (!core) return { total: 0, urgente: 0, detalhe: [] };   // ainda por ler
+  const pf = navDados('au.ponto') || { fechos: [], ponto: [], semListas: false, pontoLido: false };
+  return navComEstadoAU({ cfg: core.cfg, ped: core.ped, fer: core.fer, fechos: pf.fechos, ponto: pf.ponto }, () => {
+    auSetRole();
+    const n1 = auFilaN1().length;
+    const n2 = (auSouN2() || _auRole === 'pe') ? auFilaN2().length : 0;   // o menu de 2.º nível só aparece a estes
+    const val = pf.fechos.filter(f => auPodeAgirN1(f.email, f) || auPodeAgirN2(f.email, f)).length;
+    const falta = pf.pontoLido ? auDiasEmFalta(auMyEmail(), auPeriodoAtual()).length : 0;
+    return navMonta([
+      { n: n1, sing: 'pedido por aprovar (1.º nível)', plur: 'pedidos por aprovar (1.º nível)', urg: true, badge: 'au-badge-n1', destino: () => auNav('aprov-n1') },
+      { n: n2, sing: 'pedido por aprovar (2.º nível)', plur: 'pedidos por aprovar (2.º nível)', urg: true, badge: 'au-badge-n2', destino: () => auNav('aprov-n2') },
+      { n: val, sing: 'mês de ponto por validar', plur: 'meses de ponto por validar', urg: true, badge: 'au-badge-ponto-val', destino: () => auNav('equipa') },
+      { n: falta, sing: 'dia sem registo de ponto', plur: 'dias sem registo de ponto', urg: false, badge: 'au-badge-ponto', destino: () => auNav('ponto') }
+    ]);
+  });
+}
+
+// ═════ Despacho ═════
+async function navLerDeIt() {
+  const d = await spReadAll(navUrl(DE_LIST, 'Id,Estado', "Estado eq 'Pendente' or Estado eq null", '&$top=1000'));
+  return (d.d?.results || []).map(r => ({ id: r.Id, estado: r.Estado || 'Pendente' }));
+}
+NAV_DS['de.it'] = { mem: () => DE_ITEMS, ler: navLerDeIt };
+function navCountDE() {
+  if (userCargo() !== 'Presidente Executivo') return navMonta([]);   // só o PE decide despachos
+  const n = (navDados('de.it') || []).filter(d => d.estado === 'Pendente').length;
+  return navMonta([{ n, sing: 'despacho por decidir', plur: 'despachos por decidir', urg: true, badge: 'de-badge-decisao', destino: () => deNav('decisao') }]);
+}
+
+// ═════ Correio ═════
+// "Atribuída ao utilizador" = FJ_CorreioTarefas.ResponsavelEmail (é o campo que a lista de tarefas e o Planeamento já usam).
+async function navLerCoTar() {
+  const me = navMe().replace(/'/g, "''");
+  const d = await spReadAll(navUrl(CO_TAR_LIST, 'Id,Estado,ResponsavelEmail,DataLimite', `ResponsavelEmail eq '${me}'`, '&$top=2000'));
+  return (d.d?.results || []).map(r => ({ id: r.Id, estado: r.Estado || 'Por fazer', respEmail: (r.ResponsavelEmail || '').toLowerCase(), dataLimite: navYmd(r.DataLimite) }));
+}
+NAV_DS['co.tar'] = { mem: () => CO_TAREFAS, ler: navLerCoTar };
+function navCountCO() {
+  const me = navMe();
+  const n = (navDados('co.tar') || []).filter(t => t.estado !== 'Concluída' && t.estado !== 'Cancelada' && (t.respEmail || '').toLowerCase() === me).length;
+  return navMonta([{ n, sing: 'tarefa de correio atribuída a ti', plur: 'tarefas de correio atribuídas a ti', urg: false, badge: 'co-badge-tarefas', destino: () => coNav('tarefas') }]);
+}
+
+// ═════ Reuniões ═════
+// Tarefas: FJ_TarefasReuniao.Responsavel é texto (nome); usa-se a mesma correspondência por nome das "minhas tarefas" (plTarefaEhMinha).
+// Assuntos com decisão pendente: só para quem prepara a ordem de trabalhos (vê Assuntos e Conduzir reunião: não é Membro nem Assessoria).
+const NAV_ABERTA = "(Estado ne 'Concluída' and Estado ne 'Cancelada') or Estado eq null";
+function navRnPreparador() { return !isMembroFJ() && !isAssessoria(); }
+async function navLerRnAss() {
+  const f = "(Decisao eq 'Pendente' or Decisao eq null) and ((Estado ne 'Concluído' and Estado ne 'Cancelado') or Estado eq null)";
+  const d = await spReadAll(navUrl('FJ_Assuntos', 'Id,TipoReuniao,Estado,Decisao', f, '&$top=2000'));
+  return (d.d?.results || []).map(r => ({ id: r.Id, reuniao: r.TipoReuniao || '', estado: r.Estado || 'Em aberto', decisao: r.Decisao || 'Pendente' }));
+}
+async function navLerRnTar() {
+  const d = await spReadAll(navUrl(EXT_TAR_LIST, 'Id,Estado,Responsavel,DataLimite', NAV_ABERTA, '&$top=2000'));
+  return (d.d?.results || []).map(r => ({ id: r.Id, estado: r.Estado || 'Por fazer', responsavel: r.Responsavel || '', dataLimite: navYmd(r.DataLimite) }));
+}
+NAV_DS['rn.ass'] = { mem: () => items, ler: navLerRnAss };
+NAV_DS['rn.tar'] = { mem: () => extTarefas, ler: navLerRnTar };
+function navCountRN() {
+  const nAss = navRnPreparador()
+    ? (navDados('rn.ass') || []).filter(i => i.decisao === 'Pendente' && i.estado !== 'Concluído' && i.estado !== 'Cancelado' && canSeeReuniao(i.reuniao)).length : 0;
+  const nTar = (navDados('rn.tar') || []).filter(t => t.estado !== 'Concluída' && t.estado !== 'Cancelada' && plTarefaEhMinha({ responsavel: t.responsavel, responsavelEmail: '' })).length;
+  return navMonta([
+    { n: nAss, sing: 'assunto com decisão pendente', plur: 'assuntos com decisão pendente', urg: true, badge: 'rn-badge-assuntos', destino: () => showPage('assuntos') },
+    { n: nTar, sing: 'tarefa de reunião atribuída a ti', plur: 'tarefas de reunião atribuídas a ti', urg: false, badge: 'rn-badge-tarefas', destino: () => showPage('tarefas') }
+  ]);
+}
+
+// ═════ Planeamento ═════
+// Só FJ_Tarefas (tarefas do plano): as de reunião e de correio já contam nos respetivos separadores.
+// Responsável é texto (nome): mesma regra de "Minhas tarefas" (plTarefaEhMinha).
+async function navLerPlTar() {
+  const amanha = auAddDias(auHoje(), 1);   // margem de um dia no servidor; a comparação exata é feita no cliente
+  const f = `DataLimite lt datetime'${amanha}T00:00:00Z' and (${NAV_ABERTA})`;
+  const d = await spReadAll(navUrl('FJ_Tarefas', 'Id,Estado,Responsavel,DataLimite', f, '&$top=2000'));
+  return (d.d?.results || []).map(r => ({ id: r.Id, lista: 'FJ_Tarefas', estado: r.Estado || 'todo', responsavel: r.Responsavel || '', responsavelEmail: '', dataLimite: navYmd(r.DataLimite) }));
+}
+NAV_DS['pl.tar'] = { mem: () => plTarefas, ler: navLerPlTar };
+function navCountPL() {
+  const hoje = auHoje();
+  const n = (navDados('pl.tar') || []).filter(t => t.lista === 'FJ_Tarefas' && t.dataLimite && t.dataLimite < hoje && t.estado !== 'Concluída' && t.estado !== 'Cancelada' && plTarefaEhMinha(t)).length;
+  return navMonta([{ n, sing: 'tarefa tua em atraso', plur: 'tarefas tuas em atraso', urg: false, badge: 'pl-badge-atrasadas', destino: () => { plSemMyTasks = true; plSemStatusFilter = 'atrasadas'; plSemVista = 'lista'; kbAplicarVista(); plShowPage('semanal'); renderSem(); } }]);
+}
+// Marcar uma tarefa como concluída no Planeamento altera os três tipos de tarefa: nova leitura leve de todos
+navEnvolver('toggleTar', ['pl', 'rn', 'co'], ['pl.tar', 'rn.tar', 'co.tar']);
+
+// ═════ Parcerias ═════
+// Protocolos a expirar nos próximos 60 dias: FJ_Parcerias_Historico.ValidadeProtocolo (tipo Protocolo ou Renovação, estado Válido
+// ou Em renovação). Conta parceiros: se houver uma renovação com validade posterior, vale a mais tardia.
+async function navLerPaHist() {
+  const hoje = auHoje();
+  const f = `ValidadeProtocolo ge datetime'${hoje}T00:00:00Z' and (TipoRegisto eq 'Protocolo' or TipoRegisto eq 'Renovação')`;
+  const d = await spReadAll(navUrl(PA_LIST_HISTORICO, 'Id,TipoRegisto,EstadoProtocolo,ValidadeProtocolo,Entidade/Id', f, '&$expand=Entidade&$top=2000'));
+  return (d.d?.results || []).map(r => ({ id: r.Id, entidadeId: r.Entidade?.Id || null, tipo: r.TipoRegisto || '', estadoProtocolo: r.EstadoProtocolo || '', validadeProtocolo: navYmd(r.ValidadeProtocolo) }));
+}
+NAV_DS['pa.hist'] = { mem: () => PA_HISTORICO, ler: navLerPaHist };
+function navCountPA() {
+  const hoje = auHoje(), limite = auAddDias(hoje, 60), porParceiro = new Map();
+  (navDados('pa.hist') || []).forEach(h => {
+    if ((h.tipo !== 'Protocolo' && h.tipo !== 'Renovação') || !h.validadeProtocolo || h.validadeProtocolo < hoje) return;
+    if (h.estadoProtocolo !== 'Válido' && h.estadoProtocolo !== 'Em renovação') return;
+    const atual = porParceiro.get(h.entidadeId);
+    if (!atual || h.validadeProtocolo > atual) porParceiro.set(h.entidadeId, h.validadeProtocolo);
+  });
+  let n = 0;
+  porParceiro.forEach(v => { if (v <= limite) n++; });
+  return navMonta([{ n, sing: 'protocolo a expirar em 60 dias', plur: 'protocolos a expirar em 60 dias', urg: false, badge: 'pa-badge-expirar', destino: () => paNav('parceiros') }]);
+}
+
+function navDsExtra(a) {
+  switch (a) {
+    case 'co': return ['co.tar'];
+    case 'rn': return navRnPreparador() ? ['rn.ass', 'rn.tar'] : ['rn.tar'];
+    case 'pl': return ['pl.tar'];
+    case 'pa': return ['pa.hist'];
+    default: return [];
+  }
+}
+function navCountExtra(a) {
+  return { co: navCountCO, rn: navCountRN, pl: navCountPL, pa: navCountPA }[a]();
+}
+
+
 // ── SHARED PROJECTS ──
 let sharedProjetos=[];
 // Fase 37 — chamadas simultâneas (arranque + entrada no Financeiro) partilham o mesmo
@@ -3720,6 +4303,8 @@ function showApp(){
       if(coTab) coTab.style.display = 'none';
       // Ausências e Ponto: visível para todos os colaboradores (cada um vê só o seu; aprovação e gestão dependem da configuração)
     }
+    // Fase 67 - contadores de pendências nos separadores (corre depois de a interface estar visível)
+    navIniciar();
   });
   
   // Carrega departamentos globalmente (fonte de verdade para todos os módulos)
@@ -3965,6 +4550,7 @@ async function loadItems(){
       attachments:(r.AttachmentFiles?.results||[]).map(a=>({name:a.FileName,url:a.ServerRelativeUrl}))
     }));
     initReuniaoSelects();renderStats();renderTable();renderCATopics();
+    navMemoria('rn.ass');navCountsAplicar(); // Fase 67
     showNotif('Carregado!','success');setTimeout(()=>document.getElementById('notif').classList.remove('show'),1500);
   }catch(e){showNotif('Erro: '+e.message,'error');}
 }
@@ -4200,6 +4786,7 @@ async function extLoadTarefas() {
     estado:        r.Estado || 'Por fazer'
   }));
   renderExtTarefasTable();
+  navMemoria('rn.tar'); navCountsAplicar(); // Fase 67
 }
 
 // ── Stats ────────────────────────────────────────
@@ -5872,13 +6459,9 @@ function weekRange(w,y){const jan4=new Date(y,0,4);const day=jan4.getDay()||7;co
 // ── plShowPage ──
 
 // ── pendingAprovCount (GF) ──
+// Fase 67 - passa a ler da fonte única dos contadores (navCountGF), com as regras de gfRenderAprovacoes
 function pendingAprovCount(){
-  return (SOLICITACOES||[]).filter(s=>{
-    if(_financeRole==='area_director') return s.estado==='solicitada';
-    if(_financeRole==='df') return s.estado==='solicitada'||s.estado==='aprovada_dir';
-    if(_financeRole==='pe'||_financeRole==='pca') return s.estado==='aprovada';
-    return false;
-  }).length;
+  return (navCountGF().detalhe||[]).filter(d=>d.badge==='gf-badge-aprov').reduce((a,d)=>a+d.n,0);
 }
 
 
@@ -5902,7 +6485,7 @@ function depBadgeAcao(d){
   return `<span class="hier-dep-badge" style="background:${s.bg};color:${s.c}">${d}</span>`;
 }
 function estB(e){
-  const colors={'Concluída':'b-g','Em Curso':'b-b','Atrasada':'b-r','todo':'b-gray','Média':'b-y','Alta':'b-o','Crítica':'b-r','Baixa':'b-gray'};
+  const colors={'Concluída':'b-g','Em Curso':'b-b','Em validação':'b-b','Em espera':'b-y','Cancelada':'b-gray','Atrasada':'b-r','todo':'b-gray','Média':'b-y','Alta':'b-o','Crítica':'b-r','Baixa':'b-gray'};
   return badgeHTML(colors[e]||'b-gray',e);
 }
 
@@ -6543,6 +7126,7 @@ async function loadProjetos(){
   // Factorial_Projetos = plProjetos top-level (vindos do Factorial)
   const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Projetos')/items?$select=*,Departamento/Title,MembrosAfetos/Id,MembrosAfetos/Title,MembrosAfetos/EMail,Responsavel/Title,Responsavel/EMail&$expand=Departamento,MembrosAfetos,Responsavel&$orderby=Title asc&$top=1000`);
   plProjetos=d.d.results.map(r=>({id:r.Id,nome:r.Title||'',codigo:r.Codigo||'',dep:normalizeDep(r.Departamento?.Title||''),estado:r.Estado||'active',dataInicio:r.DataInicio?r.DataInicio.split('T')[0]:'',dataFim:r.DataFim?r.DataFim.split('T')[0]:'',anoOrcamental:r.AnoOrcamental||new Date().getFullYear(),notas:r.Notas||'',responsavel:r.Responsavel?.Title||'',respEmail:(r.Responsavel?.EMail||'').toLowerCase(),membrosAfetos:(r.MembrosAfetos?.results||[]).map(m=>({id:m.Id,nome:m.Title,email:(m.EMail||'').toLowerCase()}))}));
+  plProjetos.forEach((p,i)=>{p.limiteWIP=parseInt(d.d.results[i].LimiteWIP,10)||0;}); // Fase 68 (LimiteWIP do Kanban)
   console.log('Projetos carregados:', plProjetos);
 }
 async function loadAcoes(){
@@ -6721,7 +7305,7 @@ async function loadTarefas(){
     const ft=d.d.results.map(r=>({
       id:'f_'+r.Id, spId:r.Id, lista:'FJ_Tarefas', origem:'Plano',
       titulo:r.Title||'',
-      estado:r.Estado||r.Status||'todo',
+      estado:plEstadoNorm(r.Estado||r.Status), motivoEspera:r.MotivoEspera||'',dataMudanca:r.DataMudancaEstado||'',dataConclusao:r.DataConclusao||'',semanaPlan:r.SemanaPlaneada||'',criado:r.Created||'',
       dataLimite:r.DataLimite?r.DataLimite.split('T')[0]:(r.due_on||''),
       dataInicio:r.DataInicio?r.DataInicio.split('T')[0]:'',
       semana:r.Semana||null, anoFJ:r.AnoFJ||null, notas:r.Notas||'',
@@ -6742,7 +7326,7 @@ async function loadTarefas(){
     const rt=d.d.results.map(r=>({
       id:'r_'+r.Id, spId:r.Id, lista:'FJ_TarefasReuniao', origem:'Reunião',
       titulo:r.Title||'',
-      estado:r.Estado||'Por fazer',
+      estado:plEstadoNorm(r.Estado), motivoEspera:r.MotivoEspera||'',dataMudanca:r.DataMudancaEstado||'',dataConclusao:r.DataConclusao||'',semanaPlan:r.SemanaPlaneada||'',criado:r.Created||'',
       dataLimite:r.DataLimite?r.DataLimite.split('T')[0]:'',
       dataInicio:'', semana:null, anoFJ:null, notas:r.Notas||'',
       prioridade:r.Prioridade||'Média',
@@ -6763,7 +7347,7 @@ async function loadTarefas(){
     const ct=d.d.results.map(r=>({
       id:'c_'+r.Id, spId:r.Id, lista:'FJ_CorreioTarefas', origem:'Correio',
       titulo:r.Title||'',
-      estado:r.Estado||'Por fazer',
+      estado:plEstadoNorm(r.Estado), motivoEspera:r.MotivoEspera||'',dataMudanca:r.DataMudancaEstado||'',dataConclusao:r.DataConclusao||'',semanaPlan:r.SemanaPlaneada||'',criado:r.Created||'',
       dataLimite:r.DataLimite?r.DataLimite.split('T')[0]:'',
       dataInicio:'', semana:null, anoFJ:null, notas:r.Notas||'',
       prioridade:r.Prioridade||'Média',
@@ -6786,6 +7370,7 @@ async function loadTarefas(){
     return t;
   });
   plTarefas=all;
+  navMemoria('pl.tar'); navCountsAplicar(); // Fase 67
 }
 async function loadKPIDefs(){
   const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_KPI_Definicoes')/items?$select=*,Responsavel/Title,Responsavel/EMail&$expand=Responsavel&$orderby=Title asc&$top=500`);
@@ -7030,6 +7615,7 @@ function renderHier(){
         <span style="font-size:11px;background:var(--bg3);border-radius:6px;padding:2px 8px;color:var(--tx2)">${pAcoes.length} ações · ${tarTotal.length} tarefas${pct!==null?' · '+pct+'% conc.':''}</span>
         <button class="btn btn-sm btn-primary" style="font-size:11px" onclick="event.stopPropagation();openAcaoForm(${p.id})">+ Ação</button>
         <button class="btn btn-sm" style="font-size:11px" onclick="event.stopPropagation();gfCriarGrupoAcao(${p.id})" title="Criar uma subdivisão para organizar as ações">+ Grupo</button>
+        <button class="btn btn-sm" style="font-size:11px" onclick="event.stopPropagation();kbAbrirProjeto(${p.id})" title="Abrir o quadro Kanban deste projeto">Kanban</button>
         ${isDir?`<button class="btn btn-sm" style="font-size:11px" onclick="event.stopPropagation();openProjetoForm(${p.id})" title="Editar projeto">✎</button>`:''}
         ${isDir?`<button class="btn btn-sm btn-danger" style="font-size:11px" onclick="event.stopPropagation();delProjeto(${p.id})" title="Eliminar projeto">✕</button>`:''}
         <svg id="hier-arrow-${p.id}" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="transition:transform .2s"><path d="M4 6l4 4 4-4"/></svg>
@@ -7845,6 +8431,8 @@ function plInitSemPermissions(){
     if(colSel) colSel.style.display = 'none';
     plSemMyTasks = true; // membros sempre vêem só as suas tarefas
   }
+  kbIniciarVista(); // Fase 68
+  if(plSemVista==='kanban') renderSem();
 }
 
 function setView(v){ renderSem(); } // stub legacy
@@ -7856,6 +8444,7 @@ function plSetSemStatusFilter(f){
   renderSem();
 }
 function renderSem(){
+  if(plSemVista==='kanban'){kbRender();return;} // Fase 68
   const elWl=el('week-label'),elStats=el('stats-sem'),tbody=el('tbody-sem');
   if(!elWl||!elStats||!tbody)return;
   elWl.textContent=weekLabel(plViewWeek,plViewYear);
@@ -7897,42 +8486,15 @@ function renderSem(){
     return false;
   };
 
+  const _okPessoa=plSemPredicado(); // Fase 68: filtro de pessoas/pesquisa partilhado com o Kanban
   // Inclui tarefas NÃO concluídas cuja dataLimite <= fim desta semana
   let list=plTarefas.filter(t=>{
-    if(t.estado==='Concluída') return false;
+    if(t.estado==='Concluída'||t.estado==='Cancelada') return false;
     if(!t.dataLimite) return false;
     const dl=new Date(t.dataLimite+'T23:59:59');
     if(dl>wr.end) return false;
     if(!isDir && t.lista==='FJ_CorreioTarefas') return false; // Membro não tem acesso ao módulo Correio
-
-    // Modo "Minhas tarefas" (membros sempre; diretores quando toggled)
-    if(!isDir || plSemMyTasks){
-      const byTask=matchesMe(t.responsavel)||(t.responsavelEmail&&t.responsavelEmail.toLowerCase()===myEmail);
-      if(!byTask){
-        if(isDir){
-          // Diretor em modo "Minhas tarefas": mantém cascata por ação/projeto responsável
-          const acao=plAcoes.find(a=>String(a.id)===String(t.acaoId));
-          const byAcao=acao&&matchesMe(acao.responsavel);
-          if(!byAcao){
-            const projId=t.projetoId||(acao?.projetoId)||null;
-            const proj=projId?plProjetos.find(p=>String(p.id)===String(projId)):null;
-            const byProj=proj&&matchesMe(proj.responsavel);
-            if(!byProj) return false;
-          }
-        } else {
-          // Membro: só tarefas atribuídas diretamente a si, sem cascata por ação/projeto
-          return false;
-        }
-      }
-    }
-
-    // Modo "Todos" (apenas Diretores+): filtros dept + colaborador
-    if(isDir && !plSemMyTasks){
-      if(dep && getEffDep(t)!==normDep(dep)) return false;
-      if(colEmail && !colMatchesTarefa(t)) return false;
-    }
-
-    if(q&&!t.titulo.toLowerCase().includes(q)) return false;
+    if(!_okPessoa(t)) return false;
     return true;
   });
 
@@ -8081,18 +8643,495 @@ function _semTarefaRow(t,hoje,isDir){
 async function toggleTar(compId,checked){
   const t=plTarefas.find(x=>x.id===compId);if(!t)return;
   const novoEst=checked?'Concluída':'Em curso';
-  const typeMap={
-    'FJ_Tarefas':        'SP.Data.FJ_x005f_TarefasListItem',
-    'FJ_TarefasReuniao': 'SP.Data.FJ_x005f_TarefasReuniaoListItem',
-    'FJ_CorreioTarefas': 'SP.Data.FJ_x005f_CorreioTarefasListItem'
-  };
   try{
-    const listType = typeMap[t.lista] || typeMap['FJ_Tarefas'];
-    const body={__metadata:{type:listType},Estado:novoEst};
+    const agora=new Date().toISOString(); // Fase 68: mantém DataMudancaEstado e DataConclusao coerentes com o Kanban
+    const body={__metadata:{type:PL_TIPO_LISTA[t.lista]||PL_TIPO_LISTA['FJ_Tarefas']},Estado:novoEst,DataMudancaEstado:agora,DataConclusao:checked?agora:null};
     await spWrite(`${SP}/_api/web/lists/getbytitle('${t.lista}')/items(${t.spId})`,body,'MERGE','*');
-    t.estado=novoEst;renderSem();renderHier();renderDash();showNotif('✓ Atualizado!','success');
+    t.estado=novoEst;t.dataMudanca=agora;t.dataConclusao=checked?agora:'';
+    renderSem();renderHier();renderDash();showNotif('✓ Atualizado!','success');
   }catch(e){showNotif('Erro: '+e.message,'error');}
 }
+/* ===== Fase 68: KANBAN do Plano Semanal ===== */
+// Mapa de tipos de lista (o mesmo que o toggleTar usava), agora partilhado
+const PL_TIPO_LISTA={
+  'FJ_Tarefas':        'SP.Data.FJ_x005f_TarefasListItem',
+  'FJ_TarefasReuniao': 'SP.Data.FJ_x005f_TarefasReuniaoListItem',
+  'FJ_CorreioTarefas': 'SP.Data.FJ_x005f_CorreioTarefasListItem'
+};
+// Normalização única do estado (listas diferentes usam valores diferentes: todo, Por iniciar, Por fazer, vazio...)
+function plEstadoNorm(e){
+  const l=(e==null?'':String(e)).trim().toLowerCase();
+  if(!l||l==='todo'||l==='por fazer'||l==='por iniciar') return 'Por fazer';
+  if(l==='em curso') return 'Em curso';
+  if(l==='em espera') return 'Em espera';
+  if(l==='em validação'||l==='em validacao') return 'Em validação';
+  if(l==='concluída'||l==='concluida'||l==='concluído'||l==='concluido'||l==='done') return 'Concluída';
+  if(l==='cancelada'||l==='cancelado') return 'Cancelada';
+  return 'Por fazer';
+}
+const KB_COLS=[
+  {k:'backlog',nome:'Backlog',estado:'Por fazer'},
+  {k:'semana', nome:'Esta semana',estado:'Por fazer'},
+  {k:'curso',  nome:'Em curso',estado:'Em curso'},
+  {k:'espera', nome:'Em espera',estado:'Em espera'},
+  {k:'valid',  nome:'Em validação',estado:'Em validação'},
+  {k:'conc',   nome:'Concluída',estado:'Concluída'}
+];
+let KB_WIP_PESSOA=4, _kbCfgTentada=false;
+let plSemVista='lista';        // 'lista' | 'kanban'
+let kbFaixas='none';           // 'none' | 'proj' | 'pessoa' (só Diretores e PE)
+let kbProjFiltro=null;         // id do projeto quando aberto a partir de Projetos & Ações
+let kbFiltroResumo=null;       // null | 'conc' | 'trans' | 'paradas' | 'espera' | 'wip'
+let _kbDragId=null, _kbMotivoId=null;
+
+function kbEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function kbYmd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function kbDeYmd(s){const [y,m,d]=String(s).slice(0,10).split('-').map(Number);return new Date(y,m-1,d);}
+// "Hoje" do quadro. window._kbHojeSim = 'AAAA-MM-DD' permite simular a viragem de semana nos testes.
+function kbHoje(){
+  if(window._kbHojeSim) return kbDeYmd(window._kbHojeSim);
+  const d=new Date();d.setHours(0,0,0,0);return d;
+}
+function kbSegunda(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return x;}
+function kbSemanaKey(d){ // ISO "2026-W45"
+  const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  x.setDate(x.getDate()+3-((x.getDay()+6)%7)); // quinta-feira da semana
+  const y=x.getFullYear(),jan4=new Date(y,0,4);
+  const w=1+Math.round(((x-jan4)/86400000-3+((jan4.getDay()+6)%7))/7);
+  return y+'-W'+String(w).padStart(2,'0');
+}
+function kbSemanaInicio(key){
+  const m=/^(\d{4})-W(\d{1,2})$/.exec(String(key||'').trim());if(!m)return null;
+  const y=+m[1],w=+m[2],jan4=new Date(y,0,4),mon=new Date(y,0,4);
+  mon.setDate(jan4.getDate()-((jan4.getDay()+6)%7)+(w-1)*7);return mon;
+}
+function kbDiasUteis(de,ate){ // dias úteis (seg a sex, sem feriados nacionais já carregados) decorridos desde "de" até "ate"
+  const d=new Date(de.getFullYear(),de.getMonth(),de.getDate()),f=new Date(ate.getFullYear(),ate.getMonth(),ate.getDate());
+  const fer=(typeof AU_FERIADOS!=='undefined'&&Array.isArray(AU_FERIADOS))?AU_FERIADOS:[];
+  let n=0;
+  while(d<f){d.setDate(d.getDate()+1);const w=d.getDay();if(w!==0&&w!==6&&!fer.includes(kbYmd(d)))n++;}
+  return n;
+}
+function kbCtx(){
+  const hoje=kbHoje(),seg=kbSegunda(hoje),dom=new Date(seg);dom.setDate(seg.getDate()+6);
+  return {hoje,hojeYmd:kbYmd(hoje),segunda:seg,segundaYmd:kbYmd(seg),domingo:kbYmd(dom),semAtual:kbSemanaKey(hoje)};
+}
+function kbProjId(t){
+  if(t.projetoId) return String(t.projetoId);
+  const a=t.acaoId?plAcoes.find(x=>String(x.id)===String(t.acaoId)):null;
+  return a&&a.projetoId?String(a.projetoId):null;
+}
+function kbPessoaKey(t){ // nome normalizado (sem acentos); o Correio também tem nome, por isso a mesma pessoa conta uma só vez
+  const n=String(t.responsavel||t.responsavelEmail||'').trim().toLowerCase();
+  return n.normalize?n.normalize('NFD').replace(/[\u0300-\u036f]/g,''):n;
+}
+function kbPodeMover(t){return plCanSeeAll()||plTarefaEhMinha(t);}
+
+// Coluna do quadro (calculada à leitura, sem escritas): null = não aparece
+function kbColuna(t,ctx){
+  const e=plEstadoNorm(t.estado);
+  if(e==='Cancelada') return null;
+  if(e==='Concluída'){
+    if(!t.dataConclusao) return null;
+    const dc=kbYmd(new Date(t.dataConclusao));
+    return (dc>=ctx.segundaYmd&&dc<=ctx.domingo)?'conc':null;
+  }
+  if(e==='Em curso') return 'curso';
+  if(e==='Em espera') return 'espera';
+  if(e==='Em validação') return 'valid';
+  const dl=t.dataLimite?String(t.dataLimite).slice(0,10):'';
+  if((dl&&dl<=ctx.domingo)||t.semanaPlan===ctx.semAtual) return 'semana';
+  return 'backlog';
+}
+function kbInfo(t,col,ctx){
+  // Antiguidade em dias úteis desde a última mudança de estado (ou criação)
+  const base=t.dataMudanca?new Date(t.dataMudanca):(t.criado?new Date(t.criado):null);
+  const idade=base&&!isNaN(base)?kbDiasUteis(base,ctx.hoje):null;
+  let sinal='';
+  if(idade!==null&&col!=='conc'&&col!=='backlog'){ // o Backlog ainda não entrou no fluxo: não sinaliza
+    const [am,ve]=col==='espera'?[10,15]:[5,10];
+    sinal=idade>ve?'v':idade>am?'a':'';
+  }
+  // Transitou: semanas em atraso da data limite ou da SemanaPlaneada
+  let transita=0;
+  if(col!=='conc'){
+    const refs=[];
+    if(t.dataLimite) refs.push(kbSegunda(kbDeYmd(t.dataLimite)));
+    const si=kbSemanaInicio(t.semanaPlan);if(si)refs.push(si);
+    refs.forEach(r=>{const n=Math.round((ctx.segunda-r)/(7*86400000));if(n>transita)transita=n;});
+  }
+  return {t,col,idade,sinal,transita};
+}
+// Todos os cartões que o utilizador pode ver, sem filtros de pessoa/pesquisa (usado pelo painel de revisão)
+function kbCartoes(filtroFn){
+  const ctx=kbCtx(),isDir=plCanSeeAll(),out=[];
+  plTarefas.forEach(t=>{
+    if(!isDir&&t.lista==='FJ_CorreioTarefas') return;
+    if(filtroFn&&!filtroFn(t)) return;
+    const c=kbColuna(t,ctx);if(!c) return;
+    out.push(kbInfo(t,c,ctx));
+  });
+  return out;
+}
+// Contagens WIP sobre todas as tarefas Em curso visíveis
+function kbWipMapas(){
+  const pes={},proj={};
+  plTarefas.forEach(t=>{
+    if(plEstadoNorm(t.estado)!=='Em curso') return;
+    const k=kbPessoaKey(t);if(k)pes[k]=(pes[k]||0)+1;
+    const p=kbProjId(t);if(p)proj[p]=(proj[p]||0)+1;
+  });
+  return {pes,proj};
+}
+function kbLimiteProj(pid){const p=pid?plProjetos.find(x=>String(x.id)===String(pid)):null;return p&&p.limiteWIP>0?p.limiteWIP:0;}
+
+async function kbCarregarCfg(){
+  if(_kbCfgTentada) return;_kbCfgTentada=true;
+  try{
+    const d=await spRead(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$filter=Title eq 'KanbanWIPPessoa'&$select=Id,Valor&$top=1`);
+    const v=parseInt(d.d?.results?.[0]?.Valor,10);
+    if(v>0){KB_WIP_PESSOA=v;if(plSemVista==='kanban')kbRender();}
+  }catch(e){console.warn('Kanban: não consegui ler KanbanWIPPessoa (uso 4):',e.message);}
+}
+
+/* ---------- Vista Lista | Kanban ---------- */
+function kbIniciarVista(){
+  try{plSemVista=localStorage.getItem('fj_pl_sem_vista')==='kanban'?'kanban':'lista';}catch(e){plSemVista='lista';}
+  try{const f=localStorage.getItem('fj_pl_kb_faixas');if(f==='proj'||f==='pessoa')kbFaixas=f;}catch(e){}
+  if(!plCanSeeAll())kbFaixas='none';
+  kbAplicarVista();
+}
+function kbSetVista(v){
+  plSemVista=(v==='kanban')?'kanban':'lista';
+  try{localStorage.setItem('fj_pl_sem_vista',plSemVista);}catch(e){}
+  kbAplicarVista();renderSem();
+}
+function kbAplicarVista(){
+  const k=plSemVista==='kanban';
+  el('sem-btn-lista')?.classList.toggle('active',!k);
+  el('sem-btn-kanban')?.classList.toggle('active',k);
+  const mostra=(id,on)=>{const e=el(id);if(e)e.style.display=on?'':'none';};
+  mostra('sem-week-nav',!k);mostra('stats-sem',!k);mostra('sem-table-wrap',!k);mostra('tcount-sem',!k);mostra('kb-wrap',k);
+  const btnNova=el('sem-btn-nova');if(btnNova)btnNova.style.display='';
+}
+function kbSetFaixas(v){
+  kbFaixas=(v==='proj'||v==='pessoa')?v:'none';
+  try{localStorage.setItem('fj_pl_kb_faixas',kbFaixas);}catch(e){}
+  kbRender();
+}
+function kbSetResumo(f){kbFiltroResumo=(kbFiltroResumo===f)?null:f;kbRender();}
+function kbLimparProj(){kbProjFiltro=null;kbRender();}
+// Botão "Kanban" no cabeçalho de cada projeto (Projetos & Ações)
+function kbAbrirProjeto(pid){
+  kbProjFiltro=pid;kbFiltroResumo=null;plSemStatusFilter=null;
+  plShowPage('semanal');
+  if(plCanSeeAll())setSemView('all');else plSemMyTasks=true;
+  kbSetVista('kanban');
+}
+
+/* ---------- Desenho do quadro ---------- */
+function kbRender(){
+  const w=el('kb-wrap');if(!w)return;
+  kbCarregarCfg();
+  const ctx=kbCtx(),isDir=plCanSeeAll();
+  const okPessoa=plSemPredicado();
+  const wip=kbWipMapas();
+  const sobreLimite=k=>wip.pes[k]>KB_WIP_PESSOA;
+  let cards=kbCartoes(t=>okPessoa(t)&&(!kbProjFiltro||String(kbProjId(t))===String(kbProjFiltro)));
+  // Resumo da semana (sobre o quadro antes do filtro do resumo)
+  const nConc=cards.filter(c=>c.col==='conc').length;
+  const nTrans=cards.filter(c=>c.transita>0).length;
+  const nParadas=cards.filter(c=>c.sinal==='v').length;
+  const nEspera=cards.filter(c=>c.col==='espera').length;
+  const pessoasWip=new Set(cards.filter(c=>c.col==='curso'&&sobreLimite(kbPessoaKey(c.t))).map(c=>kbPessoaKey(c.t)));
+  const nWip=pessoasWip.size;
+  if(kbFiltroResumo==='conc')cards=cards.filter(c=>c.col==='conc');
+  else if(kbFiltroResumo==='trans')cards=cards.filter(c=>c.transita>0);
+  else if(kbFiltroResumo==='paradas')cards=cards.filter(c=>c.sinal==='v');
+  else if(kbFiltroResumo==='espera')cards=cards.filter(c=>c.col==='espera');
+  else if(kbFiltroResumo==='wip')cards=cards.filter(c=>c.col==='curso'&&sobreLimite(kbPessoaKey(c.t)));
+  const ordem={Alta:0,'Crítica':0,'Média':1,Baixa:2};
+  cards.sort((a,b)=>{
+    const da=a.t.dataLimite||'9999',db=b.t.dataLimite||'9999';
+    return da<db?-1:da>db?1:((ordem[a.t.prioridade]??1)-(ordem[b.t.prioridade]??1));
+  });
+  const res=(f,n,l,cor)=>`<button class="kb-res${kbFiltroResumo===f?' on':''}" onclick="kbSetResumo('${f}')"><span class="kb-res-n"${cor?` style="color:${cor}"`:''}>${n}</span><span class="kb-res-l">${l}</span></button>`;
+  const proj=kbProjFiltro?plProjetos.find(p=>String(p.id)===String(kbProjFiltro)):null;
+  let html=`<div class="kb-top">
+    <div class="kb-semana">Semana ${ctx.semAtual.slice(-2)} · ${fd(ctx.segundaYmd)} a ${fd(ctx.domingo)}</div>
+    ${proj?`<span class="kb-chip-proj">Projeto: ${kbEsc(proj.nome)} <button onclick="kbLimparProj()" title="Ver todos os projetos">✕</button></span>`:''}
+    <span style="flex:1"></span>
+    ${isDir?`<label class="kb-lbl">Faixas <select class="flt" onchange="kbSetFaixas(this.value)"><option value="none"${kbFaixas==='none'?' selected':''}>Nenhuma</option><option value="proj"${kbFaixas==='proj'?' selected':''}>Por projeto</option><option value="pessoa"${kbFaixas==='pessoa'?' selected':''}>Por pessoa</option></select></label>
+    <button class="btn btn-sm" onclick="kbAbrirRevisao()">Revisão</button>`:''}
+  </div>
+  <div class="kb-resumo">
+    ${res('conc',nConc,'concluídas esta semana','var(--green-mid,#3A7D5F)')}
+    ${res('trans',nTrans,'transitadas','#B45309')}
+    ${res('paradas',nParadas,'paradas a vermelho','#B91C1C')}
+    ${res('espera',nEspera,'em espera','')}
+    ${res('wip',nWip,'pessoas acima do limite WIP','#B91C1C')}
+    ${kbFiltroResumo?`<button class="btn btn-sm" onclick="kbSetResumo('${kbFiltroResumo}')">Limpar filtro</button>`:''}
+  </div>`;
+  // Faixas
+  let faixas=[{nome:'',cards}];
+  if(isDir&&kbFaixas==='proj'){
+    const m=new Map();
+    cards.forEach(c=>{const p=kbProjId(c.t)||'';if(!m.has(p))m.set(p,[]);m.get(p).push(c);});
+    faixas=[...m.entries()].map(([p,l])=>({chave:p,tipo:'proj',nome:p?(plProjetos.find(x=>String(x.id)===p)?.nome||'Projeto #'+p):'Sem projeto',cards:l}))
+      .sort((a,b)=>a.nome.localeCompare(b.nome,'pt'));
+  }else if(isDir&&kbFaixas==='pessoa'){
+    const m=new Map();
+    cards.forEach(c=>{const p=kbPessoaKey(c.t);if(!m.has(p))m.set(p,[]);m.get(p).push(c);});
+    faixas=[...m.entries()].map(([p,l])=>({chave:p,tipo:'pessoa',nome:l[0].t.responsavel||'Sem responsável',cards:l}))
+      .sort((a,b)=>a.nome.localeCompare(b.nome,'pt'));
+  }
+  const escopoPessoal=!isDir||plSemMyTasks;
+  const meuKey=(plMyEmailLower()||'');
+  const mobile=window.matchMedia&&window.matchMedia('(max-width:767px)').matches;
+  faixas.forEach(f=>{
+    if(f.nome||faixas.length>1) html+=`<div class="kb-faixa">${kbEsc(f.nome)} <span>${f.cards.length}</span></div>`;
+    html+='<div class="kb-scroll"><div class="kb-board">';
+    KB_COLS.forEach(col=>{
+      const lista=f.cards.filter(c=>c.col===col.k);
+      let cab=`${lista.length}`,over=false,extra='';
+      if(col.k==='curso'){
+        if(f.tipo==='pessoa'){
+          const n=wip.pes[f.chave]||0;cab=`${n}/${KB_WIP_PESSOA}`;over=n>KB_WIP_PESSOA;
+        }else if(f.tipo==='proj'&&kbLimiteProj(f.chave)){
+          const n=wip.proj[f.chave]||0,L=kbLimiteProj(f.chave);cab=`${n}/${L}`;over=n>L;
+        }else if(escopoPessoal&&lista.length){
+          const k=kbPessoaKey(lista[0].t),n=wip.pes[k]||0;cab=`${n}/${KB_WIP_PESSOA}`;over=n>KB_WIP_PESSOA;
+        }else if(!escopoPessoal){
+          const k=new Set(lista.filter(c=>sobreLimite(kbPessoaKey(c.t))).map(c=>kbPessoaKey(c.t))).size;
+          if(k){over=true;extra=` · ${k} acima`;}
+        }
+      }
+      html+=`<div class="kb-col" data-col="${col.k}" ondragover="gfAcaoDragOver(event)" ondragleave="gfAcaoDragLeave(event)" ondrop="kbDrop(event,'${col.k}')">
+        <div class="kb-col-h${over?' over':''}"><span>${col.nome}</span><span class="kb-cnt" title="${col.k==='curso'?'Atual/limite de tarefas em curso':''}">${cab}${extra}</span></div>
+        <div class="kb-col-b">${lista.map(c=>kbCartaoHTML(c,wip,mobile)).join('')||'<div class="kb-vazio">—</div>'}</div>
+      </div>`;
+    });
+    html+='</div></div>';
+  });
+  w.innerHTML=html;
+}
+function kbCartaoHTML(c,wip,mobile){
+  const t=c.t,ctx=kbCtx();
+  const atras=t.dataLimite&&t.dataLimite<ctx.hojeYmd&&c.col!=='conc';
+  const projId=kbProjId(t),proj=projId?plProjetos.find(p=>String(p.id)===projId):null;
+  const acao=t.acaoId?plAcoes.find(a=>String(a.id)===String(t.acaoId)):null;
+  const ico=t.origem==='Reunião'?'🤝':t.origem==='Correio'?'📬':'📊';
+  const pode=kbPodeMover(t),k=kbPessoaKey(t);
+  const wipOver=c.col==='curso'&&k&&wip.pes[k]>KB_WIP_PESSOA;
+  const pOver=c.col==='curso'&&projId&&kbLimiteProj(projId)&&wip.proj[projId]>kbLimiteProj(projId);
+  const idadeTxt=c.idade!==null&&c.col!=='conc'&&c.col!=='backlog'?`${c.idade} d.ú.`:'';
+  const canEdit=t.lista==='FJ_Tarefas'&&(plCanSeeAll()||plTarefaEhMinha(t));
+  return `<div class="kb-card${c.sinal==='v'?' sv':c.sinal==='a'?' sa':''}${pode?'':' ro'}" ${pode&&!mobile?`draggable="true" ondragstart="kbDragStart(event,'${t.id}')"`:''} onclick="kbClique('${t.id}')" data-id="${t.id}">
+    <div class="kb-card-t"><span title="${kbEsc(t.origem)}">${ico}</span> ${kbEsc(t.titulo)}</div>
+    <div class="kb-card-m">${kbEsc(t.responsavel||'Sem responsável')}${wipOver?` <span class="kb-tag r" title="Acima do limite de tarefas em curso">⚠ WIP ${wip.pes[k]}/${KB_WIP_PESSOA}</span>`:''}</div>
+    <div class="kb-card-m"><span style="${atras?'color:#B91C1C;font-weight:600':''}">${t.dataLimite?(atras?'⚠ ':'')+fd(t.dataLimite):'Sem data'}</span> ${t.prioridade?estB(t.prioridade):''}</div>
+    ${proj||acao?`<div class="kb-card-p">${kbEsc(proj?.nome||'')}${proj&&acao?' › ':''}${kbEsc(acao?.nome||'')}${pOver?` <span class="kb-tag r" title="Acima do limite de projeto">⚠ ${wip.proj[projId]}/${kbLimiteProj(projId)}</span>`:''}</div>`:''}
+    ${c.col==='espera'&&t.motivoEspera?`<div class="kb-motivo" title="Motivo da espera">⏸ ${kbEsc(t.motivoEspera)}</div>`:''}
+    <div class="kb-card-f">
+      ${c.transita>0?`<span class="kb-tag a" title="Transitou: ${c.transita} semana(s) em atraso">↻ ${c.transita}</span>`:''}
+      ${idadeTxt?`<span class="kb-tag ${c.sinal==='v'?'r':c.sinal==='a'?'a':''}" title="Dias úteis desde a última mudança de estado">${idadeTxt}</span>`:''}
+      ${pode?`<select class="kb-menu" onclick="event.stopPropagation()" onchange="kbMenuMover('${t.id}',this)" aria-label="Mudar de estado"><option value="">Mover para…</option>${KB_COLS.filter(x=>x.k!==c.col).map(x=>`<option value="${x.k}">${x.nome}</option>`).join('')}</select>`:''}
+    </div>
+  </div>`;
+}
+function kbClique(id){
+  const t=plTarefas.find(x=>x.id===id);if(!t)return;
+  if(t.lista==='FJ_Tarefas'&&(plCanSeeAll()||plTarefaEhMinha(t)))openTarFormEdit(id);else openTarView(id);
+}
+
+/* ---------- Arrastar (mesmo padrão de gfAcaoDragStart/gfAcaoDrop) ---------- */
+function kbDragStart(ev,id){
+  _kbDragId=id;
+  ev.dataTransfer.effectAllowed='move';
+  try{ev.dataTransfer.setData('text/plain',String(id));}catch(e){}
+}
+function kbDrop(ev,colKey){
+  ev.preventDefault();
+  ev.currentTarget.style.outline='';
+  let id=_kbDragId;
+  if(!id){try{id=ev.dataTransfer.getData('text/plain');}catch(e){}}
+  _kbDragId=null;
+  if(!id)return;
+  kbMoverPara(id,colKey);
+}
+function kbMenuMover(id,sel){const v=sel.value;sel.value='';if(v)kbMoverPara(id,v);}
+
+/* ---------- Mover um cartão ---------- */
+async function kbMoverPara(compId,colKey,motivo){
+  const t=plTarefas.find(x=>x.id===compId);if(!t)return;
+  if(!kbPodeMover(t)){showNotif('Só podes mover as tuas tarefas.','warn');return;}
+  const ctx=kbCtx(),atual=kbColuna(t,ctx),col=KB_COLS.find(c=>c.k===colKey);
+  if(!col||atual===colKey)return;
+  const dl=t.dataLimite?String(t.dataLimite).slice(0,10):'';
+  if(colKey==='backlog'&&dl&&dl<=ctx.domingo){
+    showNotif('Esta tarefa tem data limite até domingo, por isso pertence a "Esta semana". Altera a data limite para a adiar.','warn');return;
+  }
+  if(colKey==='espera'&&motivo===undefined){kbAbrirMotivo(compId);return;}
+  const agora=new Date().toISOString();
+  const antes={estado:t.estado,dataMudanca:t.dataMudanca,dataConclusao:t.dataConclusao,semanaPlan:t.semanaPlan,motivoEspera:t.motivoEspera};
+  const body={__metadata:{type:PL_TIPO_LISTA[t.lista]||PL_TIPO_LISTA.FJ_Tarefas},Estado:col.estado,DataMudancaEstado:agora};
+  const novo={estado:col.estado,dataMudanca:agora,dataConclusao:t.dataConclusao,semanaPlan:t.semanaPlan,motivoEspera:t.motivoEspera};
+  if(colKey==='semana'){body.SemanaPlaneada=ctx.semAtual;novo.semanaPlan=ctx.semAtual;}
+  if(colKey==='backlog'&&t.semanaPlan===ctx.semAtual){body.SemanaPlaneada='';novo.semanaPlan='';}
+  if(colKey==='espera'){body.MotivoEspera=motivo;novo.motivoEspera=motivo;}
+  if(colKey==='conc'){body.DataConclusao=agora;novo.dataConclusao=agora;}
+  else if(plEstadoNorm(t.estado)==='Concluída'){body.DataConclusao=null;novo.dataConclusao='';}
+  Object.assign(t,novo);
+  kbRender();
+  try{
+    await spWrite(`${SP}/_api/web/lists/getbytitle('${t.lista}')/items(${t.spId})`,body,'MERGE','*');
+    renderHier();renderDash();
+    navMemoria('pl.tar');navCountsAplicar();navAgendar(['pl','rn','co'],['pl.tar','rn.tar','co.tar']); // Fase 67
+    if(colKey==='curso')kbAvisoWip(t);
+  }catch(e){
+    Object.assign(t,antes);kbRender();
+    showNotif('Não consegui mover a tarefa: '+e.message,'warn');
+  }
+}
+function kbAvisoWip(t){
+  const wip=kbWipMapas(),k=kbPessoaKey(t),msgs=[];
+  if(k&&wip.pes[k]>KB_WIP_PESSOA)msgs.push(`${t.responsavel||'Responsável'} tem ${wip.pes[k]} tarefas em curso (limite ${KB_WIP_PESSOA})`);
+  const p=kbProjId(t),L=kbLimiteProj(p);
+  if(p&&L&&wip.proj[p]>L)msgs.push(`o projeto tem ${wip.proj[p]} tarefas em curso (limite ${L})`);
+  if(msgs.length)showNotif('Atenção: '+msgs.join('; ')+'.','warn');
+}
+
+/* ---------- Modal do motivo de espera (sem alert/prompt) ---------- */
+function kbAbrirMotivo(id){
+  _kbMotivoId=id;
+  const t=plTarefas.find(x=>x.id===id);
+  const ov=el('kb-motivo-ov');if(!ov)return;
+  el('kb-motivo-tarefa').textContent=t?t.titulo:'';
+  el('kb-motivo-txt').value='';el('kb-motivo-err').style.display='none';
+  ov.classList.add('open');
+  setTimeout(()=>el('kb-motivo-txt')?.focus(),50);
+}
+function kbFecharMotivo(){_kbMotivoId=null;el('kb-motivo-ov')?.classList.remove('open');}
+function kbConfirmarMotivo(){
+  const m=(el('kb-motivo-txt').value||'').trim();
+  if(!m){el('kb-motivo-err').style.display='block';return;}
+  const id=_kbMotivoId;kbFecharMotivo();
+  if(id)kbMoverPara(id,'espera',m);
+}
+
+/* ---------- Painel de revisão (só Diretores e PE) ---------- */
+function kbRevisaoDados(){
+  const cards=kbCartoes();
+  const wip=kbWipMapas();
+  const linha=c=>{
+    const t=c.t,pid=kbProjId(t),proj=pid?plProjetos.find(p=>String(p.id)===pid):null,acao=t.acaoId?plAcoes.find(a=>String(a.id)===String(t.acaoId)):null;
+    return {tarefa:t.titulo,resp:t.responsavel||'',projeto:proj?.nome||'',acao:acao?.nome||'',origem:t.origem,limite:t.dataLimite||'',estado:plEstadoNorm(t.estado),idade:c.idade===null?'':c.idade,transita:c.transita,motivo:t.motivoEspera||''};
+  };
+  const trans=cards.filter(c=>c.transita>=2).sort((a,b)=>b.transita-a.transita).map(linha);
+  const espera=cards.filter(c=>c.col==='espera'&&c.idade!==null&&c.idade>15).sort((a,b)=>b.idade-a.idade).map(linha);
+  const paradas=cards.filter(c=>c.sinal==='v').sort((a,b)=>(b.idade||0)-(a.idade||0)).map(linha);
+  const pessoas=Object.entries(wip.pes).filter(([k,n])=>n>KB_WIP_PESSOA).map(([k,n])=>{
+    const t=plTarefas.find(x=>kbPessoaKey(x)===k);return {nome:t?.responsavel||k,n,limite:KB_WIP_PESSOA};
+  }).sort((a,b)=>b.n-a.n);
+  const projetos=Object.entries(wip.proj).filter(([p,n])=>kbLimiteProj(p)&&n>kbLimiteProj(p)).map(([p,n])=>({nome:plProjetos.find(x=>String(x.id)===p)?.nome||'Projeto #'+p,n,limite:kbLimiteProj(p)})).sort((a,b)=>b.n-a.n);
+  return {trans,espera,paradas,pessoas,projetos};
+}
+function kbAbrirRevisao(){
+  if(!plCanSeeAll())return;
+  const d=kbRevisaoDados(),ov=el('kb-rev-ov');if(!ov)return;
+  const tab=(tit,vazio,l)=>`<h4>${tit} <span>${l.length}</span></h4>${l.length?`<table class="kb-rev-t"><thead><tr><th>Tarefa</th><th>Responsável</th><th>Projeto › Ação</th><th>Limite</th><th>Estado</th><th>Dias úteis</th><th>Semanas</th><th>Motivo</th></tr></thead><tbody>${l.map(r=>`<tr><td>${kbEsc(r.tarefa)}</td><td>${kbEsc(r.resp)}</td><td>${kbEsc(r.projeto)}${r.projeto&&r.acao?' › ':''}${kbEsc(r.acao)}</td><td>${r.limite?fd(r.limite):'—'}</td><td>${r.estado}</td><td>${r.idade}</td><td>${r.transita||''}</td><td>${kbEsc(r.motivo)}</td></tr>`).join('')}</tbody></table>`:`<p class="kb-rev-v">${vazio}</p>`}`;
+  const wipT=(d.pessoas.length||d.projetos.length)?`<table class="kb-rev-t"><thead><tr><th>Quem</th><th>Em curso</th><th>Limite</th></tr></thead><tbody>${d.pessoas.map(r=>`<tr><td>${kbEsc(r.nome)} (pessoa)</td><td>${r.n}</td><td>${r.limite}</td></tr>`).join('')}${d.projetos.map(r=>`<tr><td>${kbEsc(r.nome)} (projeto)</td><td>${r.n}</td><td>${r.limite}</td></tr>`).join('')}</tbody></table>`:'<p class="kb-rev-v">Ninguém acima do limite.</p>';
+  el('kb-rev-body').innerHTML=
+    tab('Transitadas há 2 ou mais semanas','Nenhuma tarefa transitada há 2 ou mais semanas.',d.trans)+
+    tab('Em espera há mais de 15 dias úteis','Nenhuma tarefa em espera há mais de 15 dias úteis.',d.espera)+
+    tab('Paradas a vermelho','Nenhuma tarefa parada a vermelho.',d.paradas)+
+    `<h4>Pessoas ou projetos acima do limite WIP <span>${d.pessoas.length+d.projetos.length}</span></h4>`+wipT;
+  ov.classList.add('open');
+}
+function kbFecharRevisao(){el('kb-rev-ov')?.classList.remove('open');}
+async function kbExportarRevisao(){
+  try{await gfCarregarScript(GF_CDN_XLSX);}catch(e){}
+  if(typeof XLSX==='undefined'){showNotif('Biblioteca de exportação (XLSX) não carregou. Verifica a ligação à internet.','warn');return;}
+  const d=kbRevisaoDados(),cab=['Tarefa','Responsável','Projeto','Ação','Origem','Data limite','Estado','Dias úteis desde a última mudança','Semanas em atraso','Motivo de espera'];
+  const rows=l=>[cab,...l.map(r=>[r.tarefa,r.resp,r.projeto,r.acao,r.origem,r.limite,r.estado,r.idade,r.transita,r.motivo])];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows(d.trans)),'Transitadas 2+ semanas');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows(d.espera)),'Em espera 15+ d.u.');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows(d.paradas)),'Paradas a vermelho');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Quem','Tipo','Em curso','Limite'],...d.pessoas.map(r=>[r.nome,'Pessoa',r.n,r.limite]),...d.projetos.map(r=>[r.nome,'Projeto',r.n,r.limite])]),'Limite WIP');
+  XLSX.writeFile(wb,`Revisao_Kanban_${kbYmd(kbHoje())}.xlsx`);
+}
+
+/* ---------- Pessoas/pesquisa: o mesmo filtro do Plano Semanal em lista ---------- */
+function plSemPredicado(){
+  const q=(gv('q-sem')||'').toLowerCase();
+  const dep=plSemMyTasks?'':(gv('ff-s-dep')||'');
+  const colEmail=plSemMyTasks?'':(gv('ff-s-col')||'').toLowerCase();
+  const isDir=plCanSeeAll();
+  const myEmail=(user?.username||user?.preferredUsername||'').toLowerCase();
+  const myName=(user?.name||'').toLowerCase();
+  const matchesMe=nome=>nome&&myName&&nome.toLowerCase().split(/\s+/).some(w=>w.length>2&&myName.split(/\s+/).some(m=>m.includes(w)||w.includes(m)));
+  const normDep=s=>(s||'').replace(/[\s.]/g,'').toLowerCase();
+  // Resolve departamento efetivo: tarefa → ação → projeto
+  const getEffDep=t=>{
+    if(t.dep) return normDep(t.dep);
+    const a=t.acaoId?plAcoes.find(a=>String(a.id)===String(t.acaoId)):null;
+    if(a?.dep) return normDep(a.dep);
+    const projId=t.projetoId||(a?.projetoId)||null;
+    const p=projId?plProjetos.find(p=>String(p.id)===String(projId)):null;
+    return normDep(p?.dep||'');
+  };
+  // Verifica se uma tarefa pertence ao colaborador selecionado (cascata)
+  const colMatchesTarefa=t=>{
+    if(!colEmail) return true;
+    const colU=fjUtilizadores.find(u=>u.email===colEmail);
+    const colNome=(colU?.titulo||'').toLowerCase();
+    const nameEq=(nome)=>nome&&colNome&&nome.toLowerCase()===colNome;
+    const emailEq=(email)=>email&&email.toLowerCase()===colEmail;
+    if(emailEq(t.responsavelEmail)||nameEq(t.responsavel)) return true;
+    const acao=t.acaoId?plAcoes.find(a=>String(a.id)===String(t.acaoId)):null;
+    if(acao&&(emailEq(acao.responsavelEmail)||nameEq(acao.responsavel))) return true;
+    const projId=t.projetoId||(acao?.projetoId)||null;
+    const proj=projId?plProjetos.find(p=>String(p.id)===String(projId)):null;
+    if(proj&&(emailEq(proj.responsavelEmail)||nameEq(proj.responsavel))) return true;
+    return false;
+  };
+  return t=>{
+    // Modo "Minhas tarefas" (membros sempre; diretores quando toggled)
+    if(!isDir || plSemMyTasks){
+      const byTask=matchesMe(t.responsavel)||(t.responsavelEmail&&t.responsavelEmail.toLowerCase()===myEmail);
+      if(!byTask){
+        if(isDir){
+          // Diretor em modo "Minhas tarefas": mantém cascata por ação/projeto responsável
+          const acao=plAcoes.find(a=>String(a.id)===String(t.acaoId));
+          const byAcao=acao&&matchesMe(acao.responsavel);
+          if(!byAcao){
+            const projId=t.projetoId||(acao?.projetoId)||null;
+            const proj=projId?plProjetos.find(p=>String(p.id)===String(projId)):null;
+            const byProj=proj&&matchesMe(proj.responsavel);
+            if(!byProj) return false;
+          }
+        } else {
+          // Membro: só tarefas atribuídas diretamente a si, sem cascata por ação/projeto
+          return false;
+        }
+      }
+    }
+    // Modo "Todos" (apenas Diretores+): filtros dept + colaborador
+    if(isDir && !plSemMyTasks){
+      if(dep && getEffDep(t)!==normDep(dep)) return false;
+      if(colEmail && !colMatchesTarefa(t)) return false;
+    }
+    if(q&&!t.titulo.toLowerCase().includes(q)) return false;
+    return true;
+  };
+}
+
+// Formulário de tarefa: mostrar o motivo só quando o estado é "Em espera"
+function plTarEstadoChg(){
+  const w=el('ftar-motivo-wrap');if(w)w.style.display=(gv('ftar-estado')==='Em espera')?'':'none';
+}
+
 /* Tarefa form */
 function checkOrigem(v){el('tar-warn').style.display=v==='Factorial'?'block':'none';}
 function openTarForm(){
@@ -8111,7 +9150,7 @@ function openTarForm(){
   if(acaoSelect) acaoSelect.innerHTML = '<option value="">Nenhuma</option>' + plAcoes.map(a => `<option value="${a.id}">${a.titulo||a.nome}</option>`).join('');
   sv2('ftar-desc','');sv2('ftar-origem','Ad-hoc');sv2('ftar-proj','');sv2('ftar-acao','');
   sv2('ftar-resp','');sv2('ftar-email','');sv2('ftar-inicio','');sv2('ftar-data','');
-  sv2('ftar-prior','Média');sv2('ftar-estado','todo');sv2('ftar-notas','');sv2('ftar-link-doc','');
+  sv2('ftar-prior','Média');sv2('ftar-estado','Por fazer');sv2('ftar-motivo','');plTarEstadoChg();sv2('ftar-notas','');sv2('ftar-link-doc','');
   el('ftar-existing-attach').innerHTML='';
   if(el('ftar-file')) el('ftar-file').value='';
   lockRespSelectToSelf('ftar-resp','ftar-email');
@@ -8131,7 +9170,7 @@ function openTarFormEdit(compId){
   sv2('ftar-desc',t.titulo);sv2('ftar-origem',t.origem||'Ad-hoc');
   sv2('ftar-resp',t.responsavel||'');sv2('ftar-email',t.responsavelEmail||'');
   lockRespSelectToSelf('ftar-resp','ftar-email');
-  sv2('ftar-inicio',t.dataInicio||'');sv2('ftar-data',t.dataLimite||'');sv2('ftar-prior',t.prioridade||'Média');sv2('ftar-estado',t.estado||'todo');sv2('ftar-notas',t.notas||'');sv2('ftar-link-doc',t.linkDocumento||'');
+  sv2('ftar-inicio',t.dataInicio||'');sv2('ftar-data',t.dataLimite||'');sv2('ftar-prior',t.prioridade||'Média');sv2('ftar-estado',plEstadoNorm(t.estado));sv2('ftar-motivo',t.motivoEspera||'');plTarEstadoChg();sv2('ftar-notas',t.notas||'');sv2('ftar-link-doc',t.linkDocumento||'');
   if(el('ftar-file')) el('ftar-file').value='';
   el('ftar-existing-attach').innerHTML=(t.attachments&&t.attachments.length)?t.attachments.map(a=>`<div class="attach-item"><a href="https://fjuventude.sharepoint.com${a.url}" target="_blank">📄 ${a.name}</a><button class="attach-remove" onclick="removeAttach('${t.lista}',${t.spId},'${a.name.replace(/'/g,"\\'")}')">✕</button></div>`).join(''):'';
 }
@@ -8141,7 +9180,7 @@ function openTarView(compId){
   plTarSetReadOnly(true);
 }
 function plTarSetReadOnly(readOnly){
-  ['ftar-desc','ftar-origem','ftar-proj','ftar-acao','ftar-resp','ftar-inicio','ftar-data','ftar-prior','ftar-estado','ftar-notas','ftar-link-doc','ftar-file'].forEach(id=>{
+  ['ftar-desc','ftar-origem','ftar-proj','ftar-acao','ftar-resp','ftar-inicio','ftar-data','ftar-prior','ftar-estado','ftar-motivo','ftar-notas','ftar-link-doc','ftar-file'].forEach(id=>{
     const e=el(id); if(e) e.disabled=readOnly;
   });
   const saveBtn=el('save-tar-btn');
@@ -8216,6 +9255,9 @@ async function plSaveTarefa(){
   if(!aidCheck){alert('Ação obrigatória.');return;}
   const dataCheck=gv('ftar-data').trim();
   if(!dataCheck){alert('Data limite obrigatória.');return;}
+  const estForm=gv('ftar-estado'); // Fase 68
+  if(estForm==='Em espera'&&!(gv('ftar-motivo')||'').trim()){showNotif('Indica o motivo da espera.','warn');return;}
+  const tOld=plEditTarId?plTarefas.find(x=>x.id===plEditTarId):null;
   const btn=el('save-tar-btn');btn.textContent='A guardar...';btn.disabled=true;
   try{
     const data=gv('ftar-data');
@@ -8229,6 +9271,14 @@ async function plSaveTarefa(){
       AnoFJ:anoFJ,
       Estado:gv('ftar-estado')
     };
+    // Fase 68: DataMudancaEstado / DataConclusao / MotivoEspera coerentes com o Kanban
+    if(!tOld||plEstadoNorm(tOld.estado)!==estForm){
+      const agoraKb=new Date().toISOString();
+      body.DataMudancaEstado=agoraKb;
+      if(estForm==='Concluída')body.DataConclusao=agoraKb;
+      else if(tOld&&plEstadoNorm(tOld.estado)==='Concluída')body.DataConclusao=null;
+    }
+    if(estForm==='Em espera')body.MotivoEspera=(gv('ftar-motivo')||'').trim();
     // Departamento apenas se preenchido
     const dep=gv('ftar-dep');if(dep)body.Departamento=dep;
     // Responsável (texto)
@@ -8969,7 +10019,7 @@ function plInit(){
   plViewWeek=isoWeek(now);plViewYear=now.getFullYear();
   // Use shared projetos
   if(sharedProjetos.length) plProjetos=sharedProjetos;
-  plLoadAll().then(()=>{plInitSemPermissions();plApplyRoleVisibility();});
+  plLoadAll().then(()=>{plInitSemPermissions();plApplyRoleVisibility();navModuloPronto('pl');});
 }
 
 
@@ -9728,6 +10778,7 @@ async function gfRecarregar(nomes, opcoes = {}) {
     if (nomes.length < GF_LISTAS_TODAS.length) gfSincronizarNomesLookup(nomes);
     console.log('GF Data loaded:', { listas: nomes.length === GF_LISTAS_TODAS.length ? 'todas' : nomes.join(','), projetos: GF_PROJETOS.length, rubricas: GF_RUBRICAS.length, solicitacoes: GF_SOLICITACOES.length, movPendentes: GF_MOV_PENDENTES.length, movExecutados: GF_MOV_EXECUTADOS.length });
     gfPerfLog(`gfRecarregar([${nomes.length === GF_LISTAS_TODAS.length ? 'todas' : nomes.join(', ')}]) ${Math.round(performance.now() - _t0)}ms`);
+    try { navMemoriaGF(nomes); } catch (e) { console.warn('navMemoriaGF', e); } // Fase 67 - antes de desenhar, para o ecrã e os contadores usarem os mesmos dados
     if (opcoes.render !== false) gfRender();
     gfPrepararEscritas();
   } catch (e) {
@@ -10081,7 +11132,7 @@ function gfCanProcessar() {
 }
 
 function gfInit() {
-  gfLoadAll().then(() => gfUpdateSidebarNav());
+  gfLoadAll().then(() => { gfUpdateSidebarNav(); navModuloPronto('gf'); });
 }
 
 function gfUpdateSidebarNav() {
@@ -10154,10 +11205,8 @@ function _gfRenderImpl() {
 // ══════════════════════════════════════════════════════════════
 function gfRenderHome() {
   const isAreaApprover = _financeDepts.length > 0 || _financeRole === 'pe';
-  const pendAprov = GF_SOLICITACOES.filter(s => 
-    (isAreaApprover && s.estado === 'Submetido' && gfIsMyDepartamento((GF_PROJETOS.find(p=>p.id===s.projetoId)?.dep||''))) ||
-    (_financeRole === 'df' && ['Submetido', 'Aprovado Dir.'].includes(s.estado))
-  ).length;
+  // Fase 67 - mesma contagem do separador e do menu lateral (navCountGF): o que o utilizador pode aprovar agora
+  const pendAprov = (navCountGF().detalhe || []).filter(d => d.badge === 'gf-badge-aprov').reduce((a, d) => a + d.n, 0);
   
   const totOrc = GF_RUBRICAS.filter(r => r.ano === GF.year).reduce((a, r) => a + (r.despOrc || 0), 0);
   const totProc = GF_RUBRICAS.filter(r => r.ano === GF.year).reduce((a, r) => a + (r.despProc || 0), 0);
@@ -17042,6 +18091,7 @@ async function auInit(){
   auSetupSidebar();
   await auLoadAll();
   auNav(window._auPaginaInicial||'dashboard');window._auPaginaInicial=null;
+  navModuloPronto('au'); // Fase 67
 }
 
 function auSetRole(){
@@ -17378,12 +18428,9 @@ async function auLoadAll(){
 function auUpdateBadges(){
   // N1: pedidos Pendentes (aguardam director)
   // N2: pedidos Aprovado N1 (aguardam PE)
-  const pendN1=auFilaN1().length;
-  const pendN2=auFilaN2().length;
-  const b1=document.getElementById('au-badge-n1');
-  const b2=document.getElementById('au-badge-n2');
-  if(b1){b1.textContent=pendN1;b1.style.display=pendN1>0?'inline':'none';}
-  if(b2){b2.textContent=pendN2;b2.style.display=pendN2>0?'inline':'none';}
+  // Fase 67 - os contadores laterais (au-badge-n1, au-badge-n2, ponto) e o do separador leem todos de navCountAU()
+  navMemoria('au.core');
+  navCountsAplicar();
 }
 
 // ── Navigation ──
@@ -19776,6 +20823,7 @@ async function coInit() {
   coSetDataHoje();
   await coLoadAll();
   coNav('registo');
+  navModuloPronto('co'); // Fase 67
 }
 
 function coSetDataHoje() {
@@ -19857,11 +20905,10 @@ function coRenderStats() {
 }
 
 function coUpdateBadge() {
-  const badge = document.getElementById('co-badge-tarefas');
-  if (!badge) return;
-  const pend = CO_TAREFAS.filter(t => t.estado !== 'Concluída' && t.estado !== 'Cancelada').length;
-  badge.textContent = pend;
-  badge.style.display = pend > 0 ? 'inline' : 'none';
+  // Fase 67 - antes contava as tarefas pendentes de todos; agora só as atribuídas ao utilizador (navCountCO),
+  // e o contador lateral e o do separador leem da mesma função
+  navMemoria('co.tar');
+  navCountsAplicar();
 }
 
 // ── Permissões de visualização ────────────────────
@@ -20672,6 +21719,7 @@ async function deInit() {
   if (btnNovo) btnNovo.style.display = (isDir || isPE) ? 'inline-flex' : 'none';
   await deLoadAll();
   deNav('lista');
+  navModuloPronto('de'); // Fase 67
 }
 
 // ── Carregar dados ──
@@ -20716,11 +21764,9 @@ function deUpdateStats() {
 }
 
 function deBadgeDecisao() {
-  const badge = document.getElementById('de-badge-decisao');
-  if (!badge) return;
-  const pend = DE_ITEMS.filter(d => d.estado === 'Pendente').length;
-  badge.textContent = pend;
-  badge.style.display = pend > 0 ? 'inline' : 'none';
+  // Fase 67 - o contador lateral e o do separador leem de navCountDE()
+  navMemoria('de.it');
+  navCountsAplicar();
 }
 
 // ── Visibilidade: Diretores veem os seus; PE vê tudo ──
@@ -21281,6 +22327,7 @@ async function gfSubmitCaixa() {
       id: novoId, dataMovimento: dataIso, dataValor: dataIso, descricao: titulo, observacao: obsTxt, recPag: body.RecPag,
       importancia: rec ? valor : -valor, saldoContabilistico: 0, centroCusto: 'Caixa', chaveUnica: chave, estado: 'Pendente', dataAfetacao: null
     });
+    navMemoria('gf.movs'); navCountsAplicar(); // Fase 67
     gfCloseCaixaModal();
     showNotif(rec ? 'Receita de caixa criada em Pendentes, já recebida ✓' : 'Despesa de caixa criada em Pendentes, já paga e com o anexo ✓', 'success');
     GF.tab.sol = 'pendentes';
@@ -22872,6 +23919,7 @@ async function gfPendEliminar(movId) {
   try {
     await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_MovimentosBancarios')/items(${movId})`, null, 'DELETE');
     GF_MOV_PENDENTES = GF_MOV_PENDENTES.filter(x => x.id !== movId);
+    navMemoria('gf.movs'); navCountsAplicar(); // Fase 67
     delete GF_PEND_EDIT[movId];
     const restantes = GF_MOV_PENDENTES.filter(x => x.estado !== 'Afeto');
     const row = gfEl(`gf-pend-row-${movId}`);
@@ -23253,6 +24301,7 @@ async function paInit(){
   await Promise.all([paLoadParceiros(), paLoadHistorico()]);
   await paPopulateResponsaveis();
   paNav('parceiros');
+  navModuloPronto('pa'); // Fase 67
 }
 
 function paNav(page){
@@ -23305,6 +24354,7 @@ async function paLoadHistorico(){
       validadeProtocolo: r.ValidadeProtocolo ? r.ValidadeProtocolo.split('T')[0] : '',
       estadoProtocolo: r.EstadoProtocolo||''
     }));
+    navMemoria('pa.hist'); navCountsAplicar(); // Fase 67
   }catch(e){ console.warn('paLoadHistorico:', e); }
 }
 
