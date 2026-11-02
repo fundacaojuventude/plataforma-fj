@@ -8343,9 +8343,28 @@ function plCanSeeAll(){
 
 // ── Helpers partilhados de correspondência do utilizador atual (Membro) ──
 function plMyEmailLower(){ return (user?.username||user?.preferredUsername||'').toLowerCase(); }
+// Fase 69: dois nomes coincidem se todas as palavras do mais curto estão no mais longo (sem acentos; uma inicial
+// como "R." serve para "Rui"). Antes bastava uma palavra comum, por isso "Madalena Oliveira" contava como "Rui Oliveira".
+// Fase 69: o nome do responsável liga-se ao email pela lista de utilizadores (nome exato, sem acentos); se o nome
+// não existir na lista (ex.: pessoas que já saíram), usa-se a correspondência por nome completo.
+function plNomeEhMeu(nome){
+  const n=x=>String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
+  const alvo=n(nome);
+  if(!alvo) return false;
+  const u=(typeof fjUtilizadores!=='undefined'&&Array.isArray(fjUtilizadores))?fjUtilizadores.find(x=>n(x.titulo)===alvo&&x.email):null;
+  if(u) return String(u.email).toLowerCase()===plMyEmailLower();
+  return plNomeCoincide(nome,user?.name);
+}
+function plNomeCoincide(nome,meu){
+  const tk=x=>String(x||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.,]/g,' ').split(/\s+/).filter(Boolean);
+  const a=tk(nome),b=tk(meu);
+  if(!a.length||!b.length) return false;
+  const [curto,longo]=a.length<=b.length?[a,b]:[b,a];
+  return curto.every(t=>longo.some(u=>u===t||(t.length<=2&&u.startsWith(t))));
+}
 function plMatchesMe(nome){
   const myName=(user?.name||'').toLowerCase();
-  return !!(nome&&myName&&nome.toLowerCase().split(/\s+/).some(w=>w.length>2&&myName.split(/\s+/).some(m=>m.includes(w)||w.includes(m))));
+  return plNomeEhMeu(nome); // Fase 69
 }
 function plTarefaEhMinha(t){
   const myEmail=plMyEmailLower();
@@ -8457,7 +8476,7 @@ function renderSem(){
   const myEmail=(user?.username||user?.preferredUsername||'').toLowerCase();
   const myName=(user?.name||'').toLowerCase();
 
-  const matchesMe=nome=>nome&&myName&&nome.toLowerCase().split(/\s+/).some(w=>w.length>2&&myName.split(/\s+/).some(m=>m.includes(w)||w.includes(m)));
+  const matchesMe=nome=>plNomeEhMeu(nome); // Fase 69: nome → email na lista de utilizadores (antes bastava o apelido)
   const normDep=s=>(s||'').replace(/[\s.]/g,'').toLowerCase();
 
   // Resolve departamento efetivo: tarefa → ação → projeto
@@ -9072,7 +9091,7 @@ function plSemPredicado(){
   const isDir=plCanSeeAll();
   const myEmail=(user?.username||user?.preferredUsername||'').toLowerCase();
   const myName=(user?.name||'').toLowerCase();
-  const matchesMe=nome=>nome&&myName&&nome.toLowerCase().split(/\s+/).some(w=>w.length>2&&myName.split(/\s+/).some(m=>m.includes(w)||w.includes(m)));
+  const matchesMe=nome=>plNomeEhMeu(nome); // Fase 69: nome → email na lista de utilizadores (antes bastava o apelido)
   const normDep=s=>(s||'').replace(/[\s.]/g,'').toLowerCase();
   // Resolve departamento efetivo: tarefa → ação → projeto
   const getEffDep=t=>{
