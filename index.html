@@ -8851,9 +8851,11 @@ function kbRender(){
   else if(kbFiltroResumo==='espera')cards=cards.filter(c=>c.col==='espera');
   else if(kbFiltroResumo==='wip')cards=cards.filter(c=>c.col==='curso'&&sobreLimite(kbPessoaKey(c.t)));
   const ordem={Alta:0,'Crítica':0,'Média':1,Baixa:2};
-  cards.sort((a,b)=>{
+  cards.sort((a,b)=>{ // prioridade primeiro (Alta no topo), depois data limite mais próxima
+    const pa=ordem[a.t.prioridade]??1,pb=ordem[b.t.prioridade]??1;
+    if(pa!==pb) return pa-pb;
     const da=a.t.dataLimite||'9999',db=b.t.dataLimite||'9999';
-    return da<db?-1:da>db?1:((ordem[a.t.prioridade]??1)-(ordem[b.t.prioridade]??1));
+    return da<db?-1:da>db?1:0;
   });
   const res=(f,n,l,cor)=>`<button class="kb-res${kbFiltroResumo===f?' on':''}" onclick="kbSetResumo('${f}')"><span class="kb-res-n"${cor?` style="color:${cor}"`:''}>${n}</span><span class="kb-res-l">${l}</span></button>`;
   const proj=kbProjFiltro?plProjetos.find(p=>String(p.id)===String(kbProjFiltro)):null;
