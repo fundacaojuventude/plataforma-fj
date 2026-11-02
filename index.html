@@ -9162,6 +9162,12 @@ function openTarForm(){
   el('ftar-existing-attach').innerHTML='';
   if(el('ftar-file')) el('ftar-file').value='';
   lockRespSelectToSelf('ftar-resp','ftar-email');
+  // Fase 74: por defeito o responsável é a pessoa com sessão iniciada (editável por Diretores/PE)
+  if(plCanSeeAll()){
+    const eu=(typeof fjUtilizadores!=='undefined'&&Array.isArray(fjUtilizadores))?fjUtilizadores.find(u=>String(u.email||'').toLowerCase()===plMyEmailLower()):null;
+    const rs=el('ftar-resp');
+    if(eu&&rs){ rs.value=eu.titulo; if(rs.value===eu.titulo){ const ef=el('ftar-email'); if(ef) ef.value=String(eu.email||'').toLowerCase(); } }
+  }
 }
 function openTarFormEdit(compId){
   const t=plTarefas.find(x=>x.id===compId);if(!t)return;
@@ -11656,7 +11662,7 @@ const GF_TAXA_IRS_MEDIA = 15;        // % sobre o vencimento bruto, estimativa m
 const GF_MARGEM_RH_PCT = 15;
 
 // Decompõe o custo de um colaborador num dado mês nas suas partes: vencimento base (a
-// dobrar em junho e dezembro — subsídios de férias/Natal, convenção de 14 meses; Vencimento
+// dobrar em junho (subsídio de férias) e novembro (subsídio de Natal), convenção de 14 meses; Vencimento
 // Base já é o valor mensal, 1/14 do anual, logo dobrar em 2 dos 12 meses dá o total anual
 // certo, 12×VB + 2×VB extra = 14×VB), encargos da entidade patronal, SS do trabalhador e
 // IRS retido (ambos saem do bruto do colaborador), subsídio de alimentação (× dias úteis do
@@ -11665,7 +11671,7 @@ const GF_MARGEM_RH_PCT = 15;
 // para o Estado — SS entidade patronal + SS trabalhador + IRS — até dia 20 do mês seguinte
 // (prazo legal). `total` = liquido + contribuicoes, e não muda com esta separação.
 function _gfDecomporCustoColaboradorMes(c, ano, mesIndex0) {
-  const multVB = (mesIndex0 === 5 || mesIndex0 === 11) ? 2 : 1; // junho=5, dezembro=11 (0-indexado)
+  const multVB = (mesIndex0 === 5 || mesIndex0 === 10) ? 2 : 1; // junho=5 (subsídio de férias), novembro=10 (subsídio de Natal, pago em novembro) (0-indexado)
   const vbGross = (c.vencimentoBase || 0) * multVB;
   const encargosPatronais = vbGross * ((c.taxaEncargos || 0) / 100);
   const ssTrabalhador = vbGross * (GF_TAXA_SS_TRABALHADOR / 100);
