@@ -1839,11 +1839,11 @@ th.au-mp-n{background:var(--bg3)}
               <!-- Linha: Projeto + Ação -->
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
                 <div>
-                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Projeto *</label>
+                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Projeto <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
                   <select id="ftar-proj" onchange="loadAcoesForProj(this.value,'ftar-acao')" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:var(--bg2);color:var(--text)"><option value="">Selecionar…</option></select>
                 </div>
                 <div>
-                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Ação *</label>
+                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Ação <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
                   <select id="ftar-acao" style="width:100%;padding:9px 10px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:var(--bg2);color:var(--text)"><option value="">Selecionar…</option></select>
                 </div>
               </div>
@@ -7435,7 +7435,7 @@ function populateCollabSelects(){
 function loadAcoesForProj(projId,targetId,currId=null){
   const e=el(targetId);if(!e)return;
   const list=projId?plAcoes.filter(a=>String(a.projetoId)===String(projId)):plAcoes;
-  e.innerHTML='<option value="">Nenhuma</option>'+list.map(a=>`<option value="${a.id}"${String(a.id)===String(currId)?'selected':''}>${a.nome}</option>`).join('');
+  e.innerHTML='<option value="">'+(targetId==='ftar-acao'?'Sem ação':'Nenhuma')+'</option>'+list.map(a=>`<option value="${a.id}"${String(a.id)===String(currId)?'selected':''}>${a.nome}</option>`).join('');
 }
 
 /* ===== RAG CALCULATION ===== */
@@ -9144,10 +9144,10 @@ function openTarForm(){
   plTarSetReadOnly(false);
   // Popular dropdown de projetos
   const projSelect = el('ftar-proj');
-  if(projSelect) projSelect.innerHTML = '<option value="">Nenhum</option>' + plProjetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+  if(projSelect) projSelect.innerHTML = '<option value="">Sem projeto (trabalho interno)</option>' + plProjetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
   // Popular dropdown de ações
   const acaoSelect = el('ftar-acao');
-  if(acaoSelect) acaoSelect.innerHTML = '<option value="">Nenhuma</option>' + plAcoes.map(a => `<option value="${a.id}">${a.titulo||a.nome}</option>`).join('');
+  if(acaoSelect) acaoSelect.innerHTML = '<option value="">Sem ação</option>' + plAcoes.map(a => `<option value="${a.id}">${a.titulo||a.nome}</option>`).join('');
   sv2('ftar-desc','');sv2('ftar-origem','Ad-hoc');sv2('ftar-proj','');sv2('ftar-acao','');
   sv2('ftar-resp','');sv2('ftar-email','');sv2('ftar-inicio','');sv2('ftar-data','');
   sv2('ftar-prior','Média');sv2('ftar-estado','Por fazer');sv2('ftar-motivo','');plTarEstadoChg();sv2('ftar-notas','');sv2('ftar-link-doc','');
@@ -9163,10 +9163,10 @@ function openTarFormEdit(compId){
   plTarSetReadOnly(false);
   // Popular projetos
   const projSelect=el('ftar-proj');
-  if(projSelect) projSelect.innerHTML='<option value="">Nenhum</option>'+plProjetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+  if(projSelect) projSelect.innerHTML='<option value="">Sem projeto (trabalho interno)</option>'+plProjetos.map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
   sv2('ftar-proj',t.projetoId?String(t.projetoId):'');
   if(t.projetoId) loadAcoesForProj(t.projetoId,'ftar-acao',t.acaoId);
-  else { const acaoSelect=el('ftar-acao'); if(acaoSelect) acaoSelect.innerHTML='<option value="">Nenhuma</option>'+plAcoes.map(a=>`<option value="${a.id}"${String(a.id)===String(t.acaoId)?'selected':''}>${a.titulo||a.nome}</option>`).join(''); }
+  else { const acaoSelect=el('ftar-acao'); if(acaoSelect) acaoSelect.innerHTML='<option value="">Sem ação</option>'+plAcoes.map(a=>`<option value="${a.id}"${String(a.id)===String(t.acaoId)?'selected':''}>${a.titulo||a.nome}</option>`).join(''); }
   sv2('ftar-desc',t.titulo);sv2('ftar-origem',t.origem||'Ad-hoc');
   sv2('ftar-resp',t.responsavel||'');sv2('ftar-email',t.responsavelEmail||'');
   lockRespSelectToSelf('ftar-resp','ftar-email');
@@ -9249,10 +9249,7 @@ async function plSaveTarefa(){
   if(!desc){alert('Descrição obrigatória.');return;}
   const respCheck=gv('ftar-resp').trim();
   if(!respCheck){alert('Responsável obrigatório.');return;}
-  const pidCheck=gv('ftar-proj').trim();
-  if(!pidCheck){alert('Projeto obrigatório.');return;}
-  const aidCheck=gv('ftar-acao').trim();
-  if(!aidCheck){alert('Ação obrigatória.');return;}
+  // Fase 69: Projeto e Ação passam a ser opcionais (trabalho interno sem projeto)
   const dataCheck=gv('ftar-data').trim();
   if(!dataCheck){alert('Data limite obrigatória.');return;}
   const estForm=gv('ftar-estado'); // Fase 68
@@ -9285,8 +9282,12 @@ async function plSaveTarefa(){
     const resp=gv('ftar-resp');if(resp)body.Responsavel=resp;
     const inicio=gv('ftar-inicio');if(inicio)body.DataInicio=inicio+'T00:00:00Z';
     if(data)body.DataLimite=data+'T00:00:00Z';
-    const pid=gv('ftar-proj');if(pid)body.ProjetoIdId=parseInt(pid);
-    const aid=gv('ftar-acao');if(aid)body.AcaoIdId=parseInt(aid);
+    const pid=gv('ftar-proj'),aid=gv('ftar-acao');
+    if(pid)body.ProjetoIdId=parseInt(pid);
+    else if(aid){const ac=plAcoes.find(a=>String(a.id)===String(aid));if(ac?.projetoId)body.ProjetoIdId=ac.projetoId;else if(plEditTarId)body.ProjetoIdId=null;} // ação sem projeto escolhido: herda o projeto da ação
+    else if(plEditTarId)body.ProjetoIdId=null; // ao editar, "Sem projeto" limpa a ligação
+    if(aid)body.AcaoIdId=parseInt(aid);
+    else if(plEditTarId)body.AcaoIdId=null;
     const linkDoc=gv('ftar-link-doc').trim();if(linkDoc)body.LinkDocumento=linkDoc;
     let itemId=null,listaDestino='FJ_Tarefas';
     if(plEditTarId){
