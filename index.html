@@ -9121,22 +9121,9 @@ function plSemPredicado(){
     // Modo "Minhas tarefas" (membros sempre; diretores quando toggled)
     if(!isDir || plSemMyTasks){
       const byTask=matchesMe(t.responsavel)||(t.responsavelEmail&&t.responsavelEmail.toLowerCase()===myEmail);
-      if(!byTask){
-        if(isDir){
-          // Diretor em modo "Minhas tarefas": mantém cascata por ação/projeto responsável
-          const acao=plAcoes.find(a=>String(a.id)===String(t.acaoId));
-          const byAcao=acao&&matchesMe(acao.responsavel);
-          if(!byAcao){
-            const projId=t.projetoId||(acao?.projetoId)||null;
-            const proj=projId?plProjetos.find(p=>String(p.id)===String(projId)):null;
-            const byProj=proj&&matchesMe(proj.responsavel);
-            if(!byProj) return false;
-          }
-        } else {
-          // Membro: só tarefas atribuídas diretamente a si, sem cascata por ação/projeto
-          return false;
-        }
-      }
+      // Fase 73: "Minhas tarefas" = só tarefas em que eu sou o responsável da própria tarefa
+      // (sem cascata por ação/projeto: tarefas de outros ou sem responsável não aparecem)
+      if(!byTask) return false;
     }
     // Modo "Todos" (apenas Diretores+): filtros dept + colaborador
     if(isDir && !plSemMyTasks){
