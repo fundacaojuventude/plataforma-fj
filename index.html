@@ -16361,7 +16361,8 @@ async function gfSaveSolicitacao(id, estado) {
   // Fase 18, ponto 2 — só se pode submeter uma Solicitação numa rúbrica com orçamento
   // "Aprovada" para o ano da Data Limite de Pagamento (sem data definida, usa o ano em
   // vista no Orçamento). Rascunhos ("Rascunho") não passam por este gate.
-  if (estado === 'Submetido') {
+  // Fase 69 — as Receitas não precisam de orçamento aprovado (a receita não consome orçamento): só as Despesas passam por este gate.
+  if (estado === 'Submetido' && tipoSolicitacao !== 'Receita') {
     const anoRef = dataLimite ? new Date(dataLimite).getFullYear() : GF.year;
     const orcAno = gfOrcamentoAnoRubrica(rubricaId, anoRef);
     if (!orcAno || orcAno.estadoAno !== 'Aprovada') {
