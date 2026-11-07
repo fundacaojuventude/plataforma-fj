@@ -14297,11 +14297,11 @@ function gfRenderOrcamento() {
           ${!gfIsMembroRestrito() ? `
           <tr style="background:var(--mod-financeiro-bg);font-weight:600">
             <td colspan="2" style="padding:14px 16px;color:var(--mod-financeiro)">Total Geral</td>
-            <td style="padding:14px 16px">
-              <div style="font-size:12px;color:var(--text2)">Aprovado: ${gfFmt(totDespAprov)} · Pago: ${gfFmt(totDespPago)} · <span style="color:var(--mod-financeiro)">Orçamento: ${gfFmt(totDespOrc)}</span></div>
+            <td style="padding:10px 20px">
+              ${metricsRow(totDespAprov, totDespPago, totDespOrc, 'var(--mod-financeiro)')}
             </td>
-            <td style="padding:14px 16px">
-              <div style="font-size:12px;color:var(--text2)">Aprovado: ${gfFmt(totRecAprov)} · Pago: ${gfFmt(totRecPago)} · <span style="color:#F97316">Orçamento: ${gfFmt(totRecOrc)}</span></div>
+            <td style="padding:10px 20px">
+              ${metricsRow(totRecAprov, totRecPago, totRecOrc, '#F97316')}
             </td>
             <td></td>
           </tr>
