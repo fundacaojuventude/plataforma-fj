@@ -10415,6 +10415,183 @@ function gfConstruirRubricasDoAno(ano) {
   return todas.filter(r => r.estadoAno !== 'Excluída');
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// Fase 80 — RÚBRICAS "DISTRIBUÍDA FIXA" (imputação de custos entre projetos)
+// A rúbrica fica (e é paga) no projeto de origem (ex.: Custos da Estrutura). Para cada ano
+// define-se uma regra com a % que cabe a cada outro projeto; o que não chega a 100% fica no
+// projeto de origem. Nos projetos destino aparece uma linha "sombra" (só de leitura) e uma
+// linha "com imputações". Nada disto cria movimentos nem altera a tesouraria; é só análise.
+// Guardado em FJ_Configuracoes: Title = 'ImputRubrica_<rubricaId>_<ano>', Valor = {"l":[[projetoId,pct],...]}
+// ══════════════════════════════════════════════════════════════
+let GF_IMPUTACOES = {}; // `${rubricaId}_${ano}` -> { spId, rubricaId, ano, linhas:[{projetoId,pct}] }
+
+async function gfLoadImputacoes() {
+  GF_IMPUTACOES = {};
+  try {
+    const dc = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items?$filter=startswith(Title,'ImputRubrica_')&$select=Id,Title,Valor&$top=2000`);
+    (dc.d?.results || []).forEach(row => {
+      const m = (row.Title || '').match(/^ImputRubrica_(\d+)_(\d+)$/); if (!m) return;
+      let d = {}; try { d = JSON.parse(row.Valor || '{}'); } catch (e) { d = {}; }
+      const linhas = (d.l || []).map(x => ({ projetoId: parseInt(x[0]), pct: parseFloat(x[1]) })).filter(x => x.projetoId && x.pct > 0);
+      GF_IMPUTACOES[`${m[1]}_${m[2]}`] = { spId: row.Id, rubricaId: parseInt(m[1]), ano: parseInt(m[2]), linhas };
+    });
+  } catch (e) { GF_IMPUTACOES = {}; }
+}
+
+function gfImputacaoRegra(rubricaId, ano = GF.year) { return GF_IMPUTACOES[`${rubricaId}_${ano}`] || null; }
+
+function _gfImpZero() { return { despOrc: 0, despAprov: 0, despPago: 0, recOrc: 0, recAprov: 0, recPago: 0 }; }
+function _gfImpEscala(o, f) { const r = {}; Object.keys(o).forEach(k => { r[k] = o[k] * f; }); return r; }
+function _gfImpSoma(a, b) { Object.keys(b).forEach(k => { a[k] = (a[k] || 0) + b[k]; }); return a; }
+function _gfImpBaseRubrica(rub) {
+  const d = gfCalcDespesa(rub.id), r = gfCalcReceita(rub.id);
+  return { despOrc: rub.despOrc || 0, despAprov: d.aprovada, despPago: d.pago, recOrc: rub.recOrc || 0, recAprov: r.aprovada, recPago: r.pago };
+}
+
+// Mapa projetoId -> { sai, entra, itens:[{rubrica,pct,valores,origemId}], saidas:[{rubrica,pct,linhas}] } para o ano em vista.
+function gfImputacoesPorProjeto(ano = GF.year) {
+  const mapa = {};
+  const get = id => (mapa[id] = mapa[id] || { sai: _gfImpZero(), entra: _gfImpZero(), itens: [], saidas: [] });
+  Object.values(GF_IMPUTACOES).forEach(reg => {
+    if (reg.ano !== ano || !reg.linhas.length) return;
+    const rub = GF_RUBRICAS.find(r => r.id === reg.rubricaId); if (!rub) return; // retirada do ano ou de outro ano
+    const base = _gfImpBaseRubrica(rub);
+    const linhas = reg.linhas.filter(l => l.projetoId !== rub.projetoId);
+    const tot = Math.min(100, linhas.reduce((a, l) => a + l.pct, 0));
+    if (tot <= 0) return;
+    const o = get(rub.projetoId);
+    _gfImpSoma(o.sai, _gfImpEscala(base, tot / 100));
+    o.saidas.push({ rubrica: rub, pct: tot, linhas });
+    linhas.forEach(l => {
+      const v = _gfImpEscala(base, l.pct / 100);
+      const d = get(l.projetoId);
+      _gfImpSoma(d.entra, v);
+      d.itens.push({ rubrica: rub, pct: l.pct, valores: v, origemId: rub.projetoId });
+    });
+  });
+  return mapa;
+}
+
+// ── Formulário da rúbrica: tipo "Normal" / "Distribuída Fixa" ──
+function gfImputOpcoesProjeto(sel) {
+  const lista = GF_PROJETOS.filter(p => p.id !== GF.project && gfProjetoVisivelNoAno(p, GF.year));
+  return '<option value="">— Projeto —</option>' + lista.map(p => `<option value="${p.id}" ${p.id === sel ? 'selected' : ''}>${p.nome}</option>`).join('');
+}
+function gfImputLinhaHTML(l) {
+  return `<div class="gf-imput-linha" style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+    <select class="gf-imput-proj" onchange="gfImputSomaAtualizar()" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px">${gfImputOpcoesProjeto(l?.projetoId)}</select>
+    <input type="number" class="gf-imput-pct" step="0.01" min="0" max="100" value="${l?.pct ?? ''}" placeholder="%" oninput="gfImputSomaAtualizar()" style="width:90px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+    <span style="font-size:12px;color:var(--text3)">%</span>
+    <a onclick="this.closest('.gf-imput-linha').remove();gfImputSomaAtualizar()" style="color:#EF4444;cursor:pointer;font-size:13px" title="Remover">✕</a>
+  </div>`;
+}
+function gfRenderImputacaoForm(rub) {
+  if (_financeRole !== 'df' && _financeRole !== 'pe') return '';
+  const reg = rub ? gfImputacaoRegra(rub.id) : null;
+  const ativa = !!(reg && reg.linhas.length);
+  return `
+    <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px">
+      <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Tipo de rúbrica em ${GF.year}</label>
+      <select id="gf-rub-tipo-dist" onchange="gfImputToggle()" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px">
+        <option value="normal" ${ativa ? '' : 'selected'}>Normal</option>
+        <option value="dist" ${ativa ? 'selected' : ''}>Distribuída Fixa (imputa % a outros projetos)</option>
+      </select>
+      <div id="gf-imput-box" style="display:${ativa ? 'block' : 'none'};margin-top:12px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Os valores (orçamento, aprovado e pago) continuam nesta rúbrica. Aos projetos escolhidos aparece uma linha só de leitura com a percentagem indicada. O que não chegar a 100% fica neste projeto.</div>
+        <div id="gf-imput-linhas">${(reg?.linhas || []).map(gfImputLinhaHTML).join('')}</div>
+        <button type="button" class="btn btn-sm" onclick="gfImputAddLinha()">+ Adicionar projeto</button>
+        <div id="gf-imput-soma" style="font-size:12px;margin-top:10px">${(() => { const t = (reg?.linhas || []).reduce((a, l) => a + l.pct, 0); const o = GF_PROJETOS.find(x => x.id === GF.project)?.nome || 'projeto de origem'; return `Imputado a outros: <strong>${t.toFixed(2)}%</strong> · fica em ${o}: <strong>${(Math.round((100 - t) * 100) / 100).toFixed(2)}%</strong>`; })()}</div>
+      </div>
+    </div>`;
+}
+function gfImputToggle() {
+  const dist = gfVal('gf-rub-tipo-dist') === 'dist';
+  const box = gfEl('gf-imput-box'); if (box) box.style.display = dist ? 'block' : 'none';
+  if (dist && !document.querySelector('#gf-imput-linhas .gf-imput-linha')) gfImputAddLinha();
+  gfImputSomaAtualizar();
+}
+function gfImputAddLinha() {
+  const c = gfEl('gf-imput-linhas'); if (!c) return;
+  c.insertAdjacentHTML('beforeend', gfImputLinhaHTML(null));
+  gfImputSomaAtualizar();
+}
+function gfImputSomaAtualizar() {
+  const el = gfEl('gf-imput-soma'); if (!el) return;
+  const tot = [...document.querySelectorAll('#gf-imput-linhas .gf-imput-pct')].reduce((a, i) => a + (parseFloat(i.value) || 0), 0);
+  const origem = GF_PROJETOS.find(p => p.id === GF.project)?.nome || 'projeto de origem';
+  const resto = Math.round((100 - tot) * 100) / 100;
+  el.innerHTML = tot > 100.001
+    ? `<span style="color:#EF4444;font-weight:600">Soma ${tot.toFixed(2)}% — não pode passar de 100%</span>`
+    : `Imputado a outros: <strong>${tot.toFixed(2)}%</strong> · fica em ${origem}: <strong>${resto.toFixed(2)}%</strong>`;
+}
+// Lê o formulário; devolve {ativo, linhas} ou {erro}
+function gfImputLerForm() {
+  if (!gfEl('gf-rub-tipo-dist')) return { naoMexe: true };
+  if (gfVal('gf-rub-tipo-dist') !== 'dist') return { ativo: false, linhas: [] };
+  const linhas = [...document.querySelectorAll('#gf-imput-linhas .gf-imput-linha')].map(r => ({
+    projetoId: parseInt(r.querySelector('.gf-imput-proj').value) || 0,
+    pct: parseFloat(r.querySelector('.gf-imput-pct').value) || 0
+  })).filter(l => l.projetoId || l.pct);
+  if (!linhas.length) return { erro: 'Distribuída Fixa: indica pelo menos um projeto e a percentagem.' };
+  if (linhas.some(l => !l.projetoId || l.pct <= 0)) return { erro: 'Distribuída Fixa: cada linha precisa de projeto e de uma percentagem maior que 0.' };
+  if (new Set(linhas.map(l => l.projetoId)).size !== linhas.length) return { erro: 'Distribuída Fixa: o mesmo projeto aparece mais do que uma vez.' };
+  if (linhas.length > 18) return { erro: 'Distribuída Fixa: no máximo 18 projetos por rúbrica.' };
+  const tot = linhas.reduce((a, l) => a + l.pct, 0);
+  if (tot > 100.001) return { erro: `Distribuída Fixa: as percentagens somam ${tot.toFixed(2)}% e não podem passar de 100%.` };
+  return { ativo: true, linhas };
+}
+async function gfGuardarImputacao(rubricaId, ano, imput) {
+  if (!imput || imput.naoMexe) return;
+  const existente = gfImputacaoRegra(rubricaId, ano);
+  const url = `${SP}/_api/web/lists/getbytitle('FJ_Configuracoes')/items`;
+  if (!imput.ativo) {
+    if (existente?.spId) await spWrite(`${url}(${existente.spId})`, null, 'DELETE');
+    return;
+  }
+  const body = {
+    __metadata: { type: 'SP.Data.FJ_x005f_ConfiguracoesListItem' },
+    Title: `ImputRubrica_${rubricaId}_${ano}`,
+    Valor: JSON.stringify({ l: imput.linhas.map(l => [l.projetoId, Math.round(l.pct * 100) / 100]) })
+  };
+  if (existente?.spId) await spWrite(`${url}(${existente.spId})`, body, 'MERGE');
+  else await spWrite(url, body, 'POST');
+}
+
+// Cartão "sombra" (só de leitura) de uma rúbrica imputada a este projeto
+function gfImputCartaoSombra(it) {
+  const v = it.valores, origem = GF_PROJETOS.find(p => p.id === it.origemId)?.nome || 'outro projeto';
+  const linha = (rot, a, b, c, cor) => `<div style="display:flex;gap:10px;font-size:12px;margin-top:4px"><span style="width:70px;color:var(--text3);text-transform:uppercase;font-size:10px;padding-top:2px">${rot}</span><span style="flex:1">Orç. <strong style="color:${cor}">${gfFmt(a)}</strong></span><span style="flex:1">Aprov. <strong>${gfFmt(b)}</strong></span><span style="flex:1">Pago <strong style="color:var(--green)">${gfFmt(c)}</strong></span></div>`;
+  return `<div class="card" style="margin-bottom:12px;padding:12px 16px;border:1px dashed var(--mod-financeiro);background:var(--bg)">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div style="font-weight:600;font-size:14px">${it.rubrica.titulo} <span style="font-weight:400;font-size:12px;color:var(--text3)">(imputação de ${origem})</span></div>
+      <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#E0E7FF;color:#3730A3;white-space:nowrap">${(Math.round(it.pct * 100) / 100)}% · só leitura</span>
+    </div>
+    ${(v.despOrc || v.despAprov || v.despPago) ? linha('Despesas', v.despOrc, v.despAprov, v.despPago, 'var(--mod-financeiro)') : ''}
+    ${!gfIsMembroRestrito() && (v.recOrc || v.recAprov || v.recPago) ? linha('Receita', v.recOrc, v.recAprov, v.recPago, '#F97316') : ''}
+  </div>`;
+}
+// Quadro "próprio → com imputações" do projeto (bruto/líquido)
+function gfImputResumoProjeto(proj, own, im) {
+  if (!im || (!im.itens.length && !im.saidas.length)) return '';
+  const mostrarRec = !gfIsMembroRestrito();
+  const liq = {}; Object.keys(own).forEach(k => { liq[k] = own[k] - im.sai[k] + im.entra[k]; });
+  const cel = (v, neg) => `<td style="padding:5px 8px;text-align:right">${neg && v ? '−' : ''}${gfFmt(Math.abs(v))}</td>`;
+  const linha = (rot, o, neg, forte) => `<tr style="${forte ? 'font-weight:700;border-top:1px solid var(--border)' : ''}"><td style="padding:5px 8px;white-space:nowrap;overflow:visible;text-overflow:clip;max-width:none;min-width:210px">${rot}</td>${cel(o.despOrc, neg)}${cel(o.despAprov, neg)}${cel(o.despPago, neg)}${mostrarRec ? cel(o.recOrc, neg) + cel(o.recAprov, neg) + cel(o.recPago, neg) : ''}</tr>`;
+  return `<div class="card" style="padding:14px 16px;margin-bottom:20px">
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px">Com imputações <span style="font-weight:400;font-size:12px;color:var(--text3)">(rúbricas distribuídas entre projetos)</span></div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="color:var(--text3);text-align:right"><th style="text-align:left;padding:5px 8px"></th><th style="padding:5px 8px">Desp. orç.</th><th style="padding:5px 8px">Desp. aprov.</th><th style="padding:5px 8px">Desp. pago</th>${mostrarRec ? '<th style="padding:5px 8px">Rec. orç.</th><th style="padding:5px 8px">Rec. aprov.</th><th style="padding:5px 8px">Rec. pago</th>' : ''}</tr></thead>
+      <tbody>
+        ${linha('Próprio (bruto)', own, false, false)}
+        ${im.itens.length ? linha('+ Imputado de outros projetos', im.entra, false, false) : ''}
+        ${im.saidas.length ? linha('− Imputado a outros projetos', im.sai, true, false) : ''}
+        ${linha('= Com imputações', liq, false, true)}
+      </tbody></table></div>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px">Só para análise: não altera pagamentos, tesouraria nem os totais gerais do Orçamento.</div>
+  </div>`;
+}
+
 // Retirar uma rúbrica do orçamento do ano em vista (só DF/PE). Não apaga nada: marca a linha do
 // ano como 'Excluída', põe o orçamento desse ano a 0 e guarda os valores anteriores nas notas
 // para se poder repor. Recusa se a rúbrica já tem solicitações ou movimentos nesse ano.
@@ -10809,10 +10986,11 @@ const GF_CARREGADORES = {
   },
   // Carregar modelos de repartição / lista base RH / rúbricas confidenciais (FJ_Configuracoes)
   modelos: () => gfLoadModelosReparticao(),
+  imputacoes: () => gfLoadImputacoes(), // Fase 80
   rhBase: () => gfLoadRHBase(),
   sensiveis: () => gfLoadRubricasSensiveis(),
 };
-const GF_LISTAS_TODAS = ['rubricas', 'rubricasAno', 'solicitacoes', 'alteracoes', 'origens', 'faturas', 'movBancarios', 'movExecutados', 'parcelas', 'colaboradores', 'bloqueio', 'modelos', 'rhBase', 'sensiveis'];
+const GF_LISTAS_TODAS = ['rubricas', 'rubricasAno', 'solicitacoes', 'alteracoes', 'origens', 'faturas', 'movBancarios', 'movExecutados', 'parcelas', 'colaboradores', 'bloqueio', 'modelos', 'imputacoes', 'rhBase', 'sensiveis'];
 
 // Fase 37 — depois de um recarregamento parcial, as listas que NÃO foram relidas guardam o
 // nome da Solicitação/Rúbrica que vinha no $expand da última leitura. Se a ação mudou esse
@@ -14205,6 +14383,18 @@ function gfRenderOrcamento() {
     };
   });
 
+  // Fase 80 — imputações (rúbricas distribuídas): o "bruto" (p.*) mantém-se e entra nos totais; o "com imputações" é só uma linha de análise por baixo
+  const _imapa = gfImputacoesPorProjeto();
+  projsWithTotals.forEach(p => {
+    const im = _imapa[p.id];
+    if (!im) return;
+    p.imput = {
+      desp: { aprov: p.despAprov - im.sai.despAprov + im.entra.despAprov, pago: p.despPago - im.sai.despPago + im.entra.despPago, orc: p.despOrc - im.sai.despOrc + im.entra.despOrc },
+      rec: { aprov: p.recAprov - im.sai.recAprov + im.entra.recAprov, pago: p.recPago - im.sai.recPago + im.entra.recPago, orc: p.recOrc - im.sai.recOrc + im.entra.recOrc }
+    };
+  });
+  const _haImput = projsWithTotals.some(p => p.imput);
+
   // Projetos sem qualquer valor (nem orçamento, nem aprovado, nem pago) vão para o fim da lista,
   // mantendo entre si a ordem original
   projsWithTotals = projsWithTotals
@@ -14350,11 +14540,13 @@ function gfRenderOrcamento() {
                   <td style="padding:14px 20px">
                     ${progressBar(p.despPago, p.despAprov, p.despOrc)}
                     ${metricsRow(p.despAprov, p.despPago, p.despOrc, 'var(--mod-financeiro)')}
+                    ${p.imput ? `<div style="margin-top:6px;padding-top:4px;border-top:1px dashed var(--border);font-size:10px;color:#3730A3">Com imputações</div>${metricsRow(p.imput.desp.aprov, p.imput.desp.pago, p.imput.desp.orc, 'var(--mod-financeiro)')}` : ''}
                   </td>
                   ${!gfIsMembroRestrito() ? `
                   <td style="padding:14px 20px">
                     ${progressBar(p.recPago, p.recAprov, p.recOrc, '#F97316')}
                     ${metricsRow(p.recAprov, p.recPago, p.recOrc, '#F97316')}
+                    ${p.imput && (p.imput.rec.orc || p.imput.rec.aprov || p.imput.rec.pago) ? `<div style="margin-top:6px;padding-top:4px;border-top:1px dashed var(--border);font-size:10px;color:#3730A3">Com imputações</div>${metricsRow(p.imput.rec.aprov, p.imput.rec.pago, p.imput.rec.orc, '#F97316')}` : ''}
                   </td>
                   ` : ''}
                   <td style="padding:14px 16px;text-align:center">
@@ -14377,6 +14569,7 @@ function gfRenderOrcamento() {
             </td>
             <td></td>
           </tr>
+          ${_haImput ? `<tr><td colspan="5" style="padding:4px 16px 10px;font-size:11px;font-weight:400;color:var(--text3)">Os totais são sem imputações (as rúbricas distribuídas não se contam duas vezes). A linha "Com imputações" de cada projeto é só para análise.</td></tr>` : ''}
           ` : ''}
         </tfoot>
       </table>
@@ -14562,6 +14755,8 @@ function gfRenderRubricas() {
       ` : ''}
     </div>
     
+    ${(() => { const _im = gfImputacoesPorProjeto()[proj.id]; return _im ? gfImputResumoProjeto(proj, { despOrc: totDespOrc, despAprov: totDespAprov, despPago: totDespPago, recOrc: totRecOrc, recAprov: totRecAprov, recPago: totRecPago }, _im) : ''; })()}
+
     <!-- Lista de Rúbricas -->
     ${rubs.length === 0 ? `<div class="card" style="padding:40px;text-align:center;color:var(--text3)">Sem rúbricas definidas</div>` :
       rubs.map(r => {
@@ -14617,6 +14812,7 @@ function gfRenderRubricas() {
               <div>
                 <div style="font-weight:600;font-size:14px">${r.titulo}${sensivel ? ' <span title="Rúbrica confidencial — detalhe só visível a Presidente Executivo e equipa Financeiro" style="font-size:12px">🔒</span>' : ''}</div>
                 <div style="font-size:12px;color:var(--text3);margin-top:2px">${r.tipo || 'Despesa'}</div>
+                ${(() => { const rg = gfImputacaoRegra(r.id); if (!rg || !rg.linhas.length) return ''; const tot = Math.min(100, rg.linhas.reduce((a, l) => a + l.pct, 0)); return `<div style="font-size:11px;margin-top:4px;color:#3730A3;background:#E0E7FF;border-radius:10px;padding:2px 8px;display:inline-block" title="${rg.linhas.map(l => (GF_PROJETOS.find(p => p.id === l.projetoId)?.nome || '?') + ' ' + l.pct + '%').join(' · ')}">Distribuída · ${Math.round(tot * 100) / 100}% imputado</div>`; })()}
               </div>
 
               <!-- DESPESAS mini-panel -->
@@ -14865,6 +15061,7 @@ function gfRenderRubricas() {
       }).join('')
     }
     </div>
+    ${(() => { const _im = gfImputacoesPorProjeto()[proj.id]; return _im && _im.itens.length ? `<div style="font-size:12px;font-weight:600;color:var(--text2);margin:-4px 0 8px">Imputações de outros projetos</div>` + _im.itens.map(gfImputCartaoSombra).join('') + '<div style="margin-bottom:12px"></div>' : ''; })()}
     ${(() => {
       const ret = GF_RUBRICAS_RETIRADAS.filter(x => x.projetoId === proj.id);
       if (!ret.length) return '';
@@ -15771,6 +15968,8 @@ function gfRenderRubricaForm() {
           </select>
         </div>
 
+        ${gfRenderImputacaoForm(rub)}
+
         ${gfCanViewTesouraria() ? `
         <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px">
           <div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">Classificação para a Tesouraria</div>
@@ -15836,6 +16035,8 @@ async function gfSaveRubrica(id) {
 
   if (!titulo) { showNotif('Título obrigatório', 'error'); return; }
   if (!GF.project) { showNotif('Projeto não definido', 'error'); return; }
+  const imput = gfImputLerForm(); // Fase 80
+  if (imput.erro) { showNotif(imput.erro, 'error'); return; }
 
   const rubExistente = id ? GF_RUBRICAS.find(r => r.id === id) : null;
 
@@ -15902,8 +16103,10 @@ async function gfSaveRubrica(id) {
       await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items`, bodyAno, 'POST');
     }
 
+    await gfGuardarImputacao(rubricaId, ano, imput); // Fase 80
+
     showNotif(id ? 'Rúbrica atualizada' : 'Rúbrica criada', 'success');
-    await gfRecarregar(['rubricas', 'rubricasAno']); // Fase 37 — só o que esta ação altera
+    await gfRecarregar(['rubricas', 'rubricasAno', 'imputacoes']); // Fase 37 — só o que esta ação altera
     gfNav('orcamento-rubricas');
   } catch (e) {
     showNotif('Erro: ' + e.message, 'error');
