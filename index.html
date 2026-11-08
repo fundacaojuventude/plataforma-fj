@@ -10359,6 +10359,7 @@ function gfOrcamentoAnoRubrica(rubricaId, ano) {
       despOrc: linha.DespOrcamentada || 0,
       recOrc: linha.RecOrcamentada || 0,
       estadoAno: linha.EstadoAno || 'Proposta',
+      notasAno: linha.NotasAno || '',
       aprovadoPor: linha.AprovadoPor?.Title || '',
       dataAprovacao: linha.DataAprovacao || null,
       rubricaAnoId: linha.Id
@@ -10397,14 +10398,77 @@ function gfJuntarRubricaAno(m, ano) {
     despOrc: orc.despOrc,
     recOrc: orc.recOrc,
     estadoAno: orc.estadoAno,
+    notasAno: orc.notasAno || '',
     aprovadoPor: orc.aprovadoPor,
     dataAprovacao: orc.dataAprovacao,
     rubricaAnoId: orc.rubricaAnoId
   };
 }
 
+// Fase 78 — rúbrica "retirada" de um ano (EstadoAno = 'Excluída' na linha desse ano de
+// FJ_RubricasAno): não aparece na lista nem nos totais DESSE ano; os outros anos não são
+// afetados (cada ano tem a sua própria linha). Fica em GF_RUBRICAS_RETIRADAS para se poder repor.
+let GF_RUBRICAS_RETIRADAS = [];
 function gfConstruirRubricasDoAno(ano) {
-  return GF_RUBRICAS_MASTER.map(m => gfJuntarRubricaAno(m, ano));
+  const todas = GF_RUBRICAS_MASTER.map(m => gfJuntarRubricaAno(m, ano));
+  GF_RUBRICAS_RETIRADAS = todas.filter(r => r.estadoAno === 'Excluída');
+  return todas.filter(r => r.estadoAno !== 'Excluída');
+}
+
+// Retirar uma rúbrica do orçamento do ano em vista (só DF/PE). Não apaga nada: marca a linha do
+// ano como 'Excluída', põe o orçamento desse ano a 0 e guarda os valores anteriores nas notas
+// para se poder repor. Recusa se a rúbrica já tem solicitações ou movimentos nesse ano.
+async function gfRetirarRubricaDoAno(id) {
+  if (isAssessoria()) { showNotif('Perfil só de leitura no Financeiro.', 'error'); return; }
+  if (_financeRole !== 'df' && _financeRole !== 'pe') { showNotif('Só a Diretora Financeira ou o Presidente Executivo podem retirar rúbricas de um ano.', 'error'); return; }
+  if (GF.bloqueado && _financeRole !== 'df') { showNotif('🔒 Edições bloqueadas pela Diretora Financeira', 'error'); return; }
+  const r = GF_RUBRICAS.find(x => x.id === id); if (!r) return;
+  const ano = GF.year;
+  const sols = GF_SOLICITACOES.filter(x => x.rubricaId === id && x.estado !== 'Rejeitado' && x.estado !== 'Rascunho' &&
+    (x.dataLimitePagamento ? new Date(x.dataLimitePagamento).getFullYear() === ano : (x.dataSubmissao ? new Date(x.dataSubmissao).getFullYear() === ano : false)));
+  const movs = GF_MOV_EXECUTADOS.filter(m => m.rubricaId === id && m.ano === ano);
+  if (sols.length || movs.length) {
+    showNotif(`Não é possível retirar: a rúbrica já tem ${sols.length} solicitação(ões) e ${movs.length} movimento(s) em ${ano}.`, 'error');
+    return;
+  }
+  if (!confirm(`Retirar a rúbrica "${r.titulo}" do orçamento de ${ano}?\n\nSó afeta ${ano} (despesa ${gfFmt(r.despOrc || 0)}, receita ${gfFmt(r.recOrc || 0)}). Os outros anos ficam como estão e podes repô-la depois.`)) return;
+  try {
+    const ant = `[RETIRADA|desp=${r.despOrc || 0}|rec=${r.recOrc || 0}|estado=${r.estadoAno || 'Proposta'}]`;
+    const linha = GF_RUBRICAS_ANO_ROWS.find(a => a.RubricaIdId === id && a.Ano === ano);
+    const body = {
+      __metadata: { type: 'SP.Data.FJ_x005f_RubricasAnoListItem' },
+      Title: `${r.titulo} - ${ano}`,
+      DespOrcamentada: 0, RecOrcamentada: 0, EstadoAno: 'Excluída',
+      NotasAno: ant
+    };
+    if (linha) await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items(${linha.Id})`, body, 'MERGE');
+    else { body.RubricaIdId = id; body.Ano = ano; await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items`, body, 'POST'); }
+    showNotif(`Rúbrica retirada do orçamento de ${ano}.`, 'success');
+    await gfRecarregar(['rubricasAno']);
+  } catch (e) { showNotif('Erro: ' + e.message, 'error'); }
+}
+
+// Repor uma rúbrica retirada do ano em vista, com os valores que tinha (guardados nas notas).
+async function gfReporRubricaNoAno(id) {
+  if (isAssessoria()) { showNotif('Perfil só de leitura no Financeiro.', 'error'); return; }
+  if (_financeRole !== 'df' && _financeRole !== 'pe') { showNotif('Sem permissão para esta ação.', 'error'); return; }
+  if (GF.bloqueado && _financeRole !== 'df') { showNotif('🔒 Edições bloqueadas pela Diretora Financeira', 'error'); return; }
+  const r = GF_RUBRICAS_RETIRADAS.find(x => x.id === id); if (!r) return;
+  const ano = GF.year;
+  const m = /\[RETIRADA\|desp=([-\d.]+)\|rec=([-\d.]+)\|estado=([^\]]*)\]/.exec(r.notasAno || '');
+  try {
+    const linha = GF_RUBRICAS_ANO_ROWS.find(a => a.RubricaIdId === id && a.Ano === ano);
+    if (!linha) throw new Error('Linha do ano não encontrada.');
+    await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items(${linha.Id})`, {
+      __metadata: { type: 'SP.Data.FJ_x005f_RubricasAnoListItem' },
+      DespOrcamentada: m ? parseFloat(m[1]) : 0,
+      RecOrcamentada: m ? parseFloat(m[2]) : 0,
+      EstadoAno: m && m[3] && m[3] !== 'Excluída' ? m[3] : 'Proposta',
+      NotasAno: ''
+    }, 'MERGE');
+    showNotif(`Rúbrica reposta no orçamento de ${ano}.`, 'success');
+    await gfRecarregar(['rubricasAno']);
+  } catch (e) { showNotif('Erro: ' + e.message, 'error'); }
 }
 
 // Carrega (se ainda não estiver em memória) as linhas de FJ_RubricasAno de um ano
@@ -10413,7 +10477,7 @@ function gfConstruirRubricasDoAno(ano) {
 async function gfGarantirAnoRubricasCarregado(ano) {
   if (_gfRubricasAnoAnosCarregados.has(ano)) return;
   try {
-    const dra = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items?$select=Id,RubricaIdId,Ano,DespOrcamentada,RecOrcamentada,EstadoAno,AprovadoPor/Title,DataAprovacao&$expand=AprovadoPor&$filter=Ano eq ${ano}&$top=3000`);
+    const dra = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items?$select=Id,RubricaIdId,Ano,DespOrcamentada,RecOrcamentada,EstadoAno,NotasAno,AprovadoPor/Title,DataAprovacao&$expand=AprovadoPor&$filter=Ano eq ${ano}&$top=3000`);
     GF_RUBRICAS_ANO_ROWS = GF_RUBRICAS_ANO_ROWS.concat(dra.d?.results || []);
     _gfRubricasAnoAnosCarregados.add(ano);
   } catch (e) { console.warn('gfGarantirAnoRubricasCarregado', ano, e.message); }
@@ -10510,7 +10574,7 @@ const GF_CARREGADORES = {
     // a lista inteira). Outros anos são carregados sob pedido por gfGarantirAnoRubricasCarregado.
     _gfRubricasAnoAnosCarregados = new Set([GF.year - 1, GF.year, GF.year + 1]);
     const anosFiltroRA = [..._gfRubricasAnoAnosCarregados].map(a => `Ano eq ${a}`).join(' or ');
-    const dra = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items?$select=Id,RubricaIdId,Ano,DespOrcamentada,RecOrcamentada,EstadoAno,AprovadoPor/Title,DataAprovacao&$expand=AprovadoPor&$filter=${anosFiltroRA}&$top=3000`);
+    const dra = await spReadAll(`${SP}/_api/web/lists/getbytitle('FJ_RubricasAno')/items?$select=Id,RubricaIdId,Ano,DespOrcamentada,RecOrcamentada,EstadoAno,NotasAno,AprovadoPor/Title,DataAprovacao&$expand=AprovadoPor&$filter=${anosFiltroRA}&$top=3000`);
     GF_RUBRICAS_ANO_ROWS = dra.d?.results || [];
   },
   solicitacoes: async () => {
@@ -14791,6 +14855,7 @@ function gfRenderRubricas() {
               <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:#fff;border-radius:6px">
                 <div style="display:flex;gap:8px">
                   ${(!GF.bloqueado || _financeRole === 'df') && !isAssessoria() ? `<button class="btn btn-sm" style="border-color:var(--mod-financeiro);color:var(--mod-financeiro)" onclick="event.stopPropagation();GF.rubrica=${r.id};gfNav('orcamento-rubrica-form')">Editar</button>` : ''}
+                  ${(_financeRole === 'df' || _financeRole === 'pe') && (!GF.bloqueado || _financeRole === 'df') && !isAssessoria() ? `<button class="btn btn-sm" title="Retira esta rúbrica só do orçamento de ${GF.year}; os outros anos não são afetados" onclick="event.stopPropagation();gfRetirarRubricaDoAno(${r.id})">Retirar de ${GF.year}</button>` : ''}
                   ${canClose && (!GF.bloqueado || _financeRole === 'df') && !isAssessoria() ? `<button class="btn btn-sm" onclick="event.stopPropagation();gfSolicitarFecho(${r.id})">Solicitar encerramento</button>` : ''}
                 </div>
               </div>
@@ -14800,6 +14865,15 @@ function gfRenderRubricas() {
       }).join('')
     }
     </div>
+    ${(() => {
+      const ret = GF_RUBRICAS_RETIRADAS.filter(x => x.projetoId === proj.id);
+      if (!ret.length) return '';
+      const podeRepor = (_financeRole === 'df' || _financeRole === 'pe') && (!GF.bloqueado || _financeRole === 'df') && !isAssessoria();
+      return `<div class="card" style="margin-bottom:20px;padding:14px 16px">
+        <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:8px">Rúbricas retiradas do orçamento de ${GF.year} (${ret.length})</div>
+        ${ret.map(x => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border);font-size:13px"><span>${x.titulo}</span>${podeRepor ? `<button class="btn btn-sm" onclick="gfReporRubricaNoAno(${x.id})">Repor em ${GF.year}</button>` : ''}</div>`).join('')}
+      </div>`;
+    })()}
     
     <!-- Secção Membros do Projeto -->
     <div class="card">
