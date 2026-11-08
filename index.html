@@ -15111,15 +15111,21 @@ function gfRenderCalendarioParcelas(rub) {
       }).join('')}
 
       ${parcelas.length ? `
+        <div id="gf-parc-bar-${rub.id}" style="display:flex;align-items:center;gap:10px;margin-top:8px;font-size:12px;color:var(--text3)">
+          <span id="gf-parc-cnt-${rub.id}">Nenhuma parcela selecionada</span>
+          <button id="gf-parc-del-${rub.id}" class="btn btn-sm" disabled style="border-color:#EF4444;color:#EF4444;opacity:.5" onclick="gfEliminarParcelasSelecionadas(${rub.id})">Eliminar selecionadas</button>
+        </div>
         <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
           <thead>
             <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text3)">
+              <th style="padding:6px 4px;width:24px"><input type="checkbox" id="gf-parc-all-${rub.id}" title="Selecionar todas" onchange="gfParcSelTodas(${rub.id},this.checked)"></th>
               <th style="padding:6px 4px">Título</th><th style="padding:6px 4px">Tipo</th><th style="padding:6px 4px">Data prevista</th><th style="padding:6px 4px;text-align:right">Valor previsto (€)</th><th style="padding:6px 4px">Estado</th><th></th>
             </tr>
           </thead>
           <tbody>
             ${parcelas.map(p => `
               <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:6px 4px"><input type="checkbox" class="gf-parc-chk-${rub.id}" value="${p.id}" onchange="gfParcSelAtualizar(${rub.id})"></td>
                 <td style="padding:6px 4px">${p.titulo}</td>
                 <td style="padding:6px 4px">${p.tipo}</td>
                 <td style="padding:6px 4px"><input type="date" value="${p.dataPrevista ? p.dataPrevista.split('T')[0] : ''}" onchange="gfSaveParcelaCampo(${p.id},'DataPrevista',this.value)" style="border:1px solid var(--border);border-radius:4px;padding:3px 5px;font-size:12px"></td>
@@ -15324,6 +15330,45 @@ async function gfSetParcelaSemPrevisao(parcelaId, marcado) {
     gfRefreshCurrentForm();
   } catch (e) {
     showNotif(/SemPrevisao/i.test(e.message || '') ? 'Falta a coluna "SemPrevisao" (Sim/Não) na lista FJ_Tesouraria_Parcelas do SharePoint.' : 'Erro ao guardar: ' + e.message, 'error');
+  }
+}
+
+// Seleção múltipla de parcelas no Calendário de Parcelas da rúbrica: a seleção vive nas
+// próprias caixas (sem voltar a desenhar o formulário, para não perder o que estiver por guardar).
+function gfParcSelAtualizar(rubId) {
+  const chks = [...document.querySelectorAll('.gf-parc-chk-' + rubId)];
+  const n = chks.filter(c => c.checked).length;
+  const cnt = document.getElementById('gf-parc-cnt-' + rubId);
+  const btn = document.getElementById('gf-parc-del-' + rubId);
+  const all = document.getElementById('gf-parc-all-' + rubId);
+  if (cnt) cnt.textContent = n ? `${n} parcela(s) selecionada(s) de ${chks.length}` : 'Nenhuma parcela selecionada';
+  if (btn) { btn.disabled = !n; btn.style.opacity = n ? '1' : '.5'; }
+  if (all) { all.checked = n > 0 && n === chks.length; all.indeterminate = n > 0 && n < chks.length; }
+}
+function gfParcSelTodas(rubId, marcado) {
+  document.querySelectorAll('.gf-parc-chk-' + rubId).forEach(c => { c.checked = marcado; });
+  gfParcSelAtualizar(rubId);
+}
+async function gfEliminarParcelasSelecionadas(rubId) {
+  if (isAssessoria()) { showNotif('Perfil só de leitura no Financeiro.', 'error'); return; }
+  const ids = [...document.querySelectorAll('.gf-parc-chk-' + rubId + ':checked')].map(c => parseInt(c.value));
+  if (!ids.length) return;
+  // Parcelas já pagas/recebidas/confirmadas não se eliminam em bloco (ficariam movimentos sem parcela)
+  const realizadas = ids.filter(id => { const p = GF_TESOURARIA_PARCELAS.find(x => x.id === id); return p && GF_PARCELAS_REALIZADAS.includes(p.estado); });
+  const aEliminar = ids.filter(id => !realizadas.includes(id));
+  if (!aEliminar.length) { showNotif('As parcelas selecionadas já estão pagas/recebidas e não se podem eliminar em bloco.', 'error'); return; }
+  if (!confirm(`Eliminar ${aEliminar.length} parcela(s)?${realizadas.length ? `\n\n${realizadas.length} já paga(s)/recebida(s) fica(m) de fora.` : ''}\n\nEsta ação não pode ser revertida.`)) return;
+  let erros = 0;
+  try {
+    await gfComLimiteConcorrencia(aEliminar, async id => {
+      try { await spWrite(`${SP}/_api/web/lists/getbytitle('FJ_Tesouraria_Parcelas')/items(${id})`, null, 'DELETE'); }
+      catch (e) { erros++; console.warn('Eliminar parcela', id, e.message); }
+    }, 4);
+    showNotif(`${aEliminar.length - erros} parcela(s) eliminada(s).${erros ? ` ${erros} com erro.` : ''}${realizadas.length ? ` ${realizadas.length} já paga(s) ficaram.` : ''}`, erros ? 'error' : 'success');
+    await gfRecarregar(['parcelas']);
+    gfRefreshCurrentForm();
+  } catch (e) {
+    showNotif('Erro ao eliminar: ' + e.message, 'error');
   }
 }
 
