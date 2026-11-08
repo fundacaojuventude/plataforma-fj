@@ -14179,6 +14179,14 @@ function gfRenderOrcamento() {
   };
 
   // Linha de métricas por baixo da barra: Aprovado / Pago / Orçamento, em colunas com rótulo + valor
+  // Total Geral: Aprovado e Pago na 1.ª linha, Orçamento numa 2.ª linha (cabe sempre, sem cortes)
+  const totalLinhas = (aprovado, pago, orc, accentColor) => `
+    <div style="display:flex;gap:12px;font-size:12px;font-weight:600;white-space:nowrap">
+      <div><span style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.03em;margin-right:4px">Aprovado</span>${gfFmt(aprovado)}</div>
+      <div><span style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.03em;margin-right:4px">Pago</span><span style="color:var(--green)">${gfFmt(pago)}</span></div>
+    </div>
+    <div style="margin-top:4px;font-size:13px;font-weight:700;white-space:nowrap;color:${accentColor}"><span style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.03em;margin-right:4px;font-weight:600">Orçamento</span>${gfFmt(orc)}</div>
+  `;
   const metricsRow = (aprovado, pago, orc, accentColor) => `
     <div style="display:flex;margin-top:6px;gap:4px">
       <div style="flex:1;text-align:left;min-width:0">
@@ -14298,10 +14306,10 @@ function gfRenderOrcamento() {
           <tr style="background:var(--mod-financeiro-bg);font-weight:600">
             <td colspan="2" style="padding:14px 16px;color:var(--mod-financeiro)">Total Geral</td>
             <td style="padding:10px 20px">
-              ${metricsRow(totDespAprov, totDespPago, totDespOrc, 'var(--mod-financeiro)')}
+              ${totalLinhas(totDespAprov, totDespPago, totDespOrc, 'var(--mod-financeiro)')}
             </td>
             <td style="padding:10px 20px">
-              ${metricsRow(totRecAprov, totRecPago, totRecOrc, '#F97316')}
+              ${totalLinhas(totRecAprov, totRecPago, totRecOrc, '#F97316')}
             </td>
             <td></td>
           </tr>
