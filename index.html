@@ -1118,11 +1118,11 @@ th.au-mp-n{background:var(--bg3)}
                   </div>
                   <div style="grid-column:1/-1">
                     <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Contextualização / Notas</label>
-                    <textarea id="f-notas" placeholder="Contexto e observações..." style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);min-height:80px;resize:vertical"></textarea>
+                    <div data-rt-bar="f-notas"></div><textarea id="f-notas" placeholder="Contexto e observações..." oninput="rtPrevUpd('f-notas')" onkeydown="rtKey(event,this)" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);min-height:80px;resize:vertical"></textarea><div data-rt-prev="f-notas"></div>
                   </div>
                   <div style="grid-column:1/-1">
                     <label style="display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Proposta de Decisão <span style="font-size:11px;color:var(--text3);text-transform:none;font-weight:400">(apenas deliberativos)</span></label>
-                    <textarea id="f-proposta" placeholder="Descreve a proposta de decisão..." style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);min-height:70px;resize:vertical"></textarea>
+                    <div data-rt-bar="f-proposta"></div><textarea id="f-proposta" placeholder="Descreve a proposta de decisão..." oninput="rtPrevUpd('f-proposta')" onkeydown="rtKey(event,this)" style="width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);min-height:70px;resize:vertical"></textarea><div data-rt-prev="f-proposta"></div>
                   </div>
                   <div style="grid-column:1/-1">
                     <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:14px 16px">
@@ -5365,40 +5365,189 @@ function _gdUpdateCount() {
 }
 
 // ── Geração do PDF ────────────────────────────────────────────────────
-// Normaliza texto para WinAnsi (jsPDF)
+// ══════════════════════════════════════════════════════════════
+// Fase 82 — texto com formatação leve (Contextualização / Proposta de decisão)
+// Guardado como texto simples (compatível com tudo o que já existe):
+//   **negrito**  *itálico*  "- item" ou "• item" (lista)  "1. item" (lista numerada)  "## Título"
+// Mostra-se formatado no ecrã, na impressão e no PDF.
+// ══════════════════════════════════════════════════════════════
+function rtEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+function rtRuns(s) {
+  const runs = []; let buf = '', i = 0;
+  const flush = () => { if (buf) { runs.push({ t: buf, b: false, i: false }); buf = ''; } };
+  while (i < s.length) {
+    if (s.startsWith('**', i)) {
+      const j = s.indexOf('**', i + 2);
+      if (j > i + 2) { flush(); runs.push({ t: s.slice(i + 2, j), b: true, i: false }); i = j + 2; continue; }
+    }
+    if (s[i] === '*' && s[i + 1] && !/\s/.test(s[i + 1]) && s[i + 1] !== '*' && (i === 0 || !/[\w*]/.test(s[i - 1]))) {
+      const j = s.indexOf('*', i + 1);
+      if (j > i + 1 && !/\s/.test(s[j - 1]) && s[j + 1] !== '*' && !/\w/.test(s[j + 1] || '')) {
+        flush(); runs.push({ t: s.slice(i + 1, j), b: false, i: true }); i = j + 1; continue;
+      }
+    }
+    buf += s[i]; i++;
+  }
+  flush();
+  return runs;
+}
+
+function rtParse(text) {
+  const out = [];
+  String(text || '').replace(/\r\n?/g, '\n').split('\n').forEach(raw => {
+    const line = raw.replace(/\s+$/, '');
+    if (!line.trim()) { if (out.length && out[out.length - 1].k !== 'gap') out.push({ k: 'gap' }); return; }
+    let m;
+    if ((m = /^\s*#{1,3}\s+(.*)$/.exec(line))) out.push({ k: 'h', txt: m[1] });
+    else if ((m = /^(\s*)[-*•]\s+(.*)$/.exec(line))) out.push({ k: 'li', lvl: Math.min(2, Math.floor(m[1].length / 2)), txt: m[2] });
+    else if ((m = /^(\s*)(\d{1,3})[.)]\s+(.*)$/.exec(line))) out.push({ k: 'ol', lvl: Math.min(2, Math.floor(m[1].length / 2)), n: m[2], txt: m[3] });
+    else out.push({ k: 'p', txt: line.trim() });
+  });
+  while (out.length && out[out.length - 1].k === 'gap') out.pop();
+  return out;
+}
+
+function rtInlineHtml(txt) {
+  return rtRuns(txt).map(r => { let h = rtEsc(r.t); if (r.b) h = `<strong>${h}</strong>`; if (r.i) h = `<em>${h}</em>`; return h; }).join('');
+}
+
+// HTML (ecrã/impressão). Texto legado sem marcas fica igual a antes (linhas com quebra).
+function rtToHtml(text) {
+  const blocks = rtParse(text);
+  if (!blocks.length) return '';
+  let html = '', lista = null; // lista = 'ul' | 'ol'
+  const fecha = () => { if (lista) { html += `</${lista}>`; lista = null; } };
+  blocks.forEach(b => {
+    if (b.k === 'li' || b.k === 'ol') {
+      const tipo = b.k === 'li' ? 'ul' : 'ol';
+      if (lista !== tipo) { fecha(); html += tipo === 'ul' ? '<ul style="margin:4px 0 4px 20px;padding:0">' : '<ol style="margin:4px 0 4px 22px;padding:0">'; lista = tipo; }
+      html += `<li style="margin:1px 0${b.lvl ? ';margin-left:' + (b.lvl * 16) + 'px' : ''}">${rtInlineHtml(b.txt)}</li>`;
+      return;
+    }
+    fecha();
+    if (b.k === 'gap') html += '<div style="height:.55em"></div>';
+    else if (b.k === 'h') html += `<div style="font-weight:700;margin:6px 0 2px">${rtInlineHtml(b.txt)}</div>`;
+    else html += `<div>${rtInlineHtml(b.txt)}</div>`;
+  });
+  fecha();
+  return html;
+}
+
+// Texto simples sem marcas (para slides e outros destinos sem formatação)
+function rtToPlain(text) {
+  return rtParse(text).map(b => {
+    if (b.k === 'gap') return '';
+    const t = rtRuns(b.txt || '').map(r => r.t).join('');
+    if (b.k === 'li') return '• ' + t;
+    if (b.k === 'ol') return b.n + '. ' + t;
+    return t;
+  }).join('\n');
+}
+
+// Barra de formatação para uma textarea (id) — botões + pré-visualização
+function rtToolbarHTML(id) {
+  const btn = (rot, tit, k, extra) => `<button type="button" title="${tit}" onclick="rtFmt('${id}','${k}')" style="border:1px solid var(--border2);background:#fff;border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer;${extra || ''}">${rot}</button>`;
+  return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:5px">
+    ${btn('N', 'Negrito (⌘B)', 'b', 'font-weight:700')}${btn('I', 'Itálico (⌘I)', 'i', 'font-style:italic')}${btn('• Lista', 'Lista com marcas', 'ul')}${btn('1. Lista', 'Lista numerada', 'ol')}${btn('Título', 'Título de secção', 'h', 'font-weight:600')}
+    <button type="button" id="${id}-prevbtn" onclick="rtPrevToggle('${id}')" style="border:1px solid var(--border2);background:#fff;border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer;margin-left:auto">Pré-visualizar</button>
+  </div>`;
+}
+function rtPrevHTML(id) { return `<div id="${id}-prev" style="display:none;border:1px dashed var(--border2);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.55;background:var(--bg3,#f8fafc);margin-top:6px"></div>`; }
+function rtPrevUpd(id) {
+  const box = document.getElementById(id + '-prev'), ta = document.getElementById(id);
+  if (box && ta && box.style.display !== 'none') box.innerHTML = rtToHtml(ta.value) || '<span style="color:var(--text3)">Sem texto.</span>';
+}
+function rtPrevToggle(id) {
+  const box = document.getElementById(id + '-prev'); if (!box) return;
+  const abrir = box.style.display === 'none';
+  box.style.display = abrir ? 'block' : 'none';
+  const b = document.getElementById(id + '-prevbtn'); if (b) b.textContent = abrir ? 'Esconder' : 'Pré-visualizar';
+  rtPrevUpd(id);
+}
+function rtMontar() {
+  document.querySelectorAll('[data-rt-bar]').forEach(d => { if (!d.dataset.ok) { d.innerHTML = rtToolbarHTML(d.dataset.rtBar); d.dataset.ok = '1'; } });
+  document.querySelectorAll('[data-rt-prev]').forEach(d => { if (!d.dataset.ok) { d.outerHTML = rtPrevHTML(d.dataset.rtPrev); } });
+}
+document.addEventListener('DOMContentLoaded', rtMontar);
+function rtFmt(id, k) {
+  const ta = document.getElementById(id); if (!ta) return;
+  const v = ta.value, a = ta.selectionStart, z = ta.selectionEnd;
+  const sel = v.slice(a, z);
+  let novo, ia, iz;
+  if (k === 'b' || k === 'i') {
+    const m = k === 'b' ? '**' : '*';
+    if (sel.startsWith(m) && sel.endsWith(m) && sel.length >= 2 * m.length) { novo = sel.slice(m.length, sel.length - m.length); }
+    else novo = m + (sel || 'texto') + m;
+    ta.value = v.slice(0, a) + novo + v.slice(z);
+    ia = a + (sel ? 0 : m.length); iz = a + novo.length - (sel ? 0 : m.length);
+    if (sel) { ia = a; iz = a + novo.length; }
+  } else {
+    // formatos de linha: aplica às linhas tocadas pela seleção
+    const ini = v.lastIndexOf('\n', a - 1) + 1;
+    let fim = v.indexOf('\n', z); if (fim < 0) fim = v.length;
+    const linhas = v.slice(ini, fim).split('\n');
+    const reLista = /^\s*([-*•]|\d{1,3}[.)]|#{1,3})\s+/;
+    const todas = linhas.every(l => !l.trim() || (k === 'ul' ? /^\s*[-*•]\s+/.test(l) : k === 'ol' ? /^\s*\d{1,3}[.)]\s+/.test(l) : /^\s*#{1,3}\s+/.test(l)));
+    let n = 0;
+    const out = linhas.map(l => {
+      if (!l.trim()) return l;
+      const limpa = l.replace(reLista, '');
+      if (todas) return limpa;           // já tinha este formato: retira
+      n++;
+      return k === 'ul' ? '- ' + limpa : k === 'ol' ? n + '. ' + limpa : '## ' + limpa;
+    }).join('\n');
+    ta.value = v.slice(0, ini) + out + v.slice(fim);
+    ia = ini; iz = ini + out.length;
+  }
+  ta.focus(); ta.setSelectionRange(ia, iz);
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+}
+// Atalhos ⌘/Ctrl+B e I; Enter dentro de uma lista continua a lista
+function rtKey(ev, ta) {
+  if ((ev.metaKey || ev.ctrlKey) && !ev.shiftKey && !ev.altKey) {
+    const k = ev.key.toLowerCase();
+    if (k === 'b' || k === 'i') { ev.preventDefault(); rtFmt(ta.id, k); return; }
+  }
+  if (ev.key === 'Enter' && !ev.shiftKey && !ev.metaKey && !ev.ctrlKey && !ev.altKey && ta.selectionStart === ta.selectionEnd) {
+    const v = ta.value, pos = ta.selectionStart;
+    const ini = v.lastIndexOf('\n', pos - 1) + 1;
+    const linha = v.slice(ini, pos);
+    const m = /^(\s*)([-*•]|(\d{1,3})[.)])\s+(.*)$/.exec(linha);
+    if (!m) return;
+    ev.preventDefault();
+    if (!m[4].trim()) { // linha de lista vazia: termina a lista
+      ta.value = v.slice(0, ini) + v.slice(pos);
+      ta.setSelectionRange(ini, ini);
+    } else {
+      const marca = m[3] ? (parseInt(m[3]) + 1) + '. ' : (m[2] === '•' ? '• ' : '- ');
+      const ins = '\n' + m[1] + marca;
+      ta.value = v.slice(0, pos) + ins + v.slice(pos);
+      ta.setSelectionRange(pos + ins.length, pos + ins.length);
+    }
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
+
+// ── Geração do PDF ────────────────────────────────────────────────────
+// Normaliza texto para o PDF. As fontes standard do jsPDF (WinAnsi) já aceitam acentos, cedilha,
+// €, aspas e travessões; só se retira o que a fonte não tem (setas, emojis, etc.).
 function _gdSafe(str) {
   if (!str) return '';
-  // 1. Mapeamento manual de caracteres comuns problemáticos
   const map = {
-    '\u2019':"'", '\u2018':"'", '\u201C':'"', '\u201D':'"',
-    '\u2013':'-', '\u2014':'-', '\u2026':'...', '\u20AC':'EUR',
-    '\u2192':'->', '\u2190':'<-', '\u2194':'<->',
-    '\u25BC':' ', '\u25B2':' ', '\u25B6':' ', '\u25C0':' ', // Setas/Triângulos
-    '\u2713':'OK', '\u2714':'OK', '\u2022':'-',
+    '→':'->', '←':'<-', '↔':'<->',
+    '▼':' ', '▲':' ', '▶':' ', '◀':' ',
+    '✓':'OK', '✔':'OK', ' ':' ', ' ':' ', '​':'', '﻿':''
   };
-  
-  let s = String(str);
-  // Substituir caracteres do mapa
-  for (let key in map) {
-    s = s.split(key).join(map[key]);
+  let s = String(str).normalize('NFC'); // junta letra+acento (ex.: a + ~ → ã)
+  for (const key in map) s = s.split(key).join(map[key]);
+  const winExtra = '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ';
+  let out = '';
+  for (const ch of s) {
+    const c = ch.codePointAt(0);
+    out += (c <= 255 || winExtra.includes(ch)) ? ch : ' ';
   }
-
-  // 2. Normalização agressiva para remover diacríticos combinados (como a cedilha 0x0327)
-  // NFD separa o caractere base do diacrítico, depois removemos o diacrítico
-  s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, "");
-
-  // 3. Remoção final de QUALQUER caractere que não seja Latin-1 (0-255)
-  // O jsPDF com WinAnsi só aceita caracteres nesta gama.
-  let final = "";
-  for (let i = 0; i < s.length; i++) {
-    const code = s.charCodeAt(i);
-    if (code <= 255) {
-      final += s[i];
-    } else {
-      final += " "; // Substitui por espaço se for desconhecido
-    }
-  }
-  return final;
+  return out;
 }
 
 async function gerarDocumentoPDF() {
@@ -5421,34 +5570,93 @@ async function gerarDocumentoPDF() {
     const BLUE = [0, 48, 135], GREEN = [29, 158, 117], AMBER = [186, 117, 23];
     const GR1 = [26, 26, 46], GR2 = [90, 98, 120], GR3 = [200, 208, 224];
 
-    // Helper para texto com quebras e retorno da altura usada
+    // Texto formatado (negrito, itálico, listas, títulos) com quebra de página
+    const _fnt = (b, i) => (b && i) ? 'bolditalic' : b ? 'bold' : i ? 'italic' : 'normal';
+    function layoutRich(text, w) {
+      const items = [];
+      rtParse(text).forEach(b => {
+        if (b.k === 'gap') { items.push({ gap: true, lh: 2.2 }); return; }
+        const isH = b.k === 'h', size = isH ? 11 : 10, lh = isH ? 6 : 5;
+        const indent = (b.k === 'li' || b.k === 'ol') ? 5 + b.lvl * 5 : 0;
+        const runs = isH ? [{ t: b.txt.replace(/\*+/g, ''), b: true, i: false }] : rtRuns(b.txt);
+        const words = [];
+        runs.forEach(r => {
+          const f = _fnt(r.b, r.i);
+          _gdSafe(r.t).split(/(\s+)/).forEach(tok => { if (tok !== '') words.push({ t: tok, f }); });
+        });
+        doc.setFontSize(size);
+        const maxW = w - indent;
+        let linha = [], lw = 0, primeira = true;
+        const emite = () => {
+          if (!linha.length) return;
+          while (linha.length && /^\s+$/.test(linha[linha.length - 1].t)) linha.pop();
+          items.push({ words: linha, x: indent, size, lh, marker: primeira ? (b.k === 'li' ? { t: 'bullet' } : b.k === 'ol' ? { t: b.n + '.' } : null) : null, topPad: (isH && items.length) ? 1.5 : 0 });
+          linha = []; lw = 0; primeira = false;
+        };
+        words.forEach(wd => {
+          doc.setFont('helvetica', wd.f);
+          wd.w = doc.getTextWidth(wd.t);
+          const espaco = /^\s+$/.test(wd.t);
+          if (!espaco && lw + wd.w > maxW && linha.length) emite();
+          if (espaco && !linha.length) return;
+          linha.push(wd); lw += wd.w;
+        });
+        emite();
+        if (!items.length || items[items.length - 1].gap) { /* vazio */ }
+      });
+      return items;
+    }
+    // Desenha o texto formatado a partir de y; devolve o y seguinte. bg = cor de fundo, accent = barra lateral.
+    function drawRich(text, y, bg, accent) {
+      const padX = 3, padY = 2.5;
+      const items = layoutRich(text, CW - padX * 2 - (accent ? 1 : 0));
+      let i = 0;
+      while (i < items.length) {
+        let yy = y + padY, j = i;
+        while (j < items.length && yy + items[j].lh + (items[j].topPad || 0) <= H - 18) { yy += items[j].lh + (items[j].topPad || 0); j++; }
+        if (j === i) { doc.addPage(); y = 22; continue; }
+        const alturaChunk = yy - y + padY;
+        if (bg) { doc.setFillColor(...bg); doc.rect(M, y, CW, alturaChunk, 'F'); }
+        if (accent) { doc.setDrawColor(...accent); doc.setLineWidth(1.2); doc.line(M, y, M, y + alturaChunk); doc.setLineWidth(0.2); }
+        let cy = y + padY;
+        for (let k = i; k < j; k++) {
+          const it = items[k];
+          cy += (it.topPad || 0);
+          if (!it.gap) {
+            const base = cy + it.lh - 1.4;
+            let cx = M + padX + (accent ? 1 : 0) + it.x;
+            if (it.marker) {
+              doc.setFont('helvetica', 'normal'); doc.setFontSize(it.size); doc.setTextColor(...GR1);
+              if (it.marker.t === 'bullet') { doc.setFillColor(...GR1); doc.circle(cx - 2.6, base - 1.2, 0.5, 'F'); }
+              else doc.text(it.marker.t, cx - 1.2, base, { align: 'right' });
+            }
+            it.words.forEach(wd => {
+              doc.setFont('helvetica', wd.f); doc.setFontSize(it.size); doc.setTextColor(...GR1);
+              doc.text(wd.t, cx, base);
+              cx += wd.w;
+            });
+          }
+          cy += it.lh;
+        }
+        y += alturaChunk;
+        i = j;
+        if (i < items.length) { doc.addPage(); y = 22; }
+      }
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+      return y + 6;
+    }
+
+    // Helper de secção: cabeçalho + conteúdo formatado
     function addSection(label, content, y, bgRGB, accentRGB) {
       if (!content || !content.trim()) return y;
-      // cabeçalho da secção
+      if (y + 7 + 14 > H - 18) { doc.addPage(); y = 22; }
       doc.setFillColor(...bgRGB);
       doc.rect(M, y, CW, 7, 'F');
       doc.setFontSize(8); doc.setFont('helvetica', 'bold');
       doc.setTextColor(...(accentRGB || GR2));
       doc.text(_gdSafe(label.toUpperCase()), M + 3, y + 4.8);
       y += 7;
-      // conteúdo
-      if (accentRGB) { doc.setDrawColor(...accentRGB); doc.setLineWidth(0.6); doc.line(M, y, M, y + 0.1); } // placeholder
-      doc.setFontSize(10); doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...GR1);
-      const linhas = doc.splitTextToSize(_gdSafe(content.trim()), CW - 6);
-      // barra lateral para proposta
-      if (accentRGB) {
-        const h = linhas.length * 5 + 8;
-        doc.setFillColor(...accentRGB.map(c => Math.min(255, c + 190)));
-        doc.rect(M, y, CW, h, 'F');
-        doc.setDrawColor(...accentRGB);
-        doc.setLineWidth(1.2);
-        doc.line(M, y, M, y + h);
-        doc.setLineWidth(0.2);
-      }
-      doc.text(linhas, M + (accentRGB ? 4 : 3), y + 5);
-      y += linhas.length * 5 + 10;
-      return y;
+      return drawRich(content.trim(), y, accentRGB ? accentRGB.map(c => Math.round(c + (255 - c) * 0.92)) : null, accentRGB);
     }
 
     function newPageIfNeeded(y, needed) {
@@ -5948,9 +6156,9 @@ function renderContentHTML(it){
     ${attHtml}
     ${histEnc}
     <div class="sec-label">Contextualização</div>
-    <div class="content-box ${it.notas?'':'empty'}">${it.notas?(it.notas.replace(/\n/g,'<br>')):'Sem contextualização.'}</div>
+    <div class="content-box ${it.notas?'':'empty'}">${it.notas?rtToHtml(it.notas):'Sem contextualização.'}</div>
     ${isD?`<div class="sec-label">Proposta de Decisão</div>
-    <div class="proposta-box ${it.proposta?'':'empty'}">${it.proposta?(it.proposta.replace(/\n/g,'<br>')):'Sem proposta definida.'}</div>`:''}
+    <div class="proposta-box ${it.proposta?'':'empty'}">${it.proposta?rtToHtml(it.proposta):'Sem proposta definida.'}</div>`:''}
     ${it.historicoDecisoes?`
     <div class="sec-label" style="margin-top:1.25rem">Histórico de Decisões</div>
     <div class="content-box">${it.historicoDecisoes.split('\n---\n').filter(Boolean).map(e=>e.replace(/\n/g,'<br>')).join('<hr style="border:none;border-top:0.5px solid var(--border2);margin:.6rem 0">')}</div>`:''}
@@ -6118,8 +6326,8 @@ function gerarResumoPDF(){
     return `<div style="margin-bottom:16px;padding:14px;border:1px solid #dde2ee;border-radius:8px;page-break-inside:avoid">
       <div style="font-size:15px;font-weight:700;margin-bottom:5px;color:#003087">${i+1}. ${it.titulo}</div>
       <div style="font-size:12px;color:#5a6278;margin-bottom:8px">${it.tipo} · ${it.responsavel||'—'} · ${fd(it.data)}</div>
-      ${it.notas?`<div style="background:#eef1f6;padding:8px;border-radius:6px;font-size:12px;margin-bottom:8px">${it.notas.replace(/\n/g,'<br>')}</div>`:''}
-      ${isD&&it.proposta?`<div style="border:2px dashed #c8d0e0;padding:8px;border-radius:6px;font-size:12px;margin-bottom:8px"><strong>Proposta:</strong> ${it.proposta}</div>`:''}
+      ${it.notas?`<div style="background:#eef1f6;padding:8px;border-radius:6px;font-size:12px;margin-bottom:8px">${rtToHtml(it.notas)}</div>`:''}
+      ${isD&&it.proposta?`<div style="border:2px dashed #c8d0e0;padding:8px;border-radius:6px;font-size:12px;margin-bottom:8px"><strong>Proposta:</strong> ${rtToHtml(it.proposta)}</div>`:''}
       ${isD?`<div style="display:flex;gap:8px;font-size:12px;flex-wrap:wrap">
         <span style="background:${dC};color:#fff;padding:2px 10px;border-radius:12px">${dec.decisao||'—'}</span>
         <span style="background:#eef1f6;color:#5a6278;padding:2px 10px;border-radius:12px">${dec.encaminhamento||'—'}</span>
@@ -6199,9 +6407,9 @@ function renderFS(){
     </div>
     ${attHtml}${histEnc}
     <div class="fs-sec-label">Contextualização</div>
-    <div class="fs-content-box ${it.notas?'':'empty'}">${it.notas?(it.notas.replace(/\n/g,'<br>')):'Sem contextualização.'}</div>
+    <div class="fs-content-box ${it.notas?'':'empty'}">${it.notas?rtToHtml(it.notas):'Sem contextualização.'}</div>
     ${isD?`<div class="fs-sec-label">Proposta de Decisão</div>
-    <div class="fs-proposta-box ${it.proposta?'':'empty'}">${it.proposta?(it.proposta.replace(/\n/g,'<br>')):'Sem proposta definida.'}</div>`:''}
+    <div class="fs-proposta-box ${it.proposta?'':'empty'}">${it.proposta?rtToHtml(it.proposta):'Sem proposta definida.'}</div>`:''}
     ${it.historicoDecisoes?`
     <div class="fs-sec-label" style="margin-top:1.5rem">Histórico de Decisões</div>
     <div style="display:flex;flex-direction:column;gap:8px">
@@ -6267,11 +6475,11 @@ async function exportPPT(){
     sl.addText(isD?'Para decisão':'Informativo',{shape:pptx.ShapeType.roundRect,rectRadius:.1,x:.3,y:.76,w:1.6,h:.26,fill:{color:isD?'534AB7':GR},line:{color:isD?'534AB7':GR,width:0},fontSize:10,color:WH,align:'center',valign:'middle',fontFace:'Calibri'});
     sl.addText('Contextualização:',{x:.3,y:1.18,w:2.5,h:.3,fontSize:11,bold:true,color:B,fontFace:'Calibri'});
     sl.addShape(pptx.ShapeType.roundRect,{x:.3,y:1.52,w:W-.6,h:isD?1.9:3.8,fill:{color:WH},line:{color:'DDE2EE',width:.8},rectRadius:.12});
-    if(it.notas)sl.addText(it.notas,{x:.5,y:1.62,w:W-1,h:isD?1.7:3.6,fontSize:13,color:'1a1a2e',valign:'top',fontFace:'Calibri',wrap:true});
+    if(it.notas)sl.addText(rtToPlain(it.notas),{x:.5,y:1.62,w:W-1,h:isD?1.7:3.6,fontSize:13,color:'1a1a2e',valign:'top',fontFace:'Calibri',wrap:true});
     if(isD&&it.proposta){
       sl.addText('Proposta:',{x:.3,y:3.52,w:2.8,h:.3,fontSize:11,bold:true,color:B,fontFace:'Calibri'});
       sl.addShape(pptx.ShapeType.roundRect,{x:.3,y:3.86,w:W-.6,h:1.6,fill:{color:WH},line:{color:'C8D0E0',width:1.2,dashType:'dash'},rectRadius:.12});
-      if(it.proposta)sl.addText(it.proposta,{x:.5,y:3.96,w:W-1,h:1.4,fontSize:13,color:'1a1a2e',valign:'top',fontFace:'Calibri',wrap:true});
+      if(it.proposta)sl.addText(rtToPlain(it.proposta),{x:.5,y:3.96,w:W-1,h:1.4,fontSize:13,color:'1a1a2e',valign:'top',fontFace:'Calibri',wrap:true});
     }
     if(isD){
       const fy=H-.88;const dC=dec.decisao==='Aprovado'?'639922':dec.decisao==='Não aprovado'?'C00000':'888780';
@@ -6292,8 +6500,8 @@ function exportPDF(){
     return `<div style="margin-bottom:20px;padding:16px;border:1px solid #dde2ee;border-radius:8px;page-break-inside:avoid">
       <div style="font-size:16px;font-weight:700;margin-bottom:6px;color:#003087">${i+1}. ${it.titulo}</div>
       <div style="font-size:12px;color:#5a6278;margin-bottom:10px">${it.tipo} · ${it.responsavel||'—'} · ${fd(it.data)}</div>
-      ${it.notas?`<div style="background:#eef1f6;padding:10px;border-radius:6px;font-size:13px;margin-bottom:8px">${it.notas}</div>`:''}
-      ${isD&&it.proposta?`<div style="border:2px dashed #c8d0e0;padding:10px;border-radius:6px;font-size:13px;margin-bottom:8px"><strong>Proposta:</strong> ${it.proposta}</div>`:''}
+      ${it.notas?`<div style="background:#eef1f6;padding:10px;border-radius:6px;font-size:13px;margin-bottom:8px">${rtToHtml(it.notas)}</div>`:''}
+      ${isD&&it.proposta?`<div style="border:2px dashed #c8d0e0;padding:10px;border-radius:6px;font-size:13px;margin-bottom:8px"><strong>Proposta:</strong> ${rtToHtml(it.proposta)}</div>`:''}
       ${isD?`<div style="display:flex;gap:8px;font-size:12px;flex-wrap:wrap">
         <span style="background:${dC};color:#fff;padding:3px 10px;border-radius:12px">${dec.decisao||'—'}</span>
         <span style="background:#eef1f6;color:#5a6278;padding:3px 10px;border-radius:12px">${dec.encaminhamento||'—'}</span>
@@ -24630,9 +24838,9 @@ function renderViewer(data){
         </div>
       </div>
       <div class="viewer-item-body">
-        ${it.notas?`<div><div class="viewer-sec">Contextualização</div><div class="viewer-content">${it.notas.replace(/\n/g,'<br>')}</div></div>`:''}
+        ${it.notas?`<div><div class="viewer-sec">Contextualização</div><div class="viewer-content">${rtToHtml(it.notas)}</div></div>`:''}
         ${it.linkDocumento?`<div><div class="viewer-sec">📝 Documento em Desenvolvimento</div><div class="viewer-content"><a href="${it.linkDocumento}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:#E6F1FB;color:#0C447C;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:500;text-decoration:none;border:0.5px solid #c3d9f0">🔗 Abrir documento</a></div></div>`:''}
-        ${isD&&it.proposta?`<div><div class="viewer-sec">Proposta de Decisão</div><div class="viewer-proposta">${it.proposta.replace(/\n/g,'<br>')}</div></div>`:''}
+        ${isD&&it.proposta?`<div><div class="viewer-sec">Proposta de Decisão</div><div class="viewer-proposta">${rtToHtml(it.proposta)}</div></div>`:''}
         ${it.attachments?.length?`<div><div class="viewer-sec">Anexos</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${it.attachments.map(a=>`<a href="${a.url}" target="_blank" style="display:inline-flex;align-items:center;gap:4px;background:var(--blue-l);color:var(--blue-d);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:500;text-decoration:none;border:0.5px solid #c3d9f0">📎 ${a.name}</a>`).join('')}</div></div>`:''}
       </div>
     </div>`;
