@@ -14119,44 +14119,52 @@ function gfIsProjetoFinanceiro(projetoId) {
 // Exporta a tabela do Orçamento (Aprovado / Pago / Orçamento, por Projeto e por Rúbrica) em CSV,
 // para o ano atualmente selecionado — pronta a abrir/tratar no Excel.
 function gfExportOrcamentoCSV() {
+  // Fase 81: as imputações (rúbricas "Distribuída Fixa") exportam-se SEM e COM imputações, lado a lado,
+  // porque o que interessa depende da análise. "Sem" = o que está lançado em cada projeto (é o que soma
+  // nos totais gerais); "Com" = o custo real de cada projeto depois de imputar.
   const restrito = gfIsMembroRestrito();
   const ano = GF.year;
   const num = v => (v || 0).toFixed(2).replace('.', ',');
   const csvLine = arr => arr.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';');
+  const pct = v => (Math.round((v || 0) * 100) / 100).toString().replace('.', ',');
 
-  const headerCols = restrito
-    ? ['Nível', 'Projeto', 'Rúbrica', 'Despesa Aprovado', 'Despesa Pago', 'Despesa Orçamento']
-    : ['Nível', 'Projeto', 'Rúbrica', 'Despesa Aprovado', 'Despesa Pago', 'Despesa Orçamento', 'Receita Aprovado', 'Receita Pago', 'Receita Orçamento'];
-
+  const blocoH = (rot) => restrito
+    ? [`${rot} Despesa Aprovado`, `${rot} Despesa Pago`, `${rot} Despesa Orçamento`]
+    : [`${rot} Despesa Aprovado`, `${rot} Despesa Pago`, `${rot} Despesa Orçamento`, `${rot} Receita Aprovado`, `${rot} Receita Pago`, `${rot} Receita Orçamento`];
+  const headerCols = ['Nível', 'Projeto', 'Rúbrica', '% imputada a outros projetos', ...blocoH('SEM imputações'), ...blocoH('COM imputações')];
   const rows = [csvLine(headerCols)];
+  const bloco = o => o
+    ? (restrito ? [num(o.despAprov), num(o.despPago), num(o.despOrc)] : [num(o.despAprov), num(o.despPago), num(o.despOrc), num(o.recAprov), num(o.recPago), num(o.recOrc)])
+    : (restrito ? ['', '', ''] : ['', '', '', '', '', '']);
+  const linha = (nivel, proj, rub, pctImp, sem, com) => rows.push(csvLine([nivel, proj, rub, pctImp, ...bloco(sem), ...bloco(com)]));
+  const vazio = o => !o || Object.values(o).every(v => !v);
 
+  const imapa = gfImputacoesPorProjeto(ano);
   let projs = GF_PROJETOS.filter(p => gfProjetoVisivelNoAno(p, ano)); // Fase 18, ponto 3
   projs = filterFinanceProjects(projs);
 
   projs.forEach(p => {
     const rubs = GF_RUBRICAS.filter(r => r.projetoId === p.id && r.ano === ano);
-    let despOrc = 0, despAprov = 0, despPago = 0, recOrc = 0, recAprov = 0, recPago = 0;
+    const own = _gfImpZero();
+    rubs.forEach(r => _gfImpSoma(own, _gfImpBaseRubrica(r)));
+    const im = imapa[p.id];
+    const com = _gfImpZero();
+    Object.keys(com).forEach(k => { com[k] = own[k] - (im ? im.sai[k] : 0) + (im ? im.entra[k] : 0); });
+    if (vazio(own) && vazio(com)) return; // sem valores, não exporta
+
+    linha('Projeto', p.nome, '', '', own, com);
+
     rubs.forEach(r => {
-      const desp = gfCalcDespesa(r.id);
-      const rec = gfCalcReceita(r.id);
-      despOrc += r.despOrc || 0; despAprov += desp.aprovada; despPago += desp.pago;
-      recOrc += r.recOrc || 0; recAprov += rec.aprovada; recPago += rec.pago;
+      const base = _gfImpBaseRubrica(r);
+      if (vazio(base)) return;
+      const rg = gfImputacaoRegra(r.id, ano);
+      const tot = rg ? Math.min(100, rg.linhas.filter(l => l.projetoId !== r.projetoId).reduce((a, l) => a + l.pct, 0)) : 0;
+      linha('Rúbrica', p.nome, r.titulo, tot ? pct(tot) : '', base, tot ? _gfImpEscala(base, 1 - tot / 100) : base);
     });
-    if (despOrc === 0 && despAprov === 0 && despPago === 0 && recOrc === 0 && recAprov === 0 && recPago === 0) return; // sem valores — não exporta
-
-    const projRow = restrito
-      ? ['Projeto', p.nome, '', num(despAprov), num(despPago), num(despOrc)]
-      : ['Projeto', p.nome, '', num(despAprov), num(despPago), num(despOrc), num(recAprov), num(recPago), num(recOrc)];
-    rows.push(csvLine(projRow));
-
-    rubs.forEach(r => {
-      const desp = gfCalcDespesa(r.id);
-      const rec = gfCalcReceita(r.id);
-      if ((r.despOrc || 0) === 0 && desp.aprovada === 0 && desp.pago === 0 && (r.recOrc || 0) === 0 && rec.aprovada === 0 && rec.pago === 0) return;
-      const rubRow = restrito
-        ? ['Rúbrica', p.nome, r.titulo, num(desp.aprovada), num(desp.pago), num(r.despOrc || 0)]
-        : ['Rúbrica', p.nome, r.titulo, num(desp.aprovada), num(desp.pago), num(r.despOrc || 0), num(rec.aprovada), num(rec.pago), num(r.recOrc || 0)];
-      rows.push(csvLine(rubRow));
+    // Imputações recebidas de outros projetos: só existem na vista COM imputações
+    (im ? im.itens : []).forEach(it => {
+      const origem = GF_PROJETOS.find(x => x.id === it.origemId)?.nome || 'outro projeto';
+      linha('Imputação recebida', p.nome, `${it.rubrica.titulo} (imputação de ${origem})`, pct(it.pct), null, it.valores);
     });
   });
 
@@ -14165,7 +14173,7 @@ function gfExportOrcamentoCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `Orcamento_${ano}_Aprovado_Pago_Orcamento.csv`;
+  a.download = `Orcamento_${ano}_Aprovado_Pago_Orcamento_com_e_sem_imputacoes.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -14484,7 +14492,7 @@ function gfRenderOrcamento() {
         ${[2024, 2025, 2026, 2027].map(y => `
           <button class="btn btn-sm ${y === GF.year ? '' : ''}" style="${y === GF.year ? 'background:var(--mod-financeiro);color:#fff;border-color:var(--mod-financeiro)' : ''}" onclick="gfMudarAno(${y})">${y}</button>
         `).join('')}
-        <button class="btn btn-sm" onclick="gfExportOrcamentoCSV()" title="Exportar Aprovado / Pago / Orçamento por Projeto e Rúbrica">⬇️ Exportar CSV</button>
+        <button class="btn btn-sm" onclick="gfExportOrcamentoCSV()" title="Exportar Aprovado / Pago / Orçamento por Projeto e Rúbrica, sem e com imputações">⬇️ Exportar CSV</button>
       </div>
     </div>
     
