@@ -19266,7 +19266,7 @@ function auRenderN2(){
             <span style="font-weight:600">${p.dias} dia${p.dias!==1?'s':''}</span>
             ${p.area?`<span class="badge b-info">${p.area}</span>`:''}
             ${auBadge(p.estado)}
-            <span style="color:var(--text3);font-size:11px">${p.dataAprov1?'1.º nível: '+auFormatDate(p.dataAprov1):'sem 1.º nível'}</span>
+            <span style="color:var(--text3);font-size:11px">${p.dataAprov1?'1.º nível: '+((p.aprov1||(auPrecisaN1(p)?auNomeDeEmail(auPrecisaN1(p)):''))?'<strong>'+(p.aprov1||auNomeDeEmail(auPrecisaN1(p)))+'</strong>, ':'')+auFormatDate(p.dataAprov1):'sem 1.º nível'}</span>
           </div>
           ${p.obs?`<div style="font-size:12px;color:var(--text2);margin-top:4px">${p.obs}</div>`:''}
         </div>
@@ -21292,7 +21292,7 @@ function auRenderAdminTable(){
     <td>${auFormatDate(p.inicio)}</td>
     <td>${auFormatDate(p.fim)}</td>
     <td style="font-weight:600">${p.dias}</td>
-    <td>${auBadge(p.estado)}</td>
+    <td>${auBadge(p.estado)}${(p.aprov1||p.aprov2)?`<div style="font-size:10px;color:var(--text3);margin-top:3px;line-height:1.35">${p.aprov1?'1.º: '+p.aprov1:''}${p.aprov1&&p.aprov2?'<br>':''}${p.aprov2?'2.º: '+p.aprov2:''}</div>`:''}</td>
     <td>${p.area||'—'}</td>
     <td>${auFormatDate(p.created)}</td>
     <td><div class="actions">
