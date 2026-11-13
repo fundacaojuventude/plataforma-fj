@@ -14638,8 +14638,10 @@ function gfRenderOrcamento() {
   // Barra de progresso com comprometido
   // Preenchimento sólido = Pago (real); padrão às riscas = Aprovado ainda por pagar
   const progressBar = (pago, aprovado, orc, color = 'var(--mod-financeiro)') => {
-    const pctPago = orc > 0 ? Math.min((pago / orc) * 100, 100) : 0;
-    const pctAprov = orc > 0 ? Math.min(((aprovado - pago) / orc) * 100, 100 - pctPago) : 0;
+    const _max = Math.max(aprovado || 0, pago || 0);
+    const _base = (orc > 0 && _max <= orc) ? orc : _max; // orçamento 0 ou excedido: barra cheia, em proporção
+    const pctPago = _base > 0 ? Math.min((pago / _base) * 100, 100) : 0;
+    const pctAprov = _base > 0 ? Math.max(0, Math.min(((aprovado - pago) / _base) * 100, 100 - pctPago)) : 0;
     return `
       <div style="position:relative;width:100%;height:10px;background:var(--border);border-radius:5px;overflow:hidden">
         <div style="position:absolute;left:0;top:0;height:100%;width:${pctPago}%;background:${color};transition:width 0.3s"></div>
@@ -14838,28 +14840,37 @@ function gfRenderRubricas() {
   const depColor = depColors[proj.dep] || '#6B7280';
   
   // Barra de progresso segmentada
-  const progressBarDesp = (sol, aprov, proc, orc) => {
-    if (orc <= 0) return `<div style="width:100%;height:10px;background:var(--border);border-radius:5px"></div>`;
-    const pctProc = Math.min((proc / orc) * 100, 100);
-    const pctAprov = Math.min(((aprov - proc) / orc) * 100, 100 - pctProc);
-    const pctSol = Math.min(((sol - aprov) / orc) * 100, 100 - pctProc - pctAprov);
+  // Orçamento a 0 (ou excedido): a barra enche a 100% com a proporção Processado / Aprovado / Solicitado.
+  // Despesa acima do orçamento (disponível negativo): as cores ganham o padrão em zebra.
+  const _zebra = 'background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.42) 0,rgba(255,255,255,.42) 4px,transparent 4px,transparent 8px)';
+  const progressBarDesp = (sol, aprov, proc, orc, disp) => {
+    const maxV = Math.max(sol || 0, aprov || 0, proc || 0);
+    if (orc <= 0 && maxV <= 0) return `<div style="width:100%;height:10px;background:var(--border);border-radius:5px"></div>`;
+    const excede = maxV > 0 && (typeof disp === 'number' ? disp < -0.005 : (aprov > orc + 0.005 || proc > orc + 0.005));
+    const base = (orc > 0 && !excede) ? orc : maxV;
+    const pctProc = Math.min((proc / base) * 100, 100);
+    const pctAprov = Math.max(0, Math.min(((aprov - proc) / base) * 100, 100 - pctProc));
+    const pctSol = Math.max(0, Math.min(((sol - aprov) / base) * 100, 100 - pctProc - pctAprov));
+    const z = excede ? ';' + _zebra : '';
     return `
-      <div style="position:relative;width:100%;height:10px;background:var(--border);border-radius:5px;overflow:hidden">
-        <div style="position:absolute;left:0;top:0;height:100%;width:${pctProc}%;background:#2563EB" title="Processado"></div>
-        <div style="position:absolute;left:${pctProc}%;top:0;height:100%;width:${pctAprov > 0 ? pctAprov : 0}%;background:#60A5FA" title="Aprovado"></div>
-        <div style="position:absolute;left:${pctProc + pctAprov}%;top:0;height:100%;width:${pctSol > 0 ? pctSol : 0}%;background:#BFDBFE" title="Solicitado"></div>
+      <div style="position:relative;width:100%;height:10px;background:var(--border);border-radius:5px;overflow:hidden" ${excede ? 'title="Acima do orçamento"' : ''}>
+        <div style="position:absolute;left:0;top:0;height:100%;width:${pctProc}%;background-color:#2563EB${z}" title="Processado"></div>
+        <div style="position:absolute;left:${pctProc}%;top:0;height:100%;width:${pctAprov}%;background-color:#60A5FA${z}" title="Aprovado"></div>
+        <div style="position:absolute;left:${pctProc + pctAprov}%;top:0;height:100%;width:${pctSol}%;background-color:#BFDBFE${z}" title="Solicitado"></div>
       </div>
     `;
   };
   
   const progressBarRec = (sol, proc, orc) => {
-    if (orc <= 0) return `<div style="width:100%;height:10px;background:var(--border);border-radius:5px"></div>`;
-    const pctProc = Math.min((proc / orc) * 100, 100);
-    const pctSol = Math.min(((sol - proc) / orc) * 100, 100 - pctProc);
+    const maxV = Math.max(sol || 0, proc || 0);
+    if (orc <= 0 && maxV <= 0) return `<div style="width:100%;height:10px;background:var(--border);border-radius:5px"></div>`;
+    const base = (orc > 0 && maxV <= orc) ? orc : maxV;
+    const pctProc = Math.min((proc / base) * 100, 100);
+    const pctSol = Math.max(0, Math.min(((sol - proc) / base) * 100, 100 - pctProc));
     return `
       <div style="position:relative;width:100%;height:10px;background:var(--border);border-radius:5px;overflow:hidden">
         <div style="position:absolute;left:0;top:0;height:100%;width:${pctProc}%;background:#F97316" title="Processado"></div>
-        <div style="position:absolute;left:${pctProc}%;top:0;height:100%;width:${pctSol > 0 ? pctSol : 0}%;background:#FDBA74" title="Submetido"></div>
+        <div style="position:absolute;left:${pctProc}%;top:0;height:100%;width:${pctSol}%;background:#FDBA74" title="Submetido"></div>
       </div>
     `;
   };
@@ -15034,7 +15045,7 @@ function gfRenderRubricas() {
               <!-- DESPESAS mini-panel -->
               <div style="padding:10px 14px;background:#EFF6FF;border-radius:8px;border:1px solid #BFDBFE">
                 <div style="font-size:10px;font-weight:700;color:#1E40AF;letter-spacing:.04em;margin-bottom:7px">DESPESAS</div>
-                ${progressBarDesp(desp.solicitada, desp.aprovada, desp.processada, despOrc)}
+                ${progressBarDesp(desp.solicitada, desp.aprovada, desp.processada, despOrc, despDisp)}
                 <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:9px">
                   <div>
                     <div style="font-size:9px;color:#1E40AF;font-weight:500">Orç.</div>
@@ -15095,7 +15106,7 @@ function gfRenderRubricas() {
                 <!-- DESPESAS -->
                 <div style="padding:16px;background:#EFF6FF;border-radius:8px;border:1px solid #BFDBFE">
                   <div style="font-size:12px;font-weight:600;color:#1E40AF;margin-bottom:12px">DESPESAS</div>
-                  ${progressBarDesp(desp.solicitada, desp.aprovada, desp.processada, despOrc)}
+                  ${progressBarDesp(desp.solicitada, desp.aprovada, desp.processada, despOrc, despDisp)}
                   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px">
                     <div>
                       <div style="font-size:10px;color:#1E40AF">Orçamentada</div>
