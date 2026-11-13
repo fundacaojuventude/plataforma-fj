@@ -14841,8 +14841,8 @@ function gfRenderRubricas() {
   
   // Barra de progresso segmentada
   // Orçamento a 0 (ou excedido): a barra enche a 100% com a proporção Processado / Aprovado / Solicitado.
-  // Despesa acima do orçamento (disponível negativo): as cores ganham o padrão em zebra.
-  const _zebra = 'background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.42) 0,rgba(255,255,255,.42) 4px,transparent 4px,transparent 8px)';
+  // Despesa acima do orçamento (disponível negativo): zebra com riscas vermelhas sobre os azuis.
+  const _zebra = 'background-image:repeating-linear-gradient(45deg,#DC2626 0,#DC2626 4px,transparent 4px,transparent 8px)';
   const progressBarDesp = (sol, aprov, proc, orc, disp) => {
     const maxV = Math.max(sol || 0, aprov || 0, proc || 0);
     if (orc <= 0 && maxV <= 0) return `<div style="width:100%;height:10px;background:var(--border);border-radius:5px"></div>`;
